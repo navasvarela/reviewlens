@@ -459,3 +459,34 @@ export const reviewModelSchema = z.object({
   feedbackUrl: z.url({ protocol: /^https?$/ }).nullable(),
 })
 export type ReviewModel = z.infer<typeof reviewModelSchema>
+
+export const ReviewStatus = { Queued: "queued", Analyzing: "analyzing", Ready: "ready", Failed: "failed" } as const
+export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus]
+
+/** One row of the local app's review list; the JSON its API and page share. */
+export const reviewSummarySchema = z.object({
+  id: z.number().int().positive(),
+  url: z.url(),
+  host: z.enum(GitHostKind),
+  /** `owner/repo#12` or `group/project!12`, known before the analysis finishes. */
+  displayName: z.string(),
+  status: z.enum(ReviewStatus),
+  /** Why the last analysis failed; null otherwise. */
+  error: z.string().nullable(),
+  /** False until an analysis succeeds; a failed refresh keeps the earlier report. */
+  hasReport: z.boolean(),
+  ai: z.boolean(),
+  title: z.string().nullable(),
+  author: z.string().nullable(),
+  securityLevel: z.enum(RiskSeverity).nullable(),
+  unitsToReview: z.number().int().nonnegative().nullable(),
+  untouchedReferences: z.number().int().nonnegative().nullable(),
+  findings: z.number().int().nonnegative().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+})
+export type ReviewSummary = z.infer<typeof reviewSummarySchema>
+
+/** The request body for adding a review to the local app. */
+export const addReviewRequestSchema = z.object({ url: z.string().min(1), ai: z.boolean() })
+export type AddReviewRequest = z.infer<typeof addReviewRequestSchema>

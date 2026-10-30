@@ -55,6 +55,16 @@ pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
 GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
 
+## Keep track of several reviews
+
+```sh
+pnpm lens app
+```
+
+This runs a local page at `http://127.0.0.1:4317/`. Paste a pull request or merge request link to add it; analyses run one at a time, and the list shows each review's status, security level and counts. Refresh re-runs a review after new commits. The list is kept in SQLite under `~/.local/share/lens`, so it survives restarts. If `GITHUB_TOKEN` is not set, the app asks the GitHub CLI for its login on that PR's host.
+
+The server listens only on your machine, refuses requests for any other host name, and its API needs a key that is created each run.
+
 ## Private repositories
 
 Private repositories and merge requests work once a token is in the environment. It is used for both the host's API and fetching the code, and it stays out of the command line and the cached repository's config.

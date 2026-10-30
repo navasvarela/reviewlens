@@ -4,7 +4,7 @@ import type { Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { extname, join, normalize, sep } from "node:path"
 
-const LOOPBACK_HOST = "127.0.0.1"
+export const LOOPBACK_HOST = "127.0.0.1"
 const INDEX_FILE = "index.html"
 const FALLBACK_CONTENT_TYPE = "application/octet-stream"
 const PLAIN_TEXT = "text/plain; charset=utf-8"
@@ -41,13 +41,13 @@ export async function serveReport(reportDir: string, port: number): Promise<Repo
   }
 }
 
-interface StaticResponse {
+export interface StaticResponse {
   readonly status: number
   readonly contentType: string
   readonly body: Buffer | string
 }
 
-async function respond(root: string, requestUrl: string): Promise<StaticResponse> {
+export async function respond(root: string, requestUrl: string): Promise<StaticResponse> {
   const filePath = resolveInsideRoot(root, requestUrl)
   if (filePath === undefined) {
     return { status: 403, contentType: PLAIN_TEXT, body: "Forbidden" }
@@ -83,7 +83,7 @@ function decodePathname(requestUrl: string): string | undefined {
   }
 }
 
-function listen(server: Server, port: number): Promise<void> {
+export function listen(server: Server, port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     server.once("error", reject)
     server.listen(port, LOOPBACK_HOST, () => {
@@ -93,7 +93,7 @@ function listen(server: Server, port: number): Promise<void> {
   })
 }
 
-function addressOf(server: Server): AddressInfo {
+export function addressOf(server: Server): AddressInfo {
   const address = server.address()
   if (address === null || typeof address === "string") {
     throw new Error("The report server is not listening on a TCP port")

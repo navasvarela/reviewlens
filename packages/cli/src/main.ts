@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { runApp } from "./appCommand.ts"
 import { parseCommand, USAGE, UsageError } from "./args.ts"
 import { defaultCacheDir, readHostTokens } from "./environment.ts"
 import { runComment } from "./commentCommand.ts"
@@ -21,6 +22,9 @@ async function main(argv: readonly string[]): Promise<void> {
         now: () => new Date(),
         log: (message) => console.error(message),
       })
+      return
+    case "app":
+      await runApp(command.options, { env: process.env, now: () => new Date(), log: (message) => console.error(message) })
       return
     case "comment":
       await runComment(command.options, {

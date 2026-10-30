@@ -44,6 +44,9 @@ export {
   intentFindingSchema,
   reviewerQuestionSchema,
   aiReviewSchema,
+  ReviewStatus,
+  reviewSummarySchema,
+  addReviewRequestSchema,
   reviewModelSchema,
 } from "./schema.ts"
 export type {
@@ -76,6 +79,8 @@ export type {
   IntentFinding,
   ReviewerQuestion,
   AiReview,
+  ReviewSummary,
+  AddReviewRequest,
   ReviewModel,
 } from "./schema.ts"
 export { changedUnitsOf, isBehaviourChange, untouchedReferences } from "./queries.ts"
