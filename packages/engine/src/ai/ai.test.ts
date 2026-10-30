@@ -39,6 +39,7 @@ function modifiedUnit(name: string, startLine: number, body: string): ChangedUni
     kind: "function",
     name,
     qualifiedName: name,
+    facts: null,
     change: {
       kind: "modified",
       weight: "semantic",
@@ -53,7 +54,7 @@ function fileWith(path: string, units: readonly ChangedUnit[]): ChangedFile {
   return {
     diff: { status: "modified", path, additions: 1, deletions: 1, content: { kind: "text", hunks: [] } },
     noise: null,
-    syntax: { status: "analyzed", language: "python", units },
+    syntax: { status: "analyzed", language: "python", units, outline: [], calls: [] },
   }
 }
 

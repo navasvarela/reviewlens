@@ -2,6 +2,7 @@ import { ModificationWeight, UnitChangeKind, UnitKind } from "@lens/review-model
 import type { ComparedUnit, UnitLocation } from "@lens/review-model"
 import { MODULE_SCOPE_NAME } from "./definitions.ts"
 import type { Definition, FileUnits, ModuleScope } from "./definitions.ts"
+import { factsBetween } from "./shape.ts"
 
 /**
  * Below this many code tokens, identical bodies are too common to call a move:
@@ -100,6 +101,7 @@ function pairDefinitions(file: FileVersions): Pairing {
     if (weight !== undefined) {
       pairing.modified.push({
         ...describe(definition),
+        facts: weight === ModificationWeight.Semantic && previous.shape !== undefined && definition.shape !== undefined ? factsBetween(previous.shape, definition.shape) : null,
         change: { kind: UnitChangeKind.Modified, weight, before: previous.snapshot, after: definition.snapshot },
       })
     }
@@ -130,7 +132,7 @@ function modificationWeight(before: Definition, after: Definition): Modification
 }
 
 function compareModuleScopes(before: ModuleScope | undefined, after: ModuleScope | undefined): ComparedUnit | undefined {
-  const unit = { kind: UnitKind.ModuleScope, name: MODULE_SCOPE_NAME, qualifiedName: MODULE_SCOPE_NAME }
+  const unit = { kind: UnitKind.ModuleScope, name: MODULE_SCOPE_NAME, qualifiedName: MODULE_SCOPE_NAME, facts: null }
   if (before === undefined && after === undefined) {
     return undefined
   }
@@ -191,10 +193,11 @@ interface UnitIdentity {
   readonly kind: UnitKind
   readonly name: string
   readonly qualifiedName: string
+  readonly facts: null
 }
 
 function describe(definition: Definition): UnitIdentity {
-  return { kind: definition.kind, name: definition.name, qualifiedName: definition.qualifiedName }
+  return { kind: definition.kind, name: definition.name, qualifiedName: definition.qualifiedName, facts: null }
 }
 
 function locationOf(located: Located): UnitLocation {

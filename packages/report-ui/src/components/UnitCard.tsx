@@ -1,38 +1,24 @@
 import type { ReactElement } from "react"
 import { UnitChangeKind, UnitKind, untouchedReferences } from "@lens/review-model"
 import type { ChangedUnit, PullRequest, UnitChange, UnitSnapshot } from "@lens/review-model"
-import { changeLabel, isQuiet, Tone } from "../unitChange.ts"
+import { changeLabel, factPhrases, isQuiet, Tone, unitAnchorId, UNIT_KIND_LABELS } from "../unitChange.ts"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"
 import { ImpactPanel } from "./ImpactPanel.tsx"
 
-const KIND_LABELS: Readonly<Record<UnitKind, string>> = {
-  [UnitKind.Function]: "fn",
-  [UnitKind.Method]: "method",
-  [UnitKind.Class]: "class",
-  [UnitKind.Struct]: "struct",
-  [UnitKind.Enum]: "enum",
-  [UnitKind.Trait]: "trait",
-  [UnitKind.Impl]: "impl",
-  [UnitKind.Interface]: "interface",
-  [UnitKind.TypeAlias]: "type",
-  [UnitKind.Constant]: "const",
-  [UnitKind.Macro]: "macro",
-  [UnitKind.Module]: "module",
-  [UnitKind.ModuleScope]: "imports & top level",
-}
-
 interface UnitCardProps {
   readonly unit: ChangedUnit
+  /** Position among the file's cards, which the file map links to. */
+  readonly index: number
   readonly pullRequest: PullRequest
 }
 
-export function UnitCard({ unit, pullRequest }: UnitCardProps): ReactElement {
+export function UnitCard({ unit, index, pullRequest }: UnitCardProps): ReactElement {
   const label = changeLabel(unit.change)
   const untouchedCallers = untouchedReferences(unit).length
   return (
-    <details className={`unit unit-${label.tone}`} open={!isQuiet(unit)}>
+    <details id={unitAnchorId(index)} className={`unit unit-${label.tone}`} open={!isQuiet(unit)}>
       <summary>
-        <span className="unit-kind">{KIND_LABELS[unit.kind]}</span>
+        <span className="unit-kind">{UNIT_KIND_LABELS[unit.kind]}</span>
         {unit.kind !== UnitKind.ModuleScope && <code className="unit-name">{unit.qualifiedName}</code>}
         {untouchedCallers > 0 && (
           <span className="impact-badge" title="Places that use this unit but were not changed by this PR">
@@ -41,6 +27,13 @@ export function UnitCard({ unit, pullRequest }: UnitCardProps): ReactElement {
         )}
         <span className={`change-label tone-${label.tone}`}>{label.text}</span>
       </summary>
+      {unit.facts !== null && (
+        <ul className="unit-facts" aria-label="What changed">
+          {factPhrases(unit.facts).map((phrase) => (
+            <li key={phrase}>{phrase}</li>
+          ))}
+        </ul>
+      )}
       <UnitBody unit={unit} />
       {unit.impact !== null && <ImpactPanel unit={unit} impact={unit.impact} pullRequest={pullRequest} />}
     </details>

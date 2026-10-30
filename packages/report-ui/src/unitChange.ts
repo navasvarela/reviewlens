@@ -1,5 +1,5 @@
-import { changedUnitsOf, isBehaviourChange, ModificationWeight, UnitChangeKind, untouchedReferences } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, UnitChange } from "@lens/review-model"
+import { changedUnitsOf, isBehaviourChange, ModificationWeight, UnitChangeKind, UnitKind, untouchedReferences } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, UnitChange, UnitFacts } from "@lens/review-model"
 
 export const Tone = { Added: "added", Removed: "removed", Modified: "modified", Quiet: "quiet" } as const
 export type Tone = (typeof Tone)[keyof typeof Tone]
@@ -54,4 +54,53 @@ export function summarizeFile(file: ChangedFile): FileSummary {
   const quiet = units.filter(isQuiet).length
   const untouched = units.reduce((sum, unit) => sum + untouchedReferences(unit).length, 0)
   return { needsAttention: units.length - quiet, quiet, untouchedReferences: untouched }
+}
+
+export const UNIT_KIND_LABELS: Readonly<Record<UnitKind, string>> = {
+  [UnitKind.Function]: "fn",
+  [UnitKind.Method]: "method",
+  [UnitKind.Class]: "class",
+  [UnitKind.Struct]: "struct",
+  [UnitKind.Enum]: "enum",
+  [UnitKind.Trait]: "trait",
+  [UnitKind.Impl]: "impl",
+  [UnitKind.Interface]: "interface",
+  [UnitKind.TypeAlias]: "type",
+  [UnitKind.Constant]: "const",
+  [UnitKind.Macro]: "macro",
+  [UnitKind.Module]: "module",
+  [UnitKind.ModuleScope]: "imports & top level",
+}
+
+export function unitAnchorId(index: number): string {
+  return `unit-${index}`
+}
+
+const MAX_CALLS_NAMED = 5
+
+/** The facts as short phrases, most consequential first. */
+export function factPhrases(facts: UnitFacts): string[] {
+  const phrases: string[] = []
+  const list = (names: readonly string[]): string => {
+    const shown = names.slice(0, MAX_CALLS_NAMED).join(", ")
+    return names.length > MAX_CALLS_NAMED ? `${shown} and ${names.length - MAX_CALLS_NAMED} more` : shown
+  }
+  if (facts.parametersAdded.length > 0) phrases.push(`New ${count(facts.parametersAdded.length, "parameter")}: ${list(facts.parametersAdded)}`)
+  if (facts.parametersRemoved.length > 0) phrases.push(`Removed ${count(facts.parametersRemoved.length, "parameter")}: ${list(facts.parametersRemoved)}`)
+  if (facts.parametersChanged.length > 0) phrases.push(`Changed ${count(facts.parametersChanged.length, "parameter")}: ${list(facts.parametersChanged)}`)
+  if (facts.returnType !== null) phrases.push(`Return type: ${facts.returnType.before ?? "none"} → ${facts.returnType.after ?? "none"}`)
+  if (facts.errorPathsDelta !== 0) phrases.push(delta(facts.errorPathsDelta, "error path"))
+  if (facts.branchesDelta !== 0) phrases.push(delta(facts.branchesDelta, "branch", "branches"))
+  if (facts.callsAdded.length > 0) phrases.push(`Now calls ${list(facts.callsAdded)}`)
+  if (facts.callsRemoved.length > 0) phrases.push(`No longer calls ${list(facts.callsRemoved)}`)
+  return phrases
+}
+
+function count(amount: number, singular: string, plural = `${singular}s`): string {
+  return amount === 1 ? singular : plural
+}
+
+function delta(amount: number, singular: string, plural = `${singular}s`): string {
+  const size = Math.abs(amount)
+  return amount > 0 ? `${size} more ${count(size, singular, plural)}` : `${size} fewer ${count(size, singular, plural)}`
 }

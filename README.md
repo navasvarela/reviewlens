@@ -10,6 +10,8 @@ Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](
 - **Changed units, not hunks.** For Rust, TypeScript/JavaScript and Python, each changed function, method,
   type or class appears once, whole, before and after, with edited words marked. A class shows only the
   code it owns; its methods are separate cards.
+- **A map of each file.** When a file has several changed units, an outline shows which ones changed among all its definitions, how big they are, and which changed function calls which. Cards are in reading order: types first, then helpers before the code that calls them, with collapsed changes last.
+- **Change facts.** Each modified function lists what changed without reading it, worked out from the syntax: parameters, return type, calls added or removed, and more or fewer error paths and branches.
 - **Noise collapsed.** Formatting-only and comment-only edits, renames with unchanged bodies, and units moved
   unchanged between files or containers are folded away. Lockfiles, vendored and generated files (by path
   or a `@generated` / `DO NOT EDIT` header) are grouped as skippable.
@@ -50,6 +52,26 @@ pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve
 
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
 GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
+
+## Private repositories
+
+Private repositories and merge requests work once a token is in the environment. It is used for both the host's API and fetching the code, and it stays out of the command line and the cached repository's config.
+
+**GitLab**: create a personal or project access token with the `read_api` and `read_repository` scopes (`api` if you will also post comments with `lens comment`):
+
+```sh
+GITLAB_TOKEN=<token> pnpm lens review https://gitlab.com/group/project/-/merge_requests/123
+```
+
+**GitHub**: use a token that can read the repository. With the GitHub CLI:
+
+```sh
+GH_TOKEN=$(gh auth token) pnpm lens review https://github.com/owner/repo/pull/123
+```
+
+`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables. Without a token, a private repository usually answers 404, and lens says which variable to set.
+
+Tokens and code stay on your machine, apart from the host itself, package names and versions sent to [OSV](https://osv.dev) (`--offline` skips that), and the code sent to the model if you pass `--ai`.
 
 ## In CI
 

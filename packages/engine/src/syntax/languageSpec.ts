@@ -52,6 +52,24 @@ export interface LanguageSpec {
    * one of the same name, so searching for callers by name finds only noise.
    */
   isImplicitlyInvoked(methodName: string): boolean
+  readonly shape: ShapeGrammar
+}
+
+/** How to read a function's parameters, calls, error paths and branches from its syntax. */
+export interface ShapeGrammar {
+  /** The node holding the parameters; differs from the definition for `const f = () => {}`. */
+  functionNode(definition: Node): Node
+  /** Call node type → the field naming what is called, and text appended to that name. */
+  readonly calls: ReadonlyMap<string, CallSyntax>
+  /** Calls that bail out, such as Rust's `panic!`, named as `calls` renders them. */
+  readonly errorCalls: ReadonlySet<string>
+  readonly errorTypes: readonly string[]
+  readonly branchTypes: readonly string[]
+}
+
+export interface CallSyntax {
+  readonly calleeField: string
+  readonly suffix: string
 }
 
 export const IdentifierUseKind = {

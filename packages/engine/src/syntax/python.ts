@@ -56,4 +56,11 @@ export const pythonSpec: LanguageSpec = {
   functionScopeTypes: new Set(["function_definition", "lambda"]),
   isBindingSite: (leaf) => isBindingWithGrammar(leaf, IDENTIFIER_GRAMMAR),
   isImplicitlyInvoked: (methodName) => DUNDER_METHOD.test(methodName),
+  shape: {
+    functionNode: (definition) => definition,
+    calls: new Map([["call", { calleeField: "function", suffix: "" }]]),
+    errorCalls: new Set(),
+    errorTypes: ["raise_statement"],
+    branchTypes: ["if_statement", "elif_clause", "for_statement", "while_statement", "except_clause", "conditional_expression", "case_clause"],
+  },
 }

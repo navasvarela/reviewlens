@@ -3,6 +3,7 @@ import type { ReactElement } from "react"
 import { changedUnitsOf, FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
 import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis } from "@lens/review-model"
 import { summarizeFile } from "../unitChange.ts"
+import { FileMap, MIN_UNITS_FOR_MAP } from "./FileMap.tsx"
 import { HunkView } from "./HunkView.tsx"
 import { RiskList } from "./Overview.tsx"
 import { UnitCard } from "./UnitCard.tsx"
@@ -60,9 +61,12 @@ export function FileView({ file, findings, pullRequest }: FileViewProps): ReactE
       {mode === ViewMode.Units && units.length > 0 ? (
         <>
           <UnitSummary file={file} />
+          {file.syntax.status === SyntaxAnalysisStatus.Analyzed && units.length >= MIN_UNITS_FOR_MAP && (
+            <FileMap units={units} outline={file.syntax.outline} calls={file.syntax.calls} />
+          )}
           {units.map((unit, index) => (
             // Overloads and cfg variants can repeat a name and change, so the index disambiguates.
-            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} pullRequest={pullRequest} />
+            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} index={index} pullRequest={pullRequest} />
           ))}
         </>
       ) : (

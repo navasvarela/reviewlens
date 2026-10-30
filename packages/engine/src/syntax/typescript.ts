@@ -117,6 +117,17 @@ function makeSpec(language: SourceLanguage, grammar: string): LanguageSpec {
     functionScopeTypes: FUNCTION_SCOPE_TYPES,
     isBindingSite: (leaf) => isBindingWithGrammar(leaf, IDENTIFIER_GRAMMAR),
     isImplicitlyInvoked: (methodName) => methodName === "constructor",
+    shape: {
+      // `const f = () => {}` and class fields keep their parameters on the assigned function.
+      functionNode: (definition) => definition.childForFieldName("value") ?? definition,
+      calls: new Map([
+        ["call_expression", { calleeField: "function", suffix: "" }],
+        ["new_expression", { calleeField: "constructor", suffix: "" }],
+      ]),
+      errorCalls: new Set(),
+      errorTypes: ["throw_statement"],
+      branchTypes: ["if_statement", "switch_case", "for_statement", "for_in_statement", "while_statement", "do_statement", "ternary_expression", "catch_clause"],
+    },
   }
 }
 
