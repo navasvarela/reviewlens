@@ -35,6 +35,9 @@ importers:
       '@lens/review-model':
         specifier: workspace:*
         version: link:../review-model
+      smol-toml:
+        specifier: ^1.9.1
+        version: 1.9.1
       tree-sitter-python:
         specifier: ^0.25.0
         version: 0.25.0
@@ -47,6 +50,9 @@ importers:
       web-tree-sitter:
         specifier: ^0.27.1
         version: 0.27.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/providers:
     dependencies:
@@ -530,6 +536,10 @@ packages:
   scheduler@0.28.0:
     resolution: {integrity: sha512-juorfCmIkIw8tT+p5BXSm6PJjQF/ycEYmKyzURCIt/RaZIhL+PulbQ9Yu2z1HdOJDdqDTlxA1+xKBmHXJsczAw==}
 
+  smol-toml@1.9.1:
+    resolution: {integrity: sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==}
+    engines: {node: '>= 18'}
+
   source-map-js@1.2.2:
     resolution: {integrity: sha512-KGj/8Y43x35aZVDtt+J4mK1hoLGHULMYfSkODJNQjNDC3oW1PqPoxMwo0pLUsWM/UEGzON/NxeHywEfNXNP3Vw==}
     engines: {node: '>=0.10.0'}
@@ -966,6 +976,8 @@ snapshots:
       '@rolldown/binding-win32-x64-msvc': 1.2.16
 
   scheduler@0.28.0: {}
+
+  smol-toml@1.9.1: {}
 
   source-map-js@1.2.2: {}
 

@@ -12,6 +12,8 @@ export {
   SyntaxAnalysisStatus,
   ReferenceConfidence,
   UnitImpactStatus,
+  RiskSeverity,
+  RiskCategory,
   commitShaSchema,
   pullRequestSchema,
   diffLineSchema,
@@ -27,6 +29,9 @@ export {
   unitSnapshotSchema,
   fileNoiseSchema,
   syntaxAnalysisSchema,
+  riskSchema,
+  riskAssessmentSchema,
+  skippedCheckSchema,
   reviewModelSchema,
 } from "./schema.ts"
 export type {
@@ -46,5 +51,9 @@ export type {
   UnitLocation,
   FileNoise,
   SyntaxAnalysis,
+  Risk,
+  RiskLocation,
+  RiskAssessment,
+  SkippedCheck,
   ReviewModel,
 } from "./schema.ts"

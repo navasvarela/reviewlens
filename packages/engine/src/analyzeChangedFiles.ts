@@ -1,5 +1,5 @@
 import { FileChangeStatus, FileContentKind, SyntaxAnalysisStatus } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, CommitSha, ComparedUnit, FileDiff, FileNoise, SyntaxAnalysis } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, CommitSha, ComparedUnit, FileDiff, FileNoise, RiskAssessment, SyntaxAnalysis } from "@lens/review-model"
 import { readBlobs } from "./blobs.ts"
 import type { BlobRequest } from "./blobs.ts"
 import { collectFileDiffs } from "./changedFiles.ts"
@@ -7,6 +7,7 @@ import { traceImpact } from "./impact/traceImpact.ts"
 import { MAX_SOURCE_FILE_BYTES } from "./limits.ts"
 import type { AnalyzedFile } from "./impact/traceImpact.ts"
 import { classifyNoise, isNoiseByPath } from "./noise.ts"
+import { assessRisk } from "./risk/assessRisk.ts"
 import { compareUnits } from "./syntax/compareUnits.ts"
 import type { FileVersions } from "./syntax/compareUnits.ts"
 import { extractUnits } from "./syntax/definitions.ts"
@@ -26,8 +27,23 @@ type SyntaxPlan =
   | { readonly kind: "analyze"; readonly before: LanguageSpec | undefined; readonly after: LanguageSpec | undefined; readonly language: LanguageSpec }
   | { readonly kind: "settled"; readonly analysis: SyntaxAnalysis }
 
+export interface AnalysisOptions {
+  /** False keeps the analysis offline: no dependency lookups in the OSV database. */
+  readonly network: boolean
+}
+
+export interface PullRequestAnalysis {
+  readonly files: ChangedFile[]
+  readonly risk: RiskAssessment
+}
+
 /** Diffs the two commits and runs every analysis layer over the changed files. */
-export async function analyzeChangedFiles(repoDir: string, from: CommitSha, to: CommitSha): Promise<ChangedFile[]> {
+export async function analyzeChangedFiles(
+  repoDir: string,
+  from: CommitSha,
+  to: CommitSha,
+  options: AnalysisOptions,
+): Promise<PullRequestAnalysis> {
   const diffs = await collectFileDiffs(repoDir, from, to)
   const texts = await readFileTexts(repoDir, from, to, diffs)
   const noise = diffs.map((diff, index) => classifyNoise(diff.path, textAt(texts, index).after ?? textAt(texts, index).before))
@@ -40,11 +56,20 @@ export async function analyzeChangedFiles(repoDir: string, from: CommitSha, to: 
   const impacts = await traceImpact(repoDir, to, analyzedFiles(diffs, plans, unitsByPath))
   const withImpact = (unit: ComparedUnit): ChangedUnit => ({ ...unit, impact: impacts.get(unit) ?? null })
 
-  return diffs.map((diff, index) => ({
+  const files = diffs.map((diff, index) => ({
     diff,
     noise: noise.at(index) ?? null,
     syntax: syntaxAnalysis(plans.at(index), (unitsByPath.get(diff.path) ?? []).map(withImpact)),
   }))
+  const risk = await assessRisk({
+    repoDir,
+    base: from,
+    head: to,
+    files,
+    headTexts: texts.map((text) => text.after),
+    network: options.network,
+  })
+  return { files, risk }
 }
 
 function analyzedFiles(

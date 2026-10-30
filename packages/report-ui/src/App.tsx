@@ -4,8 +4,10 @@ import type { ReviewModel } from "@lens/review-model"
 import { FileList } from "./components/FileList.tsx"
 import { FileView } from "./components/FileView.tsx"
 import { PullRequestHeader } from "./components/PullRequestHeader.tsx"
+import { RiskView } from "./components/RiskView.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
+import { findingsInFile } from "./risks.ts"
 
 export function App(): ReactElement {
   const [load, setLoad] = useState<ReviewLoad>({ status: "loading" })
@@ -28,17 +30,38 @@ interface ReportProps {
   readonly review: ReviewModel
 }
 
+type Selection = { readonly kind: "overview" } | { readonly kind: "file"; readonly path: string }
+
+const OVERVIEW: Selection = { kind: "overview" }
+
 function Report({ review }: ReportProps): ReactElement {
-  const firstReviewable = review.files.find((file) => file.noise === null) ?? review.files.at(0)
-  const [selectedPath, setSelectedPath] = useState(firstReviewable?.diff.path)
+  const [selection, setSelection] = useState<Selection>(OVERVIEW)
+  const openFile = (path: string): void => setSelection({ kind: "file", path })
+  const selectedPath = selection.kind === "file" ? selection.path : undefined
   const selectedFile = review.files.find((file) => file.diff.path === selectedPath)
 
   return (
     <div className="layout">
-      <PullRequestHeader pullRequest={review.pullRequest} files={review.files} />
-      <FileList files={review.files} selectedPath={selectedPath} onSelect={setSelectedPath} />
+      <PullRequestHeader pullRequest={review.pullRequest} files={review.files} risk={review.risk} />
+      <FileList
+        files={review.files}
+        findings={review.risk.findings}
+        selectedPath={selectedPath}
+        overviewSelected={selection.kind === "overview"}
+        onSelect={openFile}
+        onSelectOverview={() => setSelection(OVERVIEW)}
+      />
       <main className="content">
-        {selectedFile === undefined ? <p className="notice">This pull request changes no files.</p> : <FileView key={selectedFile.diff.path} file={selectedFile} pullRequest={review.pullRequest} />}
+        {selectedFile === undefined ? (
+          <RiskView risk={review.risk} pullRequest={review.pullRequest} onOpenFile={openFile} />
+        ) : (
+          <FileView
+            key={selectedFile.diff.path}
+            file={selectedFile}
+            findings={findingsInFile(review.risk.findings, selectedFile.diff.path)}
+            pullRequest={review.pullRequest}
+          />
+        )}
       </main>
     </div>
   )

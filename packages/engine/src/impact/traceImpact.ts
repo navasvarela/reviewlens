@@ -102,6 +102,8 @@ export async function traceImpact(
   const touched = touchedCallers(files)
   const contents = await readBlobs(repoDir, candidates.map((path) => ({ commit: head, path })))
 
+  // Targets whose name another unit in the repository also has: a bare use may mean either.
+  const ambiguous = new Set<Target>()
   // Sequential on purpose: each parse holds a tree in WASM memory until it is freed.
   for (const [index, path] of candidates.entries()) {
     const source = contents.at(index)?.toString("utf8")
@@ -111,13 +113,15 @@ export async function traceImpact(
       (target) => canReferenceAcross(target.spec.language, spec.language) && (filesByName.get(target.searchedName) ?? []).includes(path),
     )
     if (relevant.length === 0) continue
-    const references = await referencesInFile(spec, path, source, relevant, touched)
-    for (const { target, reference } of references) {
+    const { found, redefined } = await referencesInFile(spec, path, source, relevant, touched)
+    for (const { target, reference } of found) {
       referencesByTarget.get(target)?.push(reference)
     }
+    redefined.forEach((target) => ambiguous.add(target))
   }
 
-  for (const [target, references] of referencesByTarget) {
+  for (const [target, found] of referencesByTarget) {
+    const references = ambiguous.has(target) ? found.map(asPossible) : found
     impacts.set(target.unit, {
       status: UnitImpactStatus.Traced,
       searchedName: target.searchedName,
@@ -195,22 +199,30 @@ interface FoundReference {
   readonly reference: Reference
 }
 
+interface FileReferences {
+  readonly found: FoundReference[]
+  /** Targets whose name this file defines again, as its own unit. */
+  readonly redefined: Set<Target>
+}
+
 function referencesInFile(
   spec: LanguageSpec,
   path: string,
   source: string,
   targets: readonly Target[],
   touched: ReadonlySet<string>,
-): Promise<FoundReference[]> {
+): Promise<FileReferences> {
   const names = new Set(targets.map((target) => target.searchedName))
   const lines = source.split("\n")
   return withSyntaxTree(spec, source, (tree) => {
     const definitions = extractUnits(spec, tree, source).definitions
+    // A file defining its own unit of the same name refers to that one, not the target.
+    const redefined = new Set(targets.filter((target) => definesOwnUnitNamed(definitions, target, path)))
     const found: FoundReference[] = []
     for (const occurrence of findIdentifierUses(spec, tree, names)) {
       const caller = enclosingDefinition(definitions, occurrence.line)
       for (const target of targets) {
-        if (target.searchedName !== occurrence.name || isInsideTarget(target, path, occurrence.line)) continue
+        if (target.searchedName !== occurrence.name || redefined.has(target) || isInsideTarget(target, path, occurrence.line)) continue
         const confidence = referenceConfidence(occurrence.use, target, caller, spec)
         if (confidence === undefined) continue
         const callerQualifiedName = caller?.qualifiedName ?? null
@@ -227,8 +239,22 @@ function referencesInFile(
         })
       }
     }
-    return found
+    return { found, redefined }
   })
+}
+
+/**
+ * Whether the file defines a top-level-style unit with the target's name, other than the
+ * target itself. Methods are told apart by their container, so only free items count.
+ */
+function definesOwnUnitNamed(definitions: readonly Definition[], target: Target, path: string): boolean {
+  if (target.container !== undefined) return false
+  return definitions.some(
+    (definition) =>
+      definition.name === target.searchedName &&
+      definition.kind !== UnitKind.Method &&
+      !(path === target.path && definition.snapshot.startLine === target.ownLines?.first),
+  )
 }
 
 /**
@@ -247,7 +273,10 @@ function referenceConfidence(
     case IdentifierUseKind.Member: {
       const qualifier = use.kind === IdentifierUseKind.Path ? use.qualifier : use.receiver
       if (container === undefined) {
-        return use.kind === IdentifierUseKind.Path ? ReferenceConfidence.Likely : ReferenceConfidence.Possible
+        // `walk::scan` for a `scan` defined in walk.rs; `sym::scan` is some other `scan`.
+        return use.kind === IdentifierUseKind.Path && qualifiesModuleOf(use.qualifier, target.path)
+          ? ReferenceConfidence.Likely
+          : ReferenceConfidence.Possible
       }
       if (simpleTypeName(qualifier) === container) {
         return ReferenceConfidence.Exact
@@ -263,6 +292,26 @@ function referenceConfidence(
       // Methods are never called by bare name in Rust, TypeScript or Python.
       return container === undefined ? ReferenceConfidence.Likely : undefined
   }
+}
+
+// Path roots that stay within the current crate or module rather than naming one.
+const RELATIVE_PATH_ROOTS: ReadonlySet<string> = new Set(["crate", "self", "super"])
+// File names that stand for their directory as a module.
+const DIRECTORY_MODULE_FILES: ReadonlySet<string> = new Set(["mod", "lib", "main", "__init__", "index"])
+
+function qualifiesModuleOf(qualifier: string, definingPath: string): boolean {
+  const last = simpleTypeName(qualifier)
+  return RELATIVE_PATH_ROOTS.has(last) || last === moduleNameOf(definingPath)
+}
+
+function moduleNameOf(path: string): string {
+  const segments = path.split("/")
+  const stem = (segments.at(-1) ?? "").replace(/\.[^.]+$/, "")
+  return DIRECTORY_MODULE_FILES.has(stem) ? (segments.at(-2) ?? stem) : stem
+}
+
+function asPossible(reference: Reference): Reference {
+  return reference.confidence === ReferenceConfidence.Exact ? reference : { ...reference, confidence: ReferenceConfidence.Possible }
 }
 
 function isInsideTarget(target: Target, path: string, line: number): boolean {

@@ -1,9 +1,10 @@
 import { useState } from "react"
 import type { ReactElement } from "react"
 import { FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
-import type { ChangedFile, PullRequest, SyntaxAnalysis } from "@lens/review-model"
+import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis } from "@lens/review-model"
 import { summarizeFile, unitsOf } from "../unitChange.ts"
 import { HunkView } from "./HunkView.tsx"
+import { RiskList } from "./RiskView.tsx"
 import { UnitCard } from "./UnitCard.tsx"
 
 const ViewMode = { Units: "units", Lines: "lines" } as const
@@ -11,10 +12,12 @@ type ViewMode = (typeof ViewMode)[keyof typeof ViewMode]
 
 interface FileViewProps {
   readonly file: ChangedFile
+  /** Risk findings located in this file. */
+  readonly findings: readonly Risk[]
   readonly pullRequest: PullRequest
 }
 
-export function FileView({ file, pullRequest }: FileViewProps): ReactElement {
+export function FileView({ file, findings, pullRequest }: FileViewProps): ReactElement {
   const units = unitsOf(file)
   const [mode, setMode] = useState<ViewMode>(units.length > 0 ? ViewMode.Units : ViewMode.Lines)
   const { diff } = file
@@ -47,6 +50,11 @@ export function FileView({ file, pullRequest }: FileViewProps): ReactElement {
         <p className="notice">
           Skippable: {file.noise.kind} file ({file.noise.reason}).
         </p>
+      )}
+      {findings.length > 0 && (
+        <div className="file-risks">
+          <RiskList findings={findings} pullRequest={pullRequest} onOpenFile={undefined} />
+        </div>
       )}
       <AnalysisNote syntax={file.syntax} />
       {mode === ViewMode.Units && units.length > 0 ? (

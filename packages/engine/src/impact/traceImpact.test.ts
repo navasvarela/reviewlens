@@ -89,7 +89,7 @@ describe("traceImpact", () => {
     await write("web/caller.ts", 'import { newName } from "./format"\nexport const twice = (x: number) => newName(x * 1)\n')
     const head = await commit()
 
-    files = await analyzeChangedFiles(repoDir, base, head)
+    files = (await analyzeChangedFiles(repoDir, base, head, { network: false })).files
   })
 
   afterAll(async () => {
@@ -134,5 +134,52 @@ describe("simpleTypeName", () => {
     expect(containerTypeName("<Size as fmt::Display>::fmt", "::")).toBe("Size")
     expect(containerTypeName("Parser.parse", ".")).toBe("Parser")
     expect(containerTypeName("parse", ".")).toBeUndefined()
+  })
+})
+
+describe("traceImpact with names defined more than once", () => {
+  let repoDir = ""
+  let files: ChangedFile[] = []
+
+  const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: COMMITTER_ENV })
+  const write = async (path: string, content: string): Promise<void> => {
+    await mkdir(dirname(join(repoDir, path)), { recursive: true })
+    await writeFile(join(repoDir, path), content)
+  }
+  const commit = async (): Promise<CommitSha> => {
+    await git("add", "--all")
+    await git("commit", "--quiet", "--message", "change")
+    return commitShaSchema.parse((await git("rev-parse", "HEAD")).trim())
+  }
+  const referencesOf = (path: string, qualifiedName: string): string[] => {
+    const syntax = files.find((file) => file.diff.path === path)?.syntax
+    const impact = syntax?.status === "analyzed" ? syntax.units.find((unit) => unit.qualifiedName === qualifiedName)?.impact : undefined
+    return impact?.status === "traced" ? impact.references.map((reference) => `${reference.path}:${reference.line} ${reference.confidence}`) : []
+  }
+
+  beforeAll(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), "lens-ambiguous-"))
+    await git("init", "--quiet")
+    await write("core/intrinsics.rs", "pub fn abort() -> ! { loop {} }\n")
+    await write("core/walk.rs", "pub fn scan() -> u32 { 1 }\n")
+    await write("example/mini_core.rs", "fn abort() -> ! { loop {} }\nfn main() { abort() }\n")
+    await write("codegen/backend.rs", "fn lower() { emit(sym::abort); abort(); }\nfn go() { walk::scan(); other::scan(); }\n")
+    const base = await commit()
+    await write("core/intrinsics.rs", "\n")
+    await write("core/walk.rs", "pub fn scan() -> u32 { 2 }\n")
+    const head = await commit()
+    files = (await analyzeChangedFiles(repoDir, base, head, { network: false })).files
+  })
+
+  afterAll(async () => {
+    await rm(repoDir, { recursive: true, force: true })
+  })
+
+  it("ignores uses in a file with its own definition and downgrades the rest to possible", () => {
+    expect(referencesOf("core/intrinsics.rs", "abort")).toEqual(["codegen/backend.rs:1 possible", "codegen/backend.rs:1 possible"])
+  })
+
+  it("treats a path as likely only when it names the defining module", () => {
+    expect(referencesOf("core/walk.rs", "scan")).toEqual(["codegen/backend.rs:2 likely", "codegen/backend.rs:2 possible"])
   })
 })

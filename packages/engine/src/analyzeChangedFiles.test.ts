@@ -55,7 +55,7 @@ describe("analyzeChangedFiles", () => {
     await write("README.md", "# demo\n\nMore.\n")
     const head = await commit()
 
-    files = await analyzeChangedFiles(repoDir, base, head)
+    files = (await analyzeChangedFiles(repoDir, base, head, { network: false })).files
   })
 
   afterAll(async () => {

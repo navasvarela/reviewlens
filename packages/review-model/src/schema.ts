@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 3
+export const REVIEW_MODEL_SCHEMA_VERSION = 4
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -283,10 +283,63 @@ export const changedFileSchema = z.object({
 })
 export type ChangedFile = z.infer<typeof changedFileSchema>
 
+export const RiskSeverity = { High: "high", Medium: "medium", Low: "low" } as const
+export type RiskSeverity = (typeof RiskSeverity)[keyof typeof RiskSeverity]
+
+export const RiskCategory = {
+  Secret: "secret",
+  DangerousApi: "dangerousApi",
+  SensitivePath: "sensitivePath",
+  Dependency: "dependency",
+  Vulnerability: "vulnerability",
+  /** Review signals: they say where to look harder, not that something is insecure. */
+  Tests: "tests",
+  Size: "size",
+  BrokenReference: "brokenReference",
+} as const
+export type RiskCategory = (typeof RiskCategory)[keyof typeof RiskCategory]
+
+export const riskLocationSchema = z.object({ path: z.string().min(1), line: lineNumberSchema.nullable() })
+export type RiskLocation = z.infer<typeof riskLocationSchema>
+
+/** One reason to look harder at the change, with the evidence that triggered it. */
+export const riskSchema = z.object({
+  /** Stable identifier of the rule, e.g. `python.subprocess-shell`. */
+  ruleId: z.string(),
+  category: z.enum(RiskCategory),
+  severity: z.enum(RiskSeverity),
+  title: z.string(),
+  /** Why this matters and what to check. */
+  detail: z.string(),
+  /** Null for findings about the PR as a whole, such as its size. */
+  location: riskLocationSchema.nullable(),
+  /** The triggering line, with any secret redacted. */
+  evidence: z.string().nullable(),
+})
+export type Risk = z.infer<typeof riskSchema>
+
+/** A check that did not run, so a low level is never read as "everything was checked". */
+export const skippedCheckSchema = z.object({ check: z.string(), reason: z.string() })
+export type SkippedCheck = z.infer<typeof skippedCheckSchema>
+
+export const riskAssessmentSchema = z.object({
+  /**
+   * The highest severity among security findings (secrets, dangerous APIs, sensitive paths,
+   * dependencies, vulnerabilities). Deliberately never "safe": low means nothing was found
+   * by the checks that ran.
+   */
+  securityLevel: z.enum(RiskSeverity),
+  /** All findings, security and review signals, most severe first. */
+  findings: z.array(riskSchema).readonly(),
+  notChecked: z.array(skippedCheckSchema).readonly(),
+})
+export type RiskAssessment = z.infer<typeof riskAssessmentSchema>
+
 export const reviewModelSchema = z.object({
   schemaVersion: z.literal(REVIEW_MODEL_SCHEMA_VERSION),
   generatedAt: z.iso.datetime(),
   pullRequest: pullRequestSchema,
   files: z.array(changedFileSchema).readonly(),
+  risk: riskAssessmentSchema,
 })
 export type ReviewModel = z.infer<typeof reviewModelSchema>

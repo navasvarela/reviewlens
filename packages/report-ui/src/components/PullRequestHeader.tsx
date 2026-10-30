@@ -1,5 +1,6 @@
 import type { ReactElement } from "react"
-import type { ChangedFile, PullRequest } from "@lens/review-model"
+import type { ChangedFile, PullRequest, RiskAssessment } from "@lens/review-model"
+import { SEVERITY_LABELS } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 
 const SHORT_SHA_LENGTH = 7
@@ -7,9 +8,10 @@ const SHORT_SHA_LENGTH = 7
 interface PullRequestHeaderProps {
   readonly pullRequest: PullRequest
   readonly files: readonly ChangedFile[]
+  readonly risk: RiskAssessment
 }
 
-export function PullRequestHeader({ pullRequest, files }: PullRequestHeaderProps): ReactElement {
+export function PullRequestHeader({ pullRequest, files, risk }: PullRequestHeaderProps): ReactElement {
   const additions = files.reduce((sum, file) => sum + file.diff.additions, 0)
   const deletions = files.reduce((sum, file) => sum + file.diff.deletions, 0)
   const summaries = files.map(summarizeFile)
@@ -21,6 +23,9 @@ export function PullRequestHeader({ pullRequest, files }: PullRequestHeaderProps
   return (
     <header className="header">
       <h1>
+        <span className={`level-badge level-${risk.securityLevel}`} title="Security level: highest severity among security findings">
+          {SEVERITY_LABELS[risk.securityLevel]}
+        </span>{" "}
         {pullRequest.title}{" "}
         <a href={pullRequest.url} target="_blank" rel="noreferrer">
           #{pullRequest.number}

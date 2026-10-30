@@ -8,6 +8,7 @@ Options:
   --out <dir>        Write the report here instead of the cache directory
   --port <number>    Port for the local report server (default: a free port)
   --no-serve         Write the report and exit without serving it
+  --offline          Skip network checks (dependency vulnerability lookups in OSV)
   --cache-dir <dir>  Where repositories and reports are cached (default: ~/.cache/lens)
   -h, --help         Show this help
 
@@ -23,6 +24,8 @@ export interface ReviewOptions {
   readonly port: number
   readonly serve: boolean
   readonly cacheDir: string | undefined
+  /** False when --offline: no package names or versions leave the machine. */
+  readonly network: boolean
 }
 
 export type Command = { readonly kind: "help" } | { readonly kind: "review"; readonly options: ReviewOptions }
@@ -40,6 +43,7 @@ export function parseCommand(argv: readonly string[]): Command {
       out: { type: "string" },
       port: { type: "string" },
       serve: { type: "boolean", default: true },
+      offline: { type: "boolean", default: false },
       "cache-dir": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -67,6 +71,7 @@ export function parseCommand(argv: readonly string[]): Command {
       port: values.port === undefined ? 0 : parsePort(values.port),
       serve: values.serve,
       cacheDir: values["cache-dir"],
+      network: !values.offline,
     },
   }
 }

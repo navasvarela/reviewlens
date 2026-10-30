@@ -3,7 +3,7 @@
 A review companion for GitHub pull requests and GitLab merge requests. `lens review <url>` fetches the
 change, analyzes it, and serves a local report. (Working name; the project name is still an open decision.)
 
-Status: milestones M0–M2. Risk and the AI layer come in M3–M4.
+Status: milestones M0–M3. The AI layer comes in M4.
 
 ## What the report shows
 
@@ -16,6 +16,13 @@ Status: milestones M0–M2. Risk and the AI layer come in M3–M4.
 - **Blast radius.** For every function, method or type the PR changes, removes or renames, the report
   lists where the rest of the code still uses it, linked to the host at the head commit, and flags the
   callers this PR did not touch. Removed and renamed units show any references left behind.
+- **Risks and a security level.** Built-in rules flag likely secrets (redacted in the report), risky APIs
+  such as `eval`, `shell=True`, raw HTML or `unsafe` (only in code, not comments or strings), sensitive
+  areas such as auth, payments, migrations and CI, new dependencies, and known vulnerabilities in
+  dependency versions new to `package-lock.json`, `Cargo.lock`, `poetry.lock`, `uv.lock` or pinned
+  requirements (via [OSV](https://osv.dev); `--offline` skips it). Review signals add large PRs, missing
+  test changes and removed or renamed units that untouched code still uses. The security level is the
+  highest severity among security findings, and the report always lists the checks that did not run.
 - **Line diff fallback** for other languages, skipped files, and on demand.
 
 References are found by name and syntax, not type resolution: each carries a confidence (exact when
@@ -40,6 +47,17 @@ pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
 GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
 
+## Team rules
+
+A `.lens.json` at the repository root adds sensitive areas and excludes paths from risk rules:
+
+```json
+{
+  "riskPaths": [{ "pattern": "src/ledger/**", "severity": "high", "reason": "Moves customer funds" }],
+  "ignore": ["tests/fixtures/**"]
+}
+```
+
 ## How it works
 
 1. **Providers** (`packages/providers`) parse the URL and read the PR from the host's API, including its merge base.
@@ -48,8 +66,8 @@ GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` fo
    and parses both versions of each file with tree-sitter (WASM) to extract and compare units
    (`src/syntax`: one small spec per language, a shared walker, token fingerprints for comparison).
    `src/impact` then scans the head commit's source for the changed names and parses the matching files
-   to resolve references. Git commands whose output is parsed run without user and system git config,
-   which can otherwise change the output format.
+   to resolve references, and `src/risk` runs the risk rules and dependency checks. Git commands whose
+   output is parsed run without user and system git config, which can otherwise change the output format.
 3. The **review model** (`packages/review-model`) is the JSON contract between the engine and every
    consumer, validated with Zod on both sides.
 4. The **CLI** (`packages/cli`) writes the report (the prebuilt UI plus `review.json`) as a static directory

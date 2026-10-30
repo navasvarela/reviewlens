@@ -1,6 +1,7 @@
 import type { ReactElement } from "react"
 import { FileChangeStatus } from "@lens/review-model"
-import type { ChangedFile } from "@lens/review-model"
+import type { ChangedFile, Risk } from "@lens/review-model"
+import { findingsInFile, SEVERITY_LABELS, worstSeverity } from "../risks.ts"
 import { summarizeFile, unitsOf } from "../unitChange.ts"
 
 interface StatusBadge {
@@ -18,28 +19,47 @@ const STATUS_BADGES: Readonly<Record<FileChangeStatus, StatusBadge>> = {
 
 interface FileListProps {
   readonly files: readonly ChangedFile[]
+  readonly findings: readonly Risk[]
   readonly selectedPath: string | undefined
+  readonly overviewSelected: boolean
   readonly onSelect: (path: string) => void
+  readonly onSelectOverview: () => void
 }
 
-/** Files needing review first; lockfiles, generated and vendored files grouped below. */
-export function FileList({ files, selectedPath, onSelect }: FileListProps): ReactElement {
+/** The risk overview, then files needing review; lockfiles, generated and vendored files grouped below. */
+export function FileList({ files, findings, selectedPath, overviewSelected, onSelect, onSelectOverview }: FileListProps): ReactElement {
   const reviewable = files.filter((file) => file.noise === null)
   const skippable = files.filter((file) => file.noise !== null)
   return (
     <nav className="file-list" aria-label="Changed files">
-      <FileGroup files={reviewable} selectedPath={selectedPath} onSelect={onSelect} />
+      <button
+        type="button"
+        className={overviewSelected ? "file overview selected" : "file overview"}
+        aria-current={overviewSelected}
+        onClick={onSelectOverview}
+      >
+        <span className="path">Risks &amp; checks</span>
+        <span className="counts">{findings.length}</span>
+      </button>
+      <FileGroup files={reviewable} findings={findings} selectedPath={selectedPath} onSelect={onSelect} />
       {skippable.length > 0 && (
         <>
           <h3 className="file-group-title">Skippable ({skippable.length})</h3>
-          <FileGroup files={skippable} selectedPath={selectedPath} onSelect={onSelect} />
+          <FileGroup files={skippable} findings={findings} selectedPath={selectedPath} onSelect={onSelect} />
         </>
       )}
     </nav>
   )
 }
 
-function FileGroup({ files, selectedPath, onSelect }: FileListProps): ReactElement {
+interface FileGroupProps {
+  readonly files: readonly ChangedFile[]
+  readonly findings: readonly Risk[]
+  readonly selectedPath: string | undefined
+  readonly onSelect: (path: string) => void
+}
+
+function FileGroup({ files, findings, selectedPath, onSelect }: FileGroupProps): ReactElement {
   return (
     <ul>
       {files.map((file) => {
@@ -62,6 +82,7 @@ function FileGroup({ files, selectedPath, onSelect }: FileListProps): ReactEleme
                 {diff.path}
                 <FileHint file={file} />
               </span>
+              <RiskBadge findings={findingsInFile(findings, diff.path)} />
               <span className="counts">
                 <span className="added">+{diff.additions}</span> <span className="removed">−{diff.deletions}</span>
               </span>
@@ -88,6 +109,16 @@ function FileHint({ file }: { readonly file: ChangedFile }): ReactElement | null
     <span className="file-hint">
       {needsAttention} to review{quiet > 0 ? ` · ${quiet} collapsed` : ""}
       {untouchedReferences > 0 && <span className="file-hint-impact"> · {untouchedReferences} untouched callers</span>}
+    </span>
+  )
+}
+
+function RiskBadge({ findings }: { readonly findings: readonly Risk[] }): ReactElement | null {
+  const severity = worstSeverity(findings)
+  if (severity === undefined) return null
+  return (
+    <span className={`severity severity-${severity}`} title={`${findings.length} risk findings, worst: ${SEVERITY_LABELS[severity]}`}>
+      {findings.length}
     </span>
   )
 }

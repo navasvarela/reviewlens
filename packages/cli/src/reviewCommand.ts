@@ -19,11 +19,11 @@ export interface ReviewDependencies {
 
 export async function runReview(options: ReviewOptions, deps: ReviewDependencies): Promise<void> {
   const ref = parsePullRequestUrl(options.url)
-  const model = await analyzePullRequest(ref, deps)
+  const model = await analyzePullRequest(ref, options, deps)
   const reportDir = options.outDir ?? defaultReportDir(deps.cacheDir, ref)
   await writeReport(model, reportDir)
 
-  deps.log(`${model.files.length} files changed. Report written to ${reportDir}`)
+  deps.log(`${model.files.length} files changed, security level ${model.risk.securityLevel}. Report written to ${reportDir}`)
   if (!options.serve) {
     return
   }
@@ -31,7 +31,7 @@ export async function runReview(options: ReviewOptions, deps: ReviewDependencies
   deps.log(`Serving the report at ${server.url} (Ctrl+C to stop)`)
 }
 
-async function analyzePullRequest(ref: PullRequestRef, deps: ReviewDependencies): Promise<ReviewModel> {
+async function analyzePullRequest(ref: PullRequestRef, options: ReviewOptions, deps: ReviewDependencies): Promise<ReviewModel> {
   deps.log(`Fetching ${displayName(ref)}…`)
   const snapshot = await gitHostFor(ref, deps.tokens).fetchPullRequest()
   const { pullRequest } = snapshot
@@ -45,13 +45,16 @@ async function analyzePullRequest(ref: PullRequestRef, deps: ReviewDependencies)
   })
 
   deps.log("Analyzing changes…")
-  const files = await analyzeChangedFiles(repoDir, pullRequest.mergeBaseSha, pullRequest.headSha)
+  const { files, risk } = await analyzeChangedFiles(repoDir, pullRequest.mergeBaseSha, pullRequest.headSha, {
+    network: options.network,
+  })
   // Validating our own output catches engine bugs here rather than as a broken report.
   return reviewModelSchema.parse({
     schemaVersion: REVIEW_MODEL_SCHEMA_VERSION,
     generatedAt: deps.now().toISOString(),
     pullRequest,
     files,
+    risk,
   })
 }
 

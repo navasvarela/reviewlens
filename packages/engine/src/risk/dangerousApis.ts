@@ -1,0 +1,97 @@
+import { RiskCategory, RiskSeverity, SourceLanguage } from "@lens/review-model"
+import type { Risk } from "@lens/review-model"
+import type { Tree } from "web-tree-sitter"
+import { languageSpecFor } from "../syntax/languages.ts"
+import { withSyntaxTree } from "../syntax/parser.ts"
+import { addedLines, findingAt, isThirdParty } from "./scannedFile.ts"
+import type { AddedLine, RuleDescription, ScannedFile } from "./scannedFile.ts"
+
+interface ApiRule extends RuleDescription {
+  readonly languages: ReadonlySet<SourceLanguage>
+  readonly pattern: RegExp
+  /** Text on the same line that makes the use safe, such as an explicit safe loader. */
+  readonly safeWhen?: RegExp
+}
+
+const ECMASCRIPT: ReadonlySet<SourceLanguage> = new Set([SourceLanguage.TypeScript, SourceLanguage.Tsx])
+const PYTHON: ReadonlySet<SourceLanguage> = new Set([SourceLanguage.Python])
+const RUST: ReadonlySet<SourceLanguage> = new Set([SourceLanguage.Rust])
+
+function rule(
+  id: string,
+  languages: ReadonlySet<SourceLanguage>,
+  severity: RiskSeverity,
+  pattern: RegExp,
+  title: string,
+  detail: string,
+): ApiRule {
+  return { id, languages, severity, pattern, title, detail, category: RiskCategory.DangerousApi }
+}
+
+const CODE_EXECUTION = "Runs a string as code. If any part of it can come from users or files, it is a code-injection hole."
+const TLS_DISABLED = "Turns off certificate checks, so anyone on the network path can read or alter the traffic."
+const SQL_INTERPOLATION = "SQL assembled from interpolated values is open to injection. Use bound parameters instead."
+
+const API_RULES: readonly ApiRule[] = [
+  rule("js.eval", ECMASCRIPT, RiskSeverity.High, /\beval\s*\(/, "eval()", CODE_EXECUTION),
+  rule("js.new-function", ECMASCRIPT, RiskSeverity.High, /\bnew\s+Function\s*\(/, "new Function()", CODE_EXECUTION),
+  rule("js.child-process", ECMASCRIPT, RiskSeverity.Medium, /\bchild_process\b/, "Spawns processes", "Check that no user input reaches the command or its arguments unescaped."),
+  rule("js.raw-html", ECMASCRIPT, RiskSeverity.Medium, /\.(?:inner|outer)HTML\s*=|\bdangerouslySetInnerHTML\b|\binsertAdjacentHTML\s*\(/, "Writes raw HTML", "Unescaped HTML from user data enables cross-site scripting."),
+  rule("js.sql-template", ECMASCRIPT, RiskSeverity.Medium, /\b(?:query|execute|raw|unsafe)\s*\(\s*`[^`]*\$\{/, "SQL from a template literal", SQL_INTERPOLATION),
+  rule("js.tls-disabled", ECMASCRIPT, RiskSeverity.High, /\brejectUnauthorized\s*:\s*false|NODE_TLS_REJECT_UNAUTHORIZED/, "TLS verification disabled", TLS_DISABLED),
+  rule("python.eval", PYTHON, RiskSeverity.High, /(?<![.\w])(?:eval|exec)\s*\(/, "eval() / exec()", CODE_EXECUTION),
+  rule("python.subprocess-shell", PYTHON, RiskSeverity.High, /\bshell\s*=\s*True\b/, "Subprocess with shell=True", "The command goes through a shell, so user input in it can run arbitrary commands."),
+  rule("python.os-system", PYTHON, RiskSeverity.High, /\bos\.(?:system|popen)\s*\(/, "os.system() / os.popen()", "Runs a shell command; user input in it can run arbitrary commands."),
+  rule("python.pickle", PYTHON, RiskSeverity.Medium, /\b(?:pickle|cPickle|dill)\.loads?\s*\(/, "Unpickling", "Loading a pickle runs code embedded in it; never unpickle data from untrusted sources."),
+  {
+    ...rule("python.yaml-load", PYTHON, RiskSeverity.Medium, /\byaml\.(?:load|load_all)\s*\(/, "yaml.load() without a safe loader", "PyYAML's full loader can construct arbitrary objects; use yaml.safe_load."),
+    safeWhen: /SafeLoader|CSafeLoader/,
+  },
+  rule("python.tls-disabled", PYTHON, RiskSeverity.High, /\bverify\s*=\s*False\b/, "TLS verification disabled", TLS_DISABLED),
+  rule("python.sql-format", PYTHON, RiskSeverity.Medium, /\.execute(?:many)?\s*\(\s*(?:f["']|["'][^"']*["']\s*(?:%|\.format\())/, "SQL from string formatting", SQL_INTERPOLATION),
+  rule("rust.unsafe", RUST, RiskSeverity.Medium, /\bunsafe\s*(?:\{|fn\b|impl\b|trait\b)/, "unsafe code", "The compiler no longer checks memory safety here; review the invariants the code relies on."),
+  rule("rust.transmute", RUST, RiskSeverity.Medium, /\b(?:mem::)?transmute\s*(?:::<|\()/, "mem::transmute", "Reinterprets memory with no checks; a wrong type or size is undefined behaviour."),
+  rule("rust.command", RUST, RiskSeverity.Medium, /\bCommand::new\s*\(/, "Spawns processes", "Check that no user input reaches the command or its arguments unchecked."),
+  rule("rust.tls-disabled", RUST, RiskSeverity.High, /\bdanger_accept_invalid_(?:certs|hostnames)\s*\(\s*true/, "TLS verification disabled", TLS_DISABLED),
+]
+
+/**
+ * Flags risky API uses on added lines of supported languages. A match only counts when it
+ * is code: the parsed head file tells comments and strings apart from calls.
+ */
+export async function scanDangerousApis(files: readonly ScannedFile[]): Promise<Risk[]> {
+  const findings: Risk[] = []
+  for (const file of files) {
+    const spec = languageSpecFor(file.diff.path)
+    const rules = API_RULES.filter((candidate) => spec !== undefined && candidate.languages.has(spec.language))
+    const lines = addedLines(file.diff)
+    if (spec === undefined || file.after === undefined || isThirdParty(file) || rules.length === 0 || lines.length === 0) continue
+    const source = file.after
+    findings.push(...(await withSyntaxTree(spec, source, (tree) => matchRules(tree, rules, lines, file.diff.path))))
+  }
+  return findings
+}
+
+function matchRules(tree: Tree, rules: readonly ApiRule[], lines: readonly AddedLine[], path: string): Risk[] {
+  const findings: Risk[] = []
+  for (const { line, content } of lines) {
+    for (const apiRule of rules) {
+      const match = apiRule.pattern.exec(content)
+      if (match === null || apiRule.safeWhen?.test(content) || isInsideCommentOrString(tree, line - 1, match.index)) continue
+      findings.push(findingAt(apiRule, path, line, content))
+    }
+  }
+  return findings
+}
+
+/**
+ * Whether the text at a position is part of a comment or string literal rather than code.
+ * Interpolations inside template strings (`${...}`) are code again.
+ */
+function isInsideCommentOrString(tree: Tree, row: number, column: number): boolean {
+  for (let node = tree.rootNode.descendantForPosition({ row, column }); node !== null; node = node.parent) {
+    if (node.type === "template_substitution" || node.type === "interpolation") return false
+    if (node.type.includes("comment") || node.type.includes("string")) return true
+  }
+  return false
+}
