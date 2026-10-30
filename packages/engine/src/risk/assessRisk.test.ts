@@ -37,12 +37,14 @@ describe("assessRisk", () => {
     await write("src/app.py", "from util import parse\n\ndef run(raw):\n    return parse(raw)\n")
     await write("package.json", '{"dependencies":{"react":"^19.0.0"}}\n')
     await write("package-lock.json", JSON.stringify({ lockfileVersion: 3, packages: { "": {} } }))
-    const base = await commit()
-
     await write(
       ".lens.json",
       JSON.stringify({ riskPaths: [{ pattern: "src/ledger/**", severity: "high", reason: "Moves customer funds" }], ignore: ["fixtures/**"] }),
     )
+    const base = await commit()
+
+    // The PR tries to silence every rule on itself.
+    await write(".lens.json", JSON.stringify({ ignore: ["**"] }))
     await write("src/util.py", "def keep():\n    return 2\n")
     await write("src/ledger/post.py", "import subprocess\n\ndef post(cmd):\n    subprocess.run(cmd, shell=True)\n")
     await write("fixtures/keys.txt", "-----BEGIN PRIVATE KEY-----\n")
@@ -64,11 +66,12 @@ describe("assessRisk", () => {
     expect(risk?.securityLevel).toBe("high")
   })
 
-  it("lists every finding most severe first, each pointing at code", () => {
+  it("judges the PR by the rules at its merge base and flags its edit to them", () => {
     expect(ruleIds()).toEqual([
       "config.src/ledger/**",
       "python.subprocess-shell",
       "reference.stale",
+      "path.lens-config",
       "tests.none",
       "dependency.added",
     ])

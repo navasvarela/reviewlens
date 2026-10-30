@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 4
+export const REVIEW_MODEL_SCHEMA_VERSION = 6
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -335,11 +335,93 @@ export const riskAssessmentSchema = z.object({
 })
 export type RiskAssessment = z.infer<typeof riskAssessmentSchema>
 
+export const CitationSide = { Before: "before", After: "after" } as const
+export type CitationSide = (typeof CitationSide)[keyof typeof CitationSide]
+
+/** A line range of the change that backs an AI statement; validated against the diff. */
+export const citationSchema = z.object({
+  path: z.string().min(1),
+  /** Which version the lines refer to: the merge base or the head. */
+  side: z.enum(CitationSide),
+  startLine: lineNumberSchema,
+  endLine: lineNumberSchema,
+})
+export type Citation = z.infer<typeof citationSchema>
+
+export const unitRefSchema = z.object({ path: z.string().min(1), qualifiedName: z.string() })
+export type UnitRef = z.infer<typeof unitRefSchema>
+
+/** A step of the suggested reading order: related units, read together. */
+export const chapterSchema = z.object({
+  title: z.string(),
+  summary: z.string(),
+  units: z.array(unitRefSchema).readonly(),
+})
+export type Chapter = z.infer<typeof chapterSchema>
+
+export const IntentVerdict = {
+  /** The code does what the description says. */
+  Matches: "matches",
+  /** The code does something different from what the description says. */
+  Contradicts: "contradicts",
+  /** The code changes behaviour the description does not mention. */
+  Undocumented: "undocumented",
+  /** The description claims something no changed code shows; the only verdict without citations. */
+  NotFound: "notFound",
+} as const
+export type IntentVerdict = (typeof IntentVerdict)[keyof typeof IntentVerdict]
+
+export const intentFindingSchema = z.object({
+  /** What the PR description says, or for undocumented changes, what the code does. */
+  claim: z.string(),
+  verdict: z.enum(IntentVerdict),
+  explanation: z.string(),
+  citations: z.array(citationSchema).readonly(),
+})
+export type IntentFinding = z.infer<typeof intentFindingSchema>
+
+/** A question the reviewer should be able to answer before approving. */
+export const reviewerQuestionSchema = z.object({
+  question: z.string(),
+  why: z.string(),
+  citations: z.array(citationSchema).min(1).readonly(),
+})
+export type ReviewerQuestion = z.infer<typeof reviewerQuestionSchema>
+
+export const AiReviewStatus = { Disabled: "disabled", Unavailable: "unavailable", Completed: "completed" } as const
+
+export const aiReviewSchema = z.discriminatedUnion("status", [
+  /** AI review is opt-in and was not requested. */
+  z.object({ status: z.literal(AiReviewStatus.Disabled) }),
+  /** Requested but not run: blocked by the repository's config, no credentials, or a failed call. */
+  z.object({ status: z.literal(AiReviewStatus.Unavailable), reason: z.string() }),
+  z.object({
+    status: z.literal(AiReviewStatus.Completed),
+    model: z.string(),
+    chapters: z.array(chapterSchema).readonly(),
+    intent: z.array(intentFindingSchema).readonly(),
+    questions: z.array(reviewerQuestionSchema).readonly(),
+    /** Statements the model made whose citations did not match the change; never shown. */
+    droppedStatements: z.number().int().nonnegative(),
+    /** Changed units left out of the prompt to stay within the input budget (named only). */
+    unitsSummarizedOnly: z.number().int().nonnegative(),
+    usage: z.object({ inputTokens: z.number().int().nonnegative(), outputTokens: z.number().int().nonnegative() }),
+    /** Null when the model's price is not known to this version. */
+    estimatedCostUsd: z.number().nonnegative().nullable(),
+    /** True when the result came from the local cache for this exact prompt. */
+    cached: z.boolean(),
+  }),
+])
+export type AiReview = z.infer<typeof aiReviewSchema>
+
 export const reviewModelSchema = z.object({
   schemaVersion: z.literal(REVIEW_MODEL_SCHEMA_VERSION),
   generatedAt: z.iso.datetime(),
   pullRequest: pullRequestSchema,
   files: z.array(changedFileSchema).readonly(),
   risk: riskAssessmentSchema,
+  ai: aiReviewSchema,
+  /** Where to send feedback on the tool, from the repository's config. */
+  feedbackUrl: z.url({ protocol: /^https?$/ }).nullable(),
 })
 export type ReviewModel = z.infer<typeof reviewModelSchema>

@@ -1,10 +1,12 @@
 import { join } from "node:path"
-import { analyzeChangedFiles, fetchCommits } from "@lens/engine"
+import { analyzeChangedFiles, AnthropicProvider, fetchCommits, readLensConfig, reviewWithAi } from "@lens/engine"
 import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@lens/providers"
 import type { HostTokens, PullRequestRef } from "@lens/providers"
-import { REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@lens/review-model"
-import type { ReviewModel } from "@lens/review-model"
+import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@lens/review-model"
+import type { AiReview, ReviewModel } from "@lens/review-model"
 import type { ReviewOptions } from "./args.ts"
+import { detectPullRequestUrl } from "./ciEnvironment.ts"
+import type { CiEnvironment } from "./ciEnvironment.ts"
 import { writeReport } from "./report.ts"
 import { serveReport } from "./server.ts"
 
@@ -13,12 +15,13 @@ const SHORT_SHA_LENGTH = 10
 export interface ReviewDependencies {
   readonly tokens: HostTokens
   readonly cacheDir: string
+  readonly env: CiEnvironment
   readonly now: () => Date
   readonly log: (message: string) => void
 }
 
 export async function runReview(options: ReviewOptions, deps: ReviewDependencies): Promise<void> {
-  const ref = parsePullRequestUrl(options.url)
+  const ref = parsePullRequestUrl(options.url ?? (await detectPullRequestUrl(deps.env)))
   const model = await analyzePullRequest(ref, options, deps)
   const reportDir = options.outDir ?? defaultReportDir(deps.cacheDir, ref)
   await writeReport(model, reportDir)
@@ -48,6 +51,19 @@ async function analyzePullRequest(ref: PullRequestRef, options: ReviewOptions, d
   const { files, risk } = await analyzeChangedFiles(repoDir, pullRequest.mergeBaseSha, pullRequest.headSha, {
     network: options.network,
   })
+  const ai: AiReview =
+    options.ai === undefined
+      ? { status: AiReviewStatus.Disabled }
+      : await reviewWithAi({
+          repoDir,
+          base: pullRequest.mergeBaseSha,
+          head: pullRequest.headSha,
+          context: { pullRequest, files, risk },
+          provider: new AnthropicProvider(options.ai.model),
+          cacheDir: deps.cacheDir,
+          maxInputTokens: options.ai.maxInputTokens,
+        })
+  deps.log(describeAiReview(ai))
   // Validating our own output catches engine bugs here rather than as a broken report.
   return reviewModelSchema.parse({
     schemaVersion: REVIEW_MODEL_SCHEMA_VERSION,
@@ -55,7 +71,23 @@ async function analyzePullRequest(ref: PullRequestRef, options: ReviewOptions, d
     pullRequest,
     files,
     risk,
+    ai,
+    feedbackUrl: (await readLensConfig(repoDir, pullRequest.mergeBaseSha)).feedback.url,
   })
+}
+
+function describeAiReview(ai: AiReview): string {
+  switch (ai.status) {
+    case AiReviewStatus.Disabled:
+      return "AI review off (pass --ai to enable)."
+    case AiReviewStatus.Unavailable:
+      return `AI review not available: ${ai.reason}.`
+    case AiReviewStatus.Completed: {
+      const cost = ai.estimatedCostUsd === null ? "" : `, about $${ai.estimatedCostUsd.toFixed(2)}`
+      const source = ai.cached ? "from cache" : `${ai.usage.inputTokens} input and ${ai.usage.outputTokens} output tokens${cost}`
+      return `AI review by ${ai.model}: ${ai.chapters.length} chapters, ${ai.questions.length} questions, ${ai.droppedStatements} uncited statements dropped (${source}).`
+    }
+  }
 }
 
 function defaultReportDir(cacheDir: string, ref: PullRequestRef): string {

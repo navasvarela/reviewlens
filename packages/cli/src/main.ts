@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { parseCommand, USAGE, UsageError } from "./args.ts"
 import { defaultCacheDir, readHostTokens } from "./environment.ts"
+import { runComment } from "./commentCommand.ts"
 import { runReview } from "./reviewCommand.ts"
 
 const EXIT_FAILURE = 1
@@ -16,7 +17,15 @@ async function main(argv: readonly string[]): Promise<void> {
       await runReview(command.options, {
         tokens: readHostTokens(process.env),
         cacheDir: command.options.cacheDir ?? defaultCacheDir(process.env),
+        env: process.env,
         now: () => new Date(),
+        log: (message) => console.error(message),
+      })
+      return
+    case "comment":
+      await runComment(command.options, {
+        tokens: readHostTokens(process.env),
+        stepSummaryPath: process.env.GITHUB_STEP_SUMMARY,
         log: (message) => console.error(message),
       })
       return

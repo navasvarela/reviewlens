@@ -1,8 +1,8 @@
 import type { ReactElement } from "react"
-import { FileChangeStatus } from "@lens/review-model"
+import { changedUnitsOf, FileChangeStatus } from "@lens/review-model"
 import type { ChangedFile, Risk } from "@lens/review-model"
 import { findingsInFile, SEVERITY_LABELS, worstSeverity } from "../risks.ts"
-import { summarizeFile, unitsOf } from "../unitChange.ts"
+import { summarizeFile } from "../unitChange.ts"
 
 interface StatusBadge {
   readonly letter: string
@@ -26,7 +26,7 @@ interface FileListProps {
   readonly onSelectOverview: () => void
 }
 
-/** The risk overview, then files needing review; lockfiles, generated and vendored files grouped below. */
+/** The overview, then files needing review; lockfiles, generated and vendored files grouped below. */
 export function FileList({ files, findings, selectedPath, overviewSelected, onSelect, onSelectOverview }: FileListProps): ReactElement {
   const reviewable = files.filter((file) => file.noise === null)
   const skippable = files.filter((file) => file.noise !== null)
@@ -38,7 +38,7 @@ export function FileList({ files, findings, selectedPath, overviewSelected, onSe
         aria-current={overviewSelected}
         onClick={onSelectOverview}
       >
-        <span className="path">Risks &amp; checks</span>
+        <span className="path">Overview</span>
         <span className="counts">{findings.length}</span>
       </button>
       <FileGroup files={reviewable} findings={findings} selectedPath={selectedPath} onSelect={onSelect} />
@@ -98,7 +98,7 @@ function FileHint({ file }: { readonly file: ChangedFile }): ReactElement | null
   if (file.noise !== null) {
     return <span className="file-hint">{file.noise.kind}</span>
   }
-  if (unitsOf(file).length === 0) {
+  if (changedUnitsOf(file).length === 0) {
     return null
   }
   const { needsAttention, quiet, untouchedReferences } = summarizeFile(file)

@@ -1,7 +1,7 @@
 import { matchesGlob } from "node:path"
 import { RiskCategory, RiskSeverity } from "@lens/review-model"
 import type { Risk } from "@lens/review-model"
-import type { RiskConfig } from "./riskConfig.ts"
+import type { LensConfig } from "../config/lensConfig.ts"
 import { findingAt } from "./scannedFile.ts"
 import type { RuleDescription, ScannedFile } from "./scannedFile.ts"
 
@@ -18,6 +18,7 @@ const SEGMENT = String.raw`(?:^|[/._-])`
 const END = String.raw`(?:$|[/._-])`
 
 const BUILT_IN_RULES: readonly PathRule[] = [
+  pathRule("path.lens-config", RiskSeverity.Medium, /^\.lens\.json$/, "Review rules changed", "This file sets what the risk checks ignore and whether AI review may run. Changes take effect after merge; check they do not hide anything."),
   pathRule("path.ci-pipeline", RiskSeverity.Medium, /^\.github\/workflows\/|^\.gitlab-ci\.ya?ml$|(^|\/)Jenkinsfile$|^\.circleci\//, "CI pipeline", "Pipelines run with repository secrets and deploy rights; check what new steps can reach."),
   pathRule("path.secrets-config", RiskSeverity.Medium, /(^|\/)\.env(\.[\w-]+)?$|(^|\/)secrets?\.(ya?ml|json|toml)$/, "Secrets configuration", "Files of this kind often hold credentials; check nothing real is committed."),
   pathRule("path.auth", RiskSeverity.Medium, new RegExp(`${SEGMENT}(auth|authn|authz|login|session|sessions|oauth|sso|permissions?|acl|rbac|access[_-]?control)${END}`, "i"), "Authentication or authorization", "A mistake here can let users act as someone else or reach data they should not."),
@@ -28,7 +29,7 @@ const BUILT_IN_RULES: readonly PathRule[] = [
 ]
 
 /** One finding per file: team rules from the config first, then the first built-in rule that matches. */
-export function scanSensitivePaths(files: readonly ScannedFile[], config: RiskConfig): Risk[] {
+export function scanSensitivePaths(files: readonly ScannedFile[], config: LensConfig): Risk[] {
   return files.flatMap((file) => {
     const path = file.diff.path
     const configured = config.riskPaths.find((entry) => matchesGlob(path, entry.pattern))

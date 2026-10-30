@@ -1,10 +1,10 @@
 import { useState } from "react"
 import type { ReactElement } from "react"
-import { FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
+import { changedUnitsOf, FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
 import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis } from "@lens/review-model"
-import { summarizeFile, unitsOf } from "../unitChange.ts"
+import { summarizeFile } from "../unitChange.ts"
 import { HunkView } from "./HunkView.tsx"
-import { RiskList } from "./RiskView.tsx"
+import { RiskList } from "./Overview.tsx"
 import { UnitCard } from "./UnitCard.tsx"
 
 const ViewMode = { Units: "units", Lines: "lines" } as const
@@ -18,7 +18,7 @@ interface FileViewProps {
 }
 
 export function FileView({ file, findings, pullRequest }: FileViewProps): ReactElement {
-  const units = unitsOf(file)
+  const units = changedUnitsOf(file)
   const [mode, setMode] = useState<ViewMode>(units.length > 0 ? ViewMode.Units : ViewMode.Lines)
   const { diff } = file
 

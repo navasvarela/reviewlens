@@ -1,5 +1,5 @@
-import { ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, UnitChange, UnitImpact } from "@lens/review-model"
+import { changedUnitsOf, isBehaviourChange, ModificationWeight, UnitChangeKind, untouchedReferences } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, UnitChange } from "@lens/review-model"
 
 export const Tone = { Added: "added", Removed: "removed", Modified: "modified", Quiet: "quiet" } as const
 export type Tone = (typeof Tone)[keyof typeof Tone]
@@ -39,11 +39,7 @@ function modificationLabel(weight: ModificationWeight): ChangeLabel {
 
 /** Changes that leave behaviour as it was: shown collapsed so attention goes elsewhere. */
 export function isQuiet(unit: ChangedUnit): boolean {
-  return changeLabel(unit.change).tone === Tone.Quiet
-}
-
-export function unitsOf(file: ChangedFile): readonly ChangedUnit[] {
-  return file.syntax.status === SyntaxAnalysisStatus.Analyzed ? file.syntax.units : []
+  return !isBehaviourChange(unit.change)
 }
 
 export interface FileSummary {
@@ -54,13 +50,8 @@ export interface FileSummary {
 }
 
 export function summarizeFile(file: ChangedFile): FileSummary {
-  const units = unitsOf(file)
+  const units = changedUnitsOf(file)
   const quiet = units.filter(isQuiet).length
-  const untouchedReferences = units.reduce((sum, unit) => sum + untouchedReferenceCount(unit.impact), 0)
-  return { needsAttention: units.length - quiet, quiet, untouchedReferences }
-}
-
-export function untouchedReferenceCount(impact: UnitImpact | null): number {
-  if (impact?.status !== UnitImpactStatus.Traced) return 0
-  return impact.references.filter((reference) => !reference.touchedByPullRequest).length
+  const untouched = units.reduce((sum, unit) => sum + untouchedReferences(unit).length, 0)
+  return { needsAttention: units.length - quiet, quiet, untouchedReferences: untouched }
 }

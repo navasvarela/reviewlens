@@ -14,6 +14,9 @@ export {
   UnitImpactStatus,
   RiskSeverity,
   RiskCategory,
+  CitationSide,
+  IntentVerdict,
+  AiReviewStatus,
   commitShaSchema,
   pullRequestSchema,
   diffLineSchema,
@@ -32,6 +35,12 @@ export {
   riskSchema,
   riskAssessmentSchema,
   skippedCheckSchema,
+  citationSchema,
+  unitRefSchema,
+  chapterSchema,
+  intentFindingSchema,
+  reviewerQuestionSchema,
+  aiReviewSchema,
   reviewModelSchema,
 } from "./schema.ts"
 export type {
@@ -55,5 +64,12 @@ export type {
   RiskLocation,
   RiskAssessment,
   SkippedCheck,
+  Citation,
+  UnitRef,
+  Chapter,
+  IntentFinding,
+  ReviewerQuestion,
+  AiReview,
   ReviewModel,
 } from "./schema.ts"
+export { changedUnitsOf, isBehaviourChange, untouchedReferences } from "./queries.ts"

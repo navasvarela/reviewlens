@@ -4,7 +4,7 @@ import type { ChangedFile, CommitSha, Risk, RiskAssessment, SkippedCheck } from 
 import { scanDangerousApis } from "./dangerousApis.ts"
 import { scanDependencies } from "./dependencies/scanDependencies.ts"
 import { reviewSignals } from "./reviewSignals.ts"
-import { isIgnored, readRiskConfig, RISK_CONFIG_PATH } from "./riskConfig.ts"
+import { isIgnored, readLensConfig, LENS_CONFIG_PATH } from "../config/lensConfig.ts"
 import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
 import { scanSensitivePaths } from "./sensitivePaths.ts"
@@ -52,7 +52,7 @@ const ALWAYS_SKIPPED: readonly SkippedCheck[] = [
 
 /** Runs every risk check over the change and rates its security level. */
 export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAssessment> {
-  const config = await readRiskConfig(request.repoDir, request.head)
+  const config = await readLensConfig(request.repoDir, request.base)
   const scanned: ScannedFile[] = request.files
     .map((file, index) => ({ diff: file.diff, noise: file.noise, after: request.headTexts.at(index) }))
     .filter((file) => !isIgnored(config, file.diff.path))
@@ -90,7 +90,7 @@ function securityLevelOf(findings: readonly Risk[]): RiskSeverity {
 function coverageGaps(files: readonly ChangedFile[], ignoredCount: number): SkippedCheck[] {
   const gaps: SkippedCheck[] = []
   if (ignoredCount > 0) {
-    gaps.push({ check: `Risk rules on ${ignoredCount} ${ignoredCount === 1 ? "file" : "files"}`, reason: `excluded by "ignore" in ${RISK_CONFIG_PATH}` })
+    gaps.push({ check: `Risk rules on ${ignoredCount} ${ignoredCount === 1 ? "file" : "files"}`, reason: `excluded by "ignore" in ${LENS_CONFIG_PATH}` })
   }
   const uncovered = [...new Set(files.map((file) => extname(file.diff.path)).filter((extension) => UNCOVERED_CODE_EXTENSIONS.has(extension)))]
   if (uncovered.length > 0) {

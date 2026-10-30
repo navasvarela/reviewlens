@@ -5,6 +5,7 @@
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@lens/review-model": "workspace:*",
     "smol-toml": "^1.9.1",
     "tree-sitter-python": "^0.25.0",

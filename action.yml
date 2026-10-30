@@ -1,0 +1,73 @@
+name: ReviewLens
+description: Adds a review report to each pull request, with changed units, callers, risk findings and an optional AI review
+branding:
+  icon: search
+  color: blue
+
+inputs:
+  token:
+    description: Token that can read the repository and comment on pull requests
+    default: ${{ github.token }}
+  ai:
+    description: Set to "true" to send the changed code to Claude for an AI review
+    default: "false"
+  anthropic-api-key:
+    description: Anthropic API key, required when ai is "true"
+    default: ""
+  retention-days:
+    description: Days to keep the report artifact
+    default: "14"
+
+outputs:
+  report-url:
+    description: Link to the report artifact
+    value: ${{ steps.upload.outputs.artifact-url }}
+
+# Inputs reach scripts through env, never `${{ }}` inside `run`, so no value can be
+# interpreted as shell code. The action reads the PR's code but never executes it, so it
+# does not need a checkout and is safe to run on PRs from forks.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        # Node 25 and later no longer ship corepack.
+        node-version: "24"
+
+    - name: Install ReviewLens
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        corepack enable
+        pnpm install --frozen-lockfile
+        pnpm build:ui
+
+    - name: Analyze the pull request
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        REVIEWLENS_AI: ${{ inputs.ai }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: |
+        args=(review --no-serve --out "$RUNNER_TEMP/reviewlens")
+        if [ "$REVIEWLENS_AI" = "true" ]; then args+=(--ai); fi
+        node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" "${args[@]}"
+        cp "$RUNNER_TEMP/reviewlens/index.html" "$RUNNER_TEMP/reviewlens/reviewlens-report.html"
+
+    - name: Upload the report
+      id: upload
+      uses: actions/upload-artifact@v7
+      with:
+        path: ${{ runner.temp }}/reviewlens/reviewlens-report.html
+        # Unzipped, so the link gives reviewers the page itself. The artifact takes the
+        # file's name; overwrite lets the job be re-run.
+        archive: false
+        overwrite: true
+        retention-days: ${{ inputs.retention-days }}
+
+    - name: Comment on the pull request
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        REPORT_URL: ${{ steps.upload.outputs.artifact-url }}
+      run: node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" comment --report "$RUNNER_TEMP/reviewlens" --report-url "$REPORT_URL"

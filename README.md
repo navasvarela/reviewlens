@@ -3,7 +3,7 @@
 A review companion for GitHub pull requests and GitLab merge requests. `lens review <url>` fetches the
 change, analyzes it, and serves a local report. (Working name; the project name is still an open decision.)
 
-Status: milestones M0–M3. The AI layer comes in M4.
+Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
 
 ## What the report shows
 
@@ -23,6 +23,11 @@ Status: milestones M0–M3. The AI layer comes in M4.
   requirements (via [OSV](https://osv.dev); `--offline` skips it). Review signals add large PRs, missing
   test changes and removed or renamed units that untouched code still uses. The security level is the
   highest severity among security findings, and the report always lists the checks that did not run.
+- **AI review (opt-in, `--ai`).** A suggested reading order that groups the changed units into chapters,
+  a check of the PR description against the code (matches, contradicts, not in the description, not found),
+  and specific questions to answer before approving. Every statement must cite lines of the change; the
+  engine checks each citation against what the model was shown and discards the rest. Results are cached
+  per prompt, and the report shows tokens used and the estimated cost.
 - **Line diff fallback** for other languages, skipped files, and on demand.
 
 References are found by name and syntax, not type resolution: each carries a confidence (exact when
@@ -39,7 +44,6 @@ Requires Node.js 22.18 or newer (it runs the TypeScript sources directly), pnpm 
 
 ```sh
 pnpm install
-pnpm build:ui
 pnpm lens review https://github.com/owner/repo/pull/123
 pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve --out ./report
 ```
@@ -47,14 +51,30 @@ pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
 GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
 
+## In CI
+
+The GitHub Action (`navasvarela/reviewlens@main`) and the GitLab template (`ci/gitlab-ci.yml`) generate the report for each PR, keep it as a job artifact, and post one summary comment that is updated on each push. The [pilot guide](docs/pilot.md) has the setup. Locally, `lens review` also works without a URL inside a CI job, and `lens comment --report <dir> --report-url <url>` posts the summary.
+
+## AI review
+
+`--ai` sends the changed code, the PR title and description to Claude (`claude-opus-5-5` by default;
+`--ai-model` to change it) through the official Anthropic SDK. Credentials come from `ANTHROPIC_API_KEY`
+or an `ant auth login` profile. `--ai-max-input-tokens` (default 40,000, about $0.16 of input) caps the
+prompt; past it, units are sent by name only and the report says how many. Without `--ai`, nothing is
+sent. A repository can forbid AI review entirely with `"ai": { "allowed": false }` in `.lens.json`.
+
 ## Team rules
 
-A `.lens.json` at the repository root adds sensitive areas and excludes paths from risk rules:
+A `.lens.json` at the repository root adds sensitive areas, excludes paths from risk rules, and can
+forbid AI review. A PR is always judged by the version on its merge base, so its own edits to the file
+take effect only after merge, and are reported as a finding:
 
 ```json
 {
   "riskPaths": [{ "pattern": "src/ledger/**", "severity": "high", "reason": "Moves customer funds" }],
-  "ignore": ["tests/fixtures/**"]
+  "ignore": ["tests/fixtures/**"],
+  "ai": { "allowed": true },
+  "feedback": { "url": "https://forms.example.com/reviewlens" }
 }
 ```
 
@@ -66,12 +86,14 @@ A `.lens.json` at the repository root adds sensitive areas and excludes paths fr
    and parses both versions of each file with tree-sitter (WASM) to extract and compare units
    (`src/syntax`: one small spec per language, a shared walker, token fingerprints for comparison).
    `src/impact` then scans the head commit's source for the changed names and parses the matching files
-   to resolve references, and `src/risk` runs the risk rules and dependency checks. Git commands whose
+   to resolve references, `src/risk` runs the risk rules and dependency checks, and `src/ai` builds the
+   prompt, calls the model and validates its citations. Git commands whose
    output is parsed run without user and system git config, which can otherwise change the output format.
 3. The **review model** (`packages/review-model`) is the JSON contract between the engine and every
    consumer, validated with Zod on both sides.
-4. The **CLI** (`packages/cli`) writes the report (the prebuilt UI plus `review.json`) as a static directory
-   and serves it on `127.0.0.1`. The directory can also be uploaded as a CI artifact as is.
+4. The **CLI** (`packages/cli`) writes the report as one self-contained HTML file, plus `review.json` as
+   data, and serves it on `127.0.0.1`. The page also opens directly from disk, which is how CI artifacts
+   are used.
 5. The **report UI** (`packages/report-ui`) is a React app built with Vite.
 
 ## Development
@@ -81,3 +103,7 @@ pnpm typecheck
 pnpm test
 pnpm --filter @lens/report-ui dev   # needs a review.json in packages/report-ui/public
 ```
+
+## License
+
+[FSL-1.1-ALv2](LICENSE.md), the Functional Source License. You can use, modify and redistribute this software for any purpose except offering it as a competing commercial product or service, and internal use is explicitly allowed. Each version becomes available under the Apache License 2.0 two years after its release. This is source-available, not an OSI-approved open source license.

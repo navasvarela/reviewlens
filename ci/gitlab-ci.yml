@@ -1,0 +1,39 @@
+# Adds a ReviewLens report to each merge request. In your .gitlab-ci.yml:
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/main/ci/gitlab-ci.yml
+#
+# Set GITLAB_TOKEN as a masked CI/CD variable: a project access token with the `api` scope
+# (CI_JOB_TOKEN cannot read merge request details or post notes). For AI review, also set
+# ANTHROPIC_API_KEY and REVIEWLENS_AI to "true".
+
+reviewlens:
+  stage: test
+  # Node 25 and later no longer ship corepack.
+  image: node:24
+  # An analysis problem should never block a merge during the pilot.
+  allow_failure: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    REVIEWLENS_REF: main
+    REVIEWLENS_AI: "false"
+    # The job reads commits through the API-authenticated fetch; it needs no checkout.
+    GIT_STRATEGY: none
+  script:
+    - git clone --quiet --depth 1 --branch "$REVIEWLENS_REF" https://github.com/navasvarela/reviewlens.git /tmp/reviewlens
+    - cd /tmp/reviewlens
+    - corepack enable
+    - pnpm install --frozen-lockfile
+    - pnpm build:ui
+    - |
+      set -- review --no-serve --out "$CI_PROJECT_DIR/reviewlens-report"
+      if [ "$REVIEWLENS_AI" = "true" ]; then set -- "$@" --ai; fi
+      node packages/cli/src/main.ts "$@"
+    - node packages/cli/src/main.ts comment --report "$CI_PROJECT_DIR/reviewlens-report" --report-url "$CI_JOB_URL/artifacts/file/reviewlens-report/index.html"
+  artifacts:
+    expose_as: ReviewLens report
+    paths:
+      - reviewlens-report/
+    expire_in: 14 days
+    when: always

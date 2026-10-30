@@ -1,0 +1,17 @@
+name: ReviewLens
+
+on: pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    # An analysis problem should never block a merge.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      # Runs this repository's own copy; other repositories use navasvarela/reviewlens@main.
+      - uses: ./
