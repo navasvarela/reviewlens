@@ -1,0 +1,5 @@
+export { fetchCommits, MissingCommitsError } from "./checkout.ts"
+export type { FetchCommitsRequest, GitCredentials } from "./checkout.ts"
+export { analyzeChangedFiles } from "./analyzeChangedFiles.ts"
+export { PatchMismatchError } from "./changedFiles.ts"
+export { GitCommandError } from "./git.ts"

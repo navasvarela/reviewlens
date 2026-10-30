@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+import { parseCommand, USAGE, UsageError } from "./args.ts"
+import { defaultCacheDir, readHostTokens } from "./environment.ts"
+import { runReview } from "./reviewCommand.ts"
+
+const EXIT_FAILURE = 1
+const EXIT_USAGE = 2
+
+async function main(argv: readonly string[]): Promise<void> {
+  const command = parseCommand(argv)
+  switch (command.kind) {
+    case "help":
+      console.log(USAGE)
+      return
+    case "review":
+      await runReview(command.options, {
+        tokens: readHostTokens(process.env),
+        cacheDir: command.options.cacheDir ?? defaultCacheDir(process.env),
+        now: () => new Date(),
+        log: (message) => console.error(message),
+      })
+      return
+  }
+}
+
+main(process.argv.slice(2)).catch((error: unknown) => {
+  if (error instanceof UsageError) {
+    console.error(`${error.message}\n\n${USAGE}`)
+    process.exitCode = EXIT_USAGE
+    return
+  }
+  console.error(error instanceof Error ? `${error.name}: ${error.message}` : String(error))
+  process.exitCode = EXIT_FAILURE
+})

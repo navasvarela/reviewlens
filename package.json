@@ -1,0 +1,20 @@
+{
+  "name": "lens",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.9.0",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "lens": "node packages/cli/src/main.ts",
+    "build:ui": "pnpm --filter @lens/report-ui build",
+    "typecheck": "tsc -p tsconfig.json && tsc -p packages/report-ui/tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

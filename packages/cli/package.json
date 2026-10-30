@@ -1,0 +1,14 @@
+{
+  "name": "@lens/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "lens": "./src/main.ts"
+  },
+  "dependencies": {
+    "@lens/engine": "workspace:*",
+    "@lens/providers": "workspace:*",
+    "@lens/review-model": "workspace:*"
+  }
+}
