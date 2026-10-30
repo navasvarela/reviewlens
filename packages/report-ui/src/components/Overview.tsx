@@ -1,19 +1,21 @@
 import type { ReactElement } from "react"
-import type { PullRequest, Risk, RiskAssessment } from "@lens/review-model"
+import type { AiReview, PullRequest, Risk, RiskAssessment } from "@lens/review-model"
 import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
+import { AiReviewView } from "./AiReviewView.tsx"
 
 const LEVEL_EXPLANATION =
   "The highest severity among security findings: secrets, risky APIs, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe."
 
-interface RiskViewProps {
+interface OverviewProps {
   readonly risk: RiskAssessment
+  readonly ai: AiReview
   readonly pullRequest: PullRequest
   readonly onOpenFile: (path: string) => void
 }
 
-/** The overview: security level, every finding grouped by rule, and what was not checked. */
-export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): ReactElement {
+/** The overview: security level, the AI review, every finding grouped by rule, and what was not checked. */
+export function Overview({ risk, ai, pullRequest, onOpenFile }: OverviewProps): ReactElement {
   return (
     <section className="risk-view">
       <div className={`level-box level-${risk.securityLevel}`}>
@@ -23,7 +25,9 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
         <p className="level-explanation">{LEVEL_EXPLANATION}</p>
       </div>
 
-      <h2 className="section-title">Findings ({risk.findings.length})</h2>
+      <AiReviewView ai={ai} pullRequest={pullRequest} onOpenFile={onOpenFile} />
+
+      <h2 className="section-title">Risk findings ({risk.findings.length})</h2>
       {risk.findings.length === 0 ? (
         <p className="notice">No findings from the checks that ran.</p>
       ) : (

@@ -26,7 +26,7 @@ interface FileListProps {
   readonly onSelectOverview: () => void
 }
 
-/** The risk overview, then files needing review; lockfiles, generated and vendored files grouped below. */
+/** The overview, then files needing review; lockfiles, generated and vendored files grouped below. */
 export function FileList({ files, findings, selectedPath, overviewSelected, onSelect, onSelectOverview }: FileListProps): ReactElement {
   const reviewable = files.filter((file) => file.noise === null)
   const skippable = files.filter((file) => file.noise !== null)
@@ -38,7 +38,7 @@ export function FileList({ files, findings, selectedPath, overviewSelected, onSe
         aria-current={overviewSelected}
         onClick={onSelectOverview}
       >
-        <span className="path">Risks &amp; checks</span>
+        <span className="path">Overview</span>
         <span className="counts">{findings.length}</span>
       </button>
       <FileGroup files={reviewable} findings={findings} selectedPath={selectedPath} onSelect={onSelect} />

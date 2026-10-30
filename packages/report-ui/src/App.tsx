@@ -4,7 +4,7 @@ import type { ReviewModel } from "@lens/review-model"
 import { FileList } from "./components/FileList.tsx"
 import { FileView } from "./components/FileView.tsx"
 import { PullRequestHeader } from "./components/PullRequestHeader.tsx"
-import { RiskView } from "./components/RiskView.tsx"
+import { Overview } from "./components/Overview.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
 import { findingsInFile } from "./risks.ts"
@@ -53,7 +53,7 @@ function Report({ review }: ReportProps): ReactElement {
       />
       <main className="content">
         {selectedFile === undefined ? (
-          <RiskView risk={review.risk} pullRequest={review.pullRequest} onOpenFile={openFile} />
+          <Overview risk={review.risk} ai={review.ai} pullRequest={review.pullRequest} onOpenFile={openFile} />
         ) : (
           <FileView
             key={selectedFile.diff.path}

@@ -4,7 +4,7 @@ import { FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
 import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis } from "@lens/review-model"
 import { summarizeFile, unitsOf } from "../unitChange.ts"
 import { HunkView } from "./HunkView.tsx"
-import { RiskList } from "./RiskView.tsx"
+import { RiskList } from "./Overview.tsx"
 import { UnitCard } from "./UnitCard.tsx"
 
 const ViewMode = { Units: "units", Lines: "lines" } as const

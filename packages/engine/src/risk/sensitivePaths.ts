@@ -1,7 +1,7 @@
 import { matchesGlob } from "node:path"
 import { RiskCategory, RiskSeverity } from "@lens/review-model"
 import type { Risk } from "@lens/review-model"
-import type { RiskConfig } from "./riskConfig.ts"
+import type { LensConfig } from "../config/lensConfig.ts"
 import { findingAt } from "./scannedFile.ts"
 import type { RuleDescription, ScannedFile } from "./scannedFile.ts"
 
@@ -28,7 +28,7 @@ const BUILT_IN_RULES: readonly PathRule[] = [
 ]
 
 /** One finding per file: team rules from the config first, then the first built-in rule that matches. */
-export function scanSensitivePaths(files: readonly ScannedFile[], config: RiskConfig): Risk[] {
+export function scanSensitivePaths(files: readonly ScannedFile[], config: LensConfig): Risk[] {
   return files.flatMap((file) => {
     const path = file.diff.path
     const configured = config.riskPaths.find((entry) => matchesGlob(path, entry.pattern))
