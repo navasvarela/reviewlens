@@ -72,3 +72,4 @@ export type {
   AiReview,
   ReviewModel,
 } from "./schema.ts"
+export { changedUnitsOf, isBehaviourChange, untouchedReferences } from "./queries.ts"

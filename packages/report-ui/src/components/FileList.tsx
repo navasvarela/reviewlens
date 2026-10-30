@@ -1,8 +1,8 @@
 import type { ReactElement } from "react"
-import { FileChangeStatus } from "@lens/review-model"
+import { changedUnitsOf, FileChangeStatus } from "@lens/review-model"
 import type { ChangedFile, Risk } from "@lens/review-model"
 import { findingsInFile, SEVERITY_LABELS, worstSeverity } from "../risks.ts"
-import { summarizeFile, unitsOf } from "../unitChange.ts"
+import { summarizeFile } from "../unitChange.ts"
 
 interface StatusBadge {
   readonly letter: string
@@ -98,7 +98,7 @@ function FileHint({ file }: { readonly file: ChangedFile }): ReactElement | null
   if (file.noise !== null) {
     return <span className="file-hint">{file.noise.kind}</span>
   }
-  if (unitsOf(file).length === 0) {
+  if (changedUnitsOf(file).length === 0) {
     return null
   }
   const { needsAttention, quiet, untouchedReferences } = summarizeFile(file)

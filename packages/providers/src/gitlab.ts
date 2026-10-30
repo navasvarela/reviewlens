@@ -1,12 +1,15 @@
 import { commitShaSchema, GitHostKind } from "@lens/review-model"
 import { z } from "zod"
 import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
-import { getJson } from "./http.ts"
+import { getJson, writeJson } from "./http.ts"
+import type { WriteMethod } from "./http.ts"
+import { COMMENTS_PER_PAGE, upsertMarkedComment } from "./markedComment.ts"
+import type { MarkedComment } from "./markedComment.ts"
 import type { GitLabMergeRequestRef } from "./pullRequestUrl.ts"
 
 // GitLab requires this username when a personal access token is used as the git password.
 const GITLAB_GIT_USERNAME = "oauth2"
-const AUTH_HINT = "Set GITLAB_TOKEN to a token with the read_api and read_repository scopes."
+const AUTH_HINT = "Set GITLAB_TOKEN to a token with the read_api and read_repository scopes; posting comments needs the api scope."
 
 const mergeRequestSchema = z.object({
   web_url: z.url(),
@@ -22,6 +25,8 @@ const mergeRequestSchema = z.object({
     .object({ base_sha: commitShaSchema, head_sha: commitShaSchema, start_sha: commitShaSchema })
     .nullable(),
 })
+
+const noteSchema = z.object({ id: z.number().int(), body: z.string().nullable() })
 
 export class DiffNotReadyError extends Error {
   override readonly name = "DiffNotReadyError"
@@ -41,8 +46,8 @@ export class GitLabHost implements GitHost {
   }
 
   async fetchPullRequest(): Promise<PullRequestSnapshot> {
-    const { webOrigin, projectPath, number } = this.#ref
-    const url = `${webOrigin}/api/v4/projects/${encodeURIComponent(projectPath)}/merge_requests/${number}`
+    const { webOrigin, projectPath } = this.#ref
+    const url = this.#mergeRequestApi()
     const mergeRequest = await getJson({ url, headers: this.#headers(), schema: mergeRequestSchema, authHint: AUTH_HINT })
     if (mergeRequest.diff_refs === null) {
       throw new DiffNotReadyError(mergeRequest.web_url)
@@ -66,6 +71,33 @@ export class GitLabHost implements GitHost {
       cloneUrl: `${webOrigin}/${projectPath}.git`,
       gitAuth: this.#gitAuth(),
     }
+  }
+
+  upsertComment(comment: MarkedComment): Promise<void> {
+    const notesUrl = `${this.#mergeRequestApi()}/notes`
+    return upsertMarkedComment(
+      {
+        listPage: (page) =>
+          getJson({
+            url: `${notesUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
+            headers: this.#headers(),
+            schema: z.array(noteSchema),
+            authHint: AUTH_HINT,
+          }),
+        create: (body) => this.#write("POST", notesUrl, { body }),
+        update: (id, body) => this.#write("PUT", `${notesUrl}/${id}`, { body }),
+      },
+      comment,
+    )
+  }
+
+  #mergeRequestApi(): string {
+    const { webOrigin, projectPath, number } = this.#ref
+    return `${webOrigin}/api/v4/projects/${encodeURIComponent(projectPath)}/merge_requests/${number}`
+  }
+
+  async #write(method: WriteMethod, url: string, body: unknown): Promise<void> {
+    await writeJson({ method, url, body, headers: this.#headers(), schema: z.unknown(), authHint: AUTH_HINT })
   }
 
   #headers(): Record<string, string> {

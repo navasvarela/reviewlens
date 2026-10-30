@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
 import { commitShaSchema } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, PullRequest } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, CommitSha, PullRequest } from "@lens/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { runGit } from "../git.ts"
 import { AnthropicProvider } from "./anthropicProvider.ts"
@@ -167,7 +167,7 @@ describe("reviewWithAi", () => {
 
   it("returns the validated review with usage and cost, then serves the same prompt from cache", async () => {
     const provider = new FakeProvider(COMPLETION)
-    const request = { repoDir, head, context: CONTEXT, provider, cacheDir, maxInputTokens: 40_000 }
+    const request = { repoDir, base: head, head, context: CONTEXT, provider, cacheDir, maxInputTokens: 40_000 }
     const first = await reviewWithAi(request)
     expect(first).toMatchObject({ status: "completed", cached: false, droppedStatements: 0, estimatedCostUsd: 0.08 })
     expect(await reviewWithAi(request)).toMatchObject({ status: "completed", cached: true })
@@ -177,7 +177,7 @@ describe("reviewWithAi", () => {
   it("reports a provider failure as an unavailable review instead of failing the run", async () => {
     const provider = new FakeProvider(new AiUnavailableError("rate limited by the Anthropic API; try again shortly"))
     const otherContext = { ...CONTEXT, pullRequest: { ...PULL_REQUEST, title: "Different prompt" } }
-    expect(await reviewWithAi({ repoDir, head, context: otherContext, provider, cacheDir, maxInputTokens: 40_000 })).toEqual({
+    expect(await reviewWithAi({ repoDir, base: head, head, context: otherContext, provider, cacheDir, maxInputTokens: 40_000 })).toEqual({
       status: "unavailable",
       reason: "rate limited by the Anthropic API; try again shortly",
     })
@@ -185,20 +185,36 @@ describe("reviewWithAi", () => {
 })
 
 describe("reviewWithAi in a repository that forbids AI", () => {
-  it("never calls the provider", async () => {
-    const repoDir = await mkdtemp(join(tmpdir(), "lens-ai-forbidden-"))
-    const env = { GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.com" }
-    await runGit(["init", "--quiet"], { cwd: repoDir })
-    await writeFile(join(repoDir, ".lens.json"), JSON.stringify({ ai: { allowed: false } }))
-    await runGit(["add", ".lens.json"], { cwd: repoDir })
-    await runGit(["commit", "--quiet", "--message", "config"], { cwd: repoDir, env })
-    const head = commitShaSchema.parse((await runGit(["rev-parse", "HEAD"], { cwd: repoDir })).trim())
-    const provider = new FakeProvider(COMPLETION)
+  const env = { GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.com" }
+  let repoDir = ""
 
-    const review = await reviewWithAi({ repoDir, head, context: CONTEXT, provider, cacheDir: repoDir, maxInputTokens: 40_000 })
+  const commitConfig = async (content: string): Promise<CommitSha> => {
+    await writeFile(join(repoDir, ".lens.json"), content)
+    await runGit(["add", ".lens.json"], { cwd: repoDir })
+    await runGit(["commit", "--quiet", "--allow-empty", "--message", "config"], { cwd: repoDir, env })
+    return commitShaSchema.parse((await runGit(["rev-parse", "HEAD"], { cwd: repoDir })).trim())
+  }
+
+  beforeAll(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), "lens-ai-forbidden-"))
+    await runGit(["init", "--quiet"], { cwd: repoDir })
+  })
+
+  afterAll(async () => {
+    await rm(repoDir, { recursive: true, force: true })
+  })
+
+  it.each([
+    { name: "the merge base forbids it and the PR tries to allow it", base: '{"ai":{"allowed":false}}', head: '{"ai":{"allowed":true}}' },
+    { name: "the PR forbids it", base: "{}", head: '{"ai":{"allowed":false}}' },
+    { name: "the PR breaks the config", base: "{}", head: "not json" },
+  ])("never calls the provider when $name", async ({ base, head }) => {
+    const baseSha = await commitConfig(base)
+    const headSha = await commitConfig(head)
+    const provider = new FakeProvider(COMPLETION)
+    const review = await reviewWithAi({ repoDir, base: baseSha, head: headSha, context: CONTEXT, provider, cacheDir: repoDir, maxInputTokens: 40_000 })
     expect(review).toEqual({ status: "unavailable", reason: ".lens.json forbids sending this repository's code to a model" })
     expect(provider.calls).toBe(0)
-    await rm(repoDir, { recursive: true, force: true })
   })
 })
 

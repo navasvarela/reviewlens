@@ -1,5 +1,5 @@
-import { ModificationWeight, ReferenceConfidence, RiskCategory, RiskSeverity, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, Risk } from "@lens/review-model"
+import { changedUnitsOf, isBehaviourChange, ReferenceConfidence, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@lens/review-model"
+import type { ChangedFile, Risk } from "@lens/review-model"
 import { findingAt, pullRequestFinding } from "./scannedFile.ts"
 import type { RuleDescription } from "./scannedFile.ts"
 
@@ -40,11 +40,11 @@ function sizeSignal(files: readonly ChangedFile[]): Risk[] {
 
 function missingTestsSignal(files: readonly ChangedFile[]): Risk[] {
   const reviewable = files.filter((file) => file.noise === null)
-  const testsChanged = reviewable.some((file) => isTestPath(file.diff.path) || unitsOf(file).some((unit) => TEST_UNIT.test(unit.qualifiedName)))
+  const testsChanged = reviewable.some((file) => isTestPath(file.diff.path) || changedUnitsOf(file).some((unit) => TEST_UNIT.test(unit.qualifiedName)))
   const codeChanges = reviewable
     .filter((file) => !isTestPath(file.diff.path))
-    .flatMap(unitsOf)
-    .filter((unit) => isBehaviourChange(unit) && !TEST_UNIT.test(unit.qualifiedName))
+    .flatMap(changedUnitsOf)
+    .filter((unit) => isBehaviourChange(unit.change) && !TEST_UNIT.test(unit.qualifiedName))
   if (testsChanged || codeChanges.length === 0) return []
   const rule: RuleDescription = {
     id: "tests.none",
@@ -59,13 +59,11 @@ function missingTestsSignal(files: readonly ChangedFile[]): Risk[] {
 /** A removed or renamed unit that untouched code still names will likely break the build or fail at runtime. */
 function brokenReferenceSignals(files: readonly ChangedFile[]): Risk[] {
   return files.flatMap((file) =>
-    unitsOf(file).flatMap((unit) => {
+    changedUnitsOf(file).flatMap((unit) => {
       const gone = unit.change.kind === UnitChangeKind.Removed || unit.change.kind === UnitChangeKind.Renamed
       if (!gone || unit.impact?.status !== UnitImpactStatus.Traced) return []
       // Possible references may be other items sharing the name; they alone do not prove a break.
-      const stale = unit.impact.references.filter(
-        (reference) => !reference.touchedByPullRequest && reference.confidence !== ReferenceConfidence.Possible,
-      )
+      const stale = untouchedReferences(unit).filter((reference) => reference.confidence !== ReferenceConfidence.Possible)
       const first = stale.at(0)
       if (first === undefined) return []
       const verb = unit.change.kind === UnitChangeKind.Removed ? "removed" : "renamed"
@@ -81,24 +79,6 @@ function brokenReferenceSignals(files: readonly ChangedFile[]): Risk[] {
   )
 }
 
-function isBehaviourChange(unit: ChangedUnit): boolean {
-  switch (unit.change.kind) {
-    case UnitChangeKind.Added:
-    case UnitChangeKind.Removed:
-      return true
-    case UnitChangeKind.Modified:
-      return unit.change.weight === ModificationWeight.Semantic
-    case UnitChangeKind.Renamed:
-    case UnitChangeKind.MovedIn:
-    case UnitChangeKind.MovedOut:
-      return false
-  }
-}
-
 function isTestPath(path: string): boolean {
   return TEST_PATHS.some((pattern) => pattern.test(path))
-}
-
-function unitsOf(file: ChangedFile): readonly ChangedUnit[] {
-  return file.syntax.status === SyntaxAnalysisStatus.Analyzed ? file.syntax.units : []
 }

@@ -9,6 +9,7 @@
   "dependencies": {
     "@lens/engine": "workspace:*",
     "@lens/providers": "workspace:*",
-    "@lens/review-model": "workspace:*"
+    "@lens/review-model": "workspace:*",
+    "zod": "^4.6.7"
   }
 }

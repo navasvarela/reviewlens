@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 5
+export const REVIEW_MODEL_SCHEMA_VERSION = 6
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -421,5 +421,7 @@ export const reviewModelSchema = z.object({
   files: z.array(changedFileSchema).readonly(),
   risk: riskAssessmentSchema,
   ai: aiReviewSchema,
+  /** Where to send feedback on the tool, from the repository's config. */
+  feedbackUrl: z.url({ protocol: /^https?$/ }).nullable(),
 })
 export type ReviewModel = z.infer<typeof reviewModelSchema>

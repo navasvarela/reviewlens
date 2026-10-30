@@ -1,4 +1,5 @@
 import type { PullRequest } from "@lens/review-model"
+import type { MarkedComment } from "./markedComment.ts"
 
 /** Credentials for git's HTTP transport, sent as Basic auth. */
 export interface GitHttpAuth {
@@ -14,6 +15,8 @@ export interface PullRequestSnapshot {
 
 export interface GitHost {
   fetchPullRequest(): Promise<PullRequestSnapshot>
+  /** Posts the comment, or replaces the earlier one carrying the same marker. */
+  upsertComment(comment: MarkedComment): Promise<void>
 }
 
 export interface HostTokens {

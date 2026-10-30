@@ -1,6 +1,6 @@
 import { AiReviewStatus } from "@lens/review-model"
 import type { AiReview, CommitSha } from "@lens/review-model"
-import { LENS_CONFIG_PATH, readLensConfig } from "../config/lensConfig.ts"
+import { LENS_CONFIG_PATH, LensConfigError, readLensConfig } from "../config/lensConfig.ts"
 import { completionCacheKey, readCachedCompletion, writeCachedCompletion } from "./cache.ts"
 import { SYSTEM_PROMPT } from "./instructions.ts"
 import { validateOutput } from "./output.ts"
@@ -11,6 +11,7 @@ import type { AiProvider, TokenUsage } from "./provider.ts"
 
 export interface AiReviewRequest {
   readonly repoDir: string
+  readonly base: CommitSha
   readonly head: CommitSha
   readonly context: ReviewContext
   readonly provider: AiProvider
@@ -39,8 +40,7 @@ const TOKENS_PER_MILLION = 1_000_000
  * config forbids sending its code to a model.
  */
 export async function reviewWithAi(request: AiReviewRequest): Promise<AiReview> {
-  const config = await readLensConfig(request.repoDir, request.head)
-  if (!config.ai.allowed) {
+  if (!(await isAiAllowed(request.repoDir, request.base, request.head))) {
     return { status: AiReviewStatus.Unavailable, reason: `${LENS_CONFIG_PATH} forbids sending this repository's code to a model` }
   }
 
@@ -66,6 +66,21 @@ export async function reviewWithAi(request: AiReviewRequest): Promise<AiReview> 
     usage: completion.usage,
     estimatedCostUsd: estimateCost(completion.model, completion.usage),
     cached: cachedCompletion !== undefined,
+  }
+}
+
+/**
+ * Sending code is the one step that cannot be undone, so either version forbidding it is
+ * enough, and a head config that cannot be read counts as forbidding.
+ */
+async function isAiAllowed(repoDir: string, base: CommitSha, head: CommitSha): Promise<boolean> {
+  const baseConfig = await readLensConfig(repoDir, base)
+  try {
+    const headConfig = await readLensConfig(repoDir, head)
+    return baseConfig.ai.allowed && headConfig.ai.allowed
+  } catch (error: unknown) {
+    if (error instanceof LensConfigError) return false
+    throw error
   }
 }
 

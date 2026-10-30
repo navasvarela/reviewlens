@@ -10,12 +10,13 @@ const LEVEL_EXPLANATION =
 interface OverviewProps {
   readonly risk: RiskAssessment
   readonly ai: AiReview
+  readonly feedbackUrl: string | null
   readonly pullRequest: PullRequest
   readonly onOpenFile: (path: string) => void
 }
 
 /** The overview: security level, the AI review, every finding grouped by rule, and what was not checked. */
-export function Overview({ risk, ai, pullRequest, onOpenFile }: OverviewProps): ReactElement {
+export function Overview({ risk, ai, feedbackUrl, pullRequest, onOpenFile }: OverviewProps): ReactElement {
   return (
     <section className="risk-view">
       <div className={`level-box level-${risk.securityLevel}`}>
@@ -42,6 +43,16 @@ export function Overview({ risk, ai, pullRequest, onOpenFile }: OverviewProps): 
           </li>
         ))}
       </ul>
+
+      {feedbackUrl !== null && (
+        <p className="ai-note">
+          Was this report useful?{" "}
+          <a href={feedbackUrl} target="_blank" rel="noreferrer">
+            Leave feedback
+          </a>
+          .
+        </p>
+      )}
     </section>
   )
 }

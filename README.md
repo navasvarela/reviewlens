@@ -3,7 +3,7 @@
 A review companion for GitHub pull requests and GitLab merge requests. `lens review <url>` fetches the
 change, analyzes it, and serves a local report. (Working name; the project name is still an open decision.)
 
-Status: milestones M0–M4.
+Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
 
 ## What the report shows
 
@@ -44,13 +44,16 @@ Requires Node.js 22.18 or newer (it runs the TypeScript sources directly), pnpm 
 
 ```sh
 pnpm install
-pnpm build:ui
 pnpm lens review https://github.com/owner/repo/pull/123
 pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve --out ./report
 ```
 
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
 GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
+
+## In CI
+
+The GitHub Action (`navasvarela/reviewlens@main`) and the GitLab template (`ci/gitlab-ci.yml`) generate the report for each PR, keep it as a job artifact, and post one summary comment that is updated on each push. The [pilot guide](docs/pilot.md) has the setup. Locally, `lens review` also works without a URL inside a CI job, and `lens comment --report <dir> --report-url <url>` posts the summary.
 
 ## AI review
 
@@ -63,13 +66,15 @@ sent. A repository can forbid AI review entirely with `"ai": { "allowed": false 
 ## Team rules
 
 A `.lens.json` at the repository root adds sensitive areas, excludes paths from risk rules, and can
-forbid AI review:
+forbid AI review. A PR is always judged by the version on its merge base, so its own edits to the file
+take effect only after merge, and are reported as a finding:
 
 ```json
 {
   "riskPaths": [{ "pattern": "src/ledger/**", "severity": "high", "reason": "Moves customer funds" }],
   "ignore": ["tests/fixtures/**"],
-  "ai": { "allowed": true }
+  "ai": { "allowed": true },
+  "feedback": { "url": "https://forms.example.com/reviewlens" }
 }
 ```
 
@@ -86,8 +91,9 @@ forbid AI review:
    output is parsed run without user and system git config, which can otherwise change the output format.
 3. The **review model** (`packages/review-model`) is the JSON contract between the engine and every
    consumer, validated with Zod on both sides.
-4. The **CLI** (`packages/cli`) writes the report (the prebuilt UI plus `review.json`) as a static directory
-   and serves it on `127.0.0.1`. The directory can also be uploaded as a CI artifact as is.
+4. The **CLI** (`packages/cli`) writes the report as one self-contained HTML file, plus `review.json` as
+   data, and serves it on `127.0.0.1`. The page also opens directly from disk, which is how CI artifacts
+   are used.
 5. The **report UI** (`packages/report-ui`) is a React app built with Vite.
 
 ## Development

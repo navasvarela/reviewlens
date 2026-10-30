@@ -53,7 +53,7 @@ function Report({ review }: ReportProps): ReactElement {
       />
       <main className="content">
         {selectedFile === undefined ? (
-          <Overview risk={review.risk} ai={review.ai} pullRequest={review.pullRequest} onOpenFile={openFile} />
+          <Overview risk={review.risk} ai={review.ai} feedbackUrl={review.feedbackUrl} pullRequest={review.pullRequest} onOpenFile={openFile} />
         ) : (
           <FileView
             key={selectedFile.diff.path}

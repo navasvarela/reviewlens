@@ -1,10 +1,12 @@
 import { join } from "node:path"
-import { analyzeChangedFiles, AnthropicProvider, fetchCommits, reviewWithAi } from "@lens/engine"
+import { analyzeChangedFiles, AnthropicProvider, fetchCommits, readLensConfig, reviewWithAi } from "@lens/engine"
 import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@lens/providers"
 import type { HostTokens, PullRequestRef } from "@lens/providers"
 import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@lens/review-model"
 import type { AiReview, ReviewModel } from "@lens/review-model"
 import type { ReviewOptions } from "./args.ts"
+import { detectPullRequestUrl } from "./ciEnvironment.ts"
+import type { CiEnvironment } from "./ciEnvironment.ts"
 import { writeReport } from "./report.ts"
 import { serveReport } from "./server.ts"
 
@@ -13,12 +15,13 @@ const SHORT_SHA_LENGTH = 10
 export interface ReviewDependencies {
   readonly tokens: HostTokens
   readonly cacheDir: string
+  readonly env: CiEnvironment
   readonly now: () => Date
   readonly log: (message: string) => void
 }
 
 export async function runReview(options: ReviewOptions, deps: ReviewDependencies): Promise<void> {
-  const ref = parsePullRequestUrl(options.url)
+  const ref = parsePullRequestUrl(options.url ?? (await detectPullRequestUrl(deps.env)))
   const model = await analyzePullRequest(ref, options, deps)
   const reportDir = options.outDir ?? defaultReportDir(deps.cacheDir, ref)
   await writeReport(model, reportDir)
@@ -53,6 +56,7 @@ async function analyzePullRequest(ref: PullRequestRef, options: ReviewOptions, d
       ? { status: AiReviewStatus.Disabled }
       : await reviewWithAi({
           repoDir,
+          base: pullRequest.mergeBaseSha,
           head: pullRequest.headSha,
           context: { pullRequest, files, risk },
           provider: new AnthropicProvider(options.ai.model),
@@ -68,6 +72,7 @@ async function analyzePullRequest(ref: PullRequestRef, options: ReviewOptions, d
     files,
     risk,
     ai,
+    feedbackUrl: (await readLensConfig(repoDir, pullRequest.mergeBaseSha)).feedback.url,
   })
 }
 

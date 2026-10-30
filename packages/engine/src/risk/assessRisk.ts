@@ -52,7 +52,7 @@ const ALWAYS_SKIPPED: readonly SkippedCheck[] = [
 
 /** Runs every risk check over the change and rates its security level. */
 export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAssessment> {
-  const config = await readLensConfig(request.repoDir, request.head)
+  const config = await readLensConfig(request.repoDir, request.base)
   const scanned: ScannedFile[] = request.files
     .map((file, index) => ({ diff: file.diff, noise: file.noise, after: request.headTexts.at(index) }))
     .filter((file) => !isIgnored(config, file.diff.path))

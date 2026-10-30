@@ -1,7 +1,7 @@
 import type { ReactElement } from "react"
-import { UnitChangeKind, UnitKind } from "@lens/review-model"
+import { UnitChangeKind, UnitKind, untouchedReferences } from "@lens/review-model"
 import type { ChangedUnit, PullRequest, UnitChange, UnitSnapshot } from "@lens/review-model"
-import { changeLabel, isQuiet, Tone, untouchedReferenceCount } from "../unitChange.ts"
+import { changeLabel, isQuiet, Tone } from "../unitChange.ts"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"
 import { ImpactPanel } from "./ImpactPanel.tsx"
 
@@ -28,7 +28,7 @@ interface UnitCardProps {
 
 export function UnitCard({ unit, pullRequest }: UnitCardProps): ReactElement {
   const label = changeLabel(unit.change)
-  const untouchedCallers = untouchedReferenceCount(unit.impact)
+  const untouchedCallers = untouchedReferences(unit).length
   return (
     <details className={`unit unit-${label.tone}`} open={!isQuiet(unit)}>
       <summary>

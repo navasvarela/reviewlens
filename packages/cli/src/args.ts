@@ -1,8 +1,13 @@
 import { parseArgs } from "node:util"
 
-export const USAGE = `Usage: lens review <pull-request-url> [options]
+export const USAGE = `Usage:
+  lens review [pull-request-url] [options]
+  lens comment --report <dir> --report-url <url>
 
-Analyzes a GitHub pull request or GitLab merge request and serves a local report.
+review analyzes a GitHub pull request or GitLab merge request and serves a local report.
+In GitHub Actions or a GitLab merge request pipeline the URL comes from the environment.
+
+comment posts or updates a summary on the pull request, linking to the report.
 
 Options:
   --out <dir>        Write the report here instead of the cache directory
@@ -15,6 +20,8 @@ Options:
   --ai-max-input-tokens <n>
                      Prompt budget for --ai (default: 40000); larger PRs are summarized
   --cache-dir <dir>  Where repositories and reports are cached (default: ~/.cache/lens)
+  --report <dir>     With comment: the directory review wrote (--out)
+  --report-url <url> With comment: where reviewers can open the report
   -h, --help         Show this help
 
 Environment:
@@ -28,7 +35,8 @@ const DEFAULT_AI_MAX_INPUT_TOKENS = 40_000
 const DEFAULT_AI_MODEL = "claude-opus-5-5"
 
 export interface ReviewOptions {
-  readonly url: string
+  /** Undefined means: take it from the CI environment. */
+  readonly url: string | undefined
   readonly outDir: string | undefined
   readonly port: number
   readonly serve: boolean
@@ -44,7 +52,15 @@ export interface AiOptions {
   readonly maxInputTokens: number
 }
 
-export type Command = { readonly kind: "help" } | { readonly kind: "review"; readonly options: ReviewOptions }
+export interface CommentOptions {
+  readonly reportDir: string
+  readonly reportUrl: string
+}
+
+export type Command =
+  | { readonly kind: "help" }
+  | { readonly kind: "review"; readonly options: ReviewOptions }
+  | { readonly kind: "comment"; readonly options: CommentOptions }
 
 export class UsageError extends Error {
   override readonly name = "UsageError"
@@ -63,6 +79,8 @@ export function parseCommand(argv: readonly string[]): Command {
       ai: { type: "boolean", default: false },
       "ai-model": { type: "string" },
       "ai-max-input-tokens": { type: "string" },
+      report: { type: "string" },
+      "report-url": { type: "string" },
       "cache-dir": { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
@@ -72,11 +90,11 @@ export function parseCommand(argv: readonly string[]): Command {
   if (values.help || command === undefined) {
     return { kind: "help" }
   }
+  if (command === "comment") {
+    return { kind: "comment", options: parseCommentOptions(values.report, values["report-url"]) }
+  }
   if (command !== "review") {
     throw new UsageError(`Unknown command "${command}"`)
-  }
-  if (url === undefined) {
-    throw new UsageError("Missing the pull request URL")
   }
   if (extra.length > 0) {
     throw new UsageError(`Unexpected arguments: ${extra.join(" ")}`)
@@ -100,6 +118,16 @@ export function parseCommand(argv: readonly string[]): Command {
         : undefined,
     },
   }
+}
+
+function parseCommentOptions(reportDir: string | undefined, reportUrl: string | undefined): CommentOptions {
+  if (reportDir === undefined || reportUrl === undefined) {
+    throw new UsageError("comment needs both --report and --report-url")
+  }
+  if (!/^https?:\/\//.test(reportUrl)) {
+    throw new UsageError(`--report-url must be an http or https URL, got "${reportUrl}"`)
+  }
+  return { reportDir, reportUrl }
 }
 
 function parsePositiveInteger(text: string, flag: string): number {

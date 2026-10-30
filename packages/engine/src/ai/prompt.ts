@@ -1,4 +1,4 @@
-import { CitationSide as Side, DiffLineKind, FileContentKind, ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus } from "@lens/review-model"
+import { changedUnitsOf, CitationSide as Side, DiffLineKind, FileContentKind, isBehaviourChange, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@lens/review-model"
 import type { ChangedFile, ChangedUnit, CitationSide, FileDiff, PullRequest, RiskAssessment, UnitRef, UnitSnapshot } from "@lens/review-model"
 
 export interface ReviewContext {
@@ -62,7 +62,7 @@ export function buildPrompt(context: ReviewContext, maxInputTokens: number): Pro
   })
 
   const otherSections = context.files
-    .filter((file) => file.noise === null && unitsOf(file).length === 0)
+    .filter((file) => file.noise === null && changedUnitsOf(file).length === 0)
     .map((file) => {
       const rendered = renderHunks(file.diff)
       if (fits(rendered.text)) {
@@ -97,29 +97,14 @@ interface LocatedUnit {
 }
 
 function orderedUnits(files: readonly ChangedFile[]): LocatedUnit[] {
-  const located = files.flatMap((file) => unitsOf(file).map((unit) => ({ path: file.diff.path, unit })))
+  const located = files.flatMap((file) => changedUnitsOf(file).map((unit) => ({ path: file.diff.path, unit })))
   return located.sort((a, b) => priority(b.unit) - priority(a.unit))
 }
 
 // Behaviour changes first, then by how much untouched code depends on the unit.
 function priority(unit: ChangedUnit): number {
-  const behaviour = isBehaviourChange(unit) ? 1_000_000 : 0
-  const impact = unit.impact?.status === UnitImpactStatus.Traced ? unit.impact.references.filter((reference) => !reference.touchedByPullRequest).length : 0
-  return behaviour + impact
-}
-
-function isBehaviourChange(unit: ChangedUnit): boolean {
-  switch (unit.change.kind) {
-    case UnitChangeKind.Added:
-    case UnitChangeKind.Removed:
-      return true
-    case UnitChangeKind.Modified:
-      return unit.change.weight === ModificationWeight.Semantic
-    case UnitChangeKind.Renamed:
-    case UnitChangeKind.MovedIn:
-    case UnitChangeKind.MovedOut:
-      return false
-  }
+  const behaviour = isBehaviourChange(unit.change) ? 1_000_000 : 0
+  return behaviour + untouchedReferences(unit).length
 }
 
 interface Rendered {
@@ -201,8 +186,4 @@ function section(name: string, lines: readonly string[]): string {
 
 function attribute(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;").replaceAll("<", "&lt;")
-}
-
-function unitsOf(file: ChangedFile): readonly ChangedUnit[] {
-  return file.syntax.status === SyntaxAnalysisStatus.Analyzed ? file.syntax.units : []
 }

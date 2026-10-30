@@ -6,7 +6,9 @@
     <title>Lens review</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Replaced when the script starts, so a script that never runs is not a blank page. -->
+    <div id="root"><p class="notice">Loading review…</p></div>
+    <noscript><p class="notice">This report needs JavaScript.</p></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

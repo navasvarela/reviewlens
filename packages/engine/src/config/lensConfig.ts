@@ -5,8 +5,8 @@ import { z } from "zod"
 import { readBlobs } from "../blobs.ts"
 
 /**
- * Per-repository settings, read from the head commit so a PR that edits them is judged
- * by its own rules.
+ * Per-repository settings. Callers read them from the merge base, not the PR's head: a PR
+ * must not be able to loosen the rules it is judged by, for example by ignoring every path.
  */
 export const LENS_CONFIG_PATH = ".lens.json"
 
@@ -19,10 +19,12 @@ const lensConfigSchema = z.object({
   ignore: z.array(z.string().min(1)).default([]),
   /** `allowed: false` keeps this repository's code from ever being sent to a model. */
   ai: z.object({ allowed: z.boolean().default(true) }).default({ allowed: true }),
+  /** Where pilot users send feedback; shown in the report and the PR comment. */
+  feedback: z.object({ url: z.url({ protocol: /^https?$/ }).nullable().default(null) }).default({ url: null }),
 })
 export type LensConfig = z.infer<typeof lensConfigSchema>
 
-export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true } }
+export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, feedback: { url: null } }
 
 export class LensConfigError extends Error {
   override readonly name = "LensConfigError"
@@ -47,5 +49,6 @@ export async function readLensConfig(repoDir: string, head: CommitSha): Promise<
 }
 
 export function isIgnored(config: LensConfig, path: string): boolean {
-  return config.ignore.some((pattern) => matchesGlob(path, pattern))
+  // Changes to the config itself are always reported, whatever it says.
+  return path !== LENS_CONFIG_PATH && config.ignore.some((pattern) => matchesGlob(path, pattern))
 }
