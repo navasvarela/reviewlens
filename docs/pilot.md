@@ -67,7 +67,7 @@ Split every metric by AI-generated and hand-written PRs. These are measured by h
 ## Questions for the weekly form
 
 1. How many reviews did you do this week, and in how many did you open the report?
-2. Which sections helped: changed units, collapsed noise, used-by lists, risk findings, reading order, description check, questions?
+2. Which parts helped: changed units, file map, change facts, collapsed noise, the Impact tab, the Risks tab, reading order, description check, questions?
 3. Which section was wrong or got in the way? Give an example.
 4. Did the report change a review decision, or catch something you would have missed?
 5. Did you see a false alarm? Which finding, on which PR?

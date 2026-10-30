@@ -1,18 +1,17 @@
 import type { ReactElement } from "react"
-import { UnitChangeKind, UnitKind, untouchedReferences } from "@lens/review-model"
-import type { ChangedUnit, PullRequest, UnitChange, UnitSnapshot } from "@lens/review-model"
+import { UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@lens/review-model"
+import type { ChangedUnit, UnitChange, UnitImpact, UnitSnapshot } from "@lens/review-model"
 import { changeLabel, factPhrases, isQuiet, Tone, unitAnchorId, UNIT_KIND_LABELS } from "../unitChange.ts"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"
-import { ImpactPanel } from "./ImpactPanel.tsx"
 
 interface UnitCardProps {
   readonly unit: ChangedUnit
   /** Position among the file's cards, which the file map links to. */
   readonly index: number
-  readonly pullRequest: PullRequest
+  readonly onShowImpact: () => void
 }
 
-export function UnitCard({ unit, index, pullRequest }: UnitCardProps): ReactElement {
+export function UnitCard({ unit, index, onShowImpact }: UnitCardProps): ReactElement {
   const label = changeLabel(unit.change)
   const untouchedCallers = untouchedReferences(unit).length
   return (
@@ -35,8 +34,42 @@ export function UnitCard({ unit, index, pullRequest }: UnitCardProps): ReactElem
         </ul>
       )}
       <UnitBody unit={unit} />
-      {unit.impact !== null && <ImpactPanel unit={unit} impact={unit.impact} pullRequest={pullRequest} />}
+      {unit.impact !== null && <ImpactLine unit={unit} impact={unit.impact} onShow={onShowImpact} />}
     </details>
+  )
+}
+
+interface ImpactLineProps {
+  readonly unit: ChangedUnit
+  readonly impact: UnitImpact
+  readonly onShow: () => void
+}
+
+/** One line on the card; the full list lives on the Impact tab, so code stays together here. */
+function ImpactLine({ unit, impact, onShow }: ImpactLineProps): ReactElement | null {
+  const gone = unit.change.kind === UnitChangeKind.Removed || unit.change.kind === UnitChangeKind.Renamed
+  if (impact.status !== UnitImpactStatus.Traced) {
+    return (
+      <p className="impact impact-note">
+        Callers not traced.{" "}
+        <button type="button" className="link-button" onClick={onShow}>
+          Why
+        </button>
+      </p>
+    )
+  }
+  if (impact.totalReferences === 0) {
+    return gone ? <p className="impact impact-note">No remaining references to {impact.searchedName}.</p> : null
+  }
+  const untouched = untouchedReferences(unit).length
+  return (
+    <p className={gone && untouched > 0 ? "impact impact-warning" : "impact impact-note"}>
+      {gone ? "Still referenced" : "Used"} in {impact.totalReferences} {impact.totalReferences === 1 ? "place" : "places"}
+      {untouched > 0 && `, ${untouched} not changed by this PR`}.{" "}
+      <button type="button" className="link-button" onClick={onShow}>
+        See where
+      </button>
+    </p>
   )
 }
 

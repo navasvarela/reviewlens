@@ -1,11 +1,12 @@
 import { useState } from "react"
 import type { ReactElement } from "react"
-import { changedUnitsOf, FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
-import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis } from "@lens/review-model"
+import { changedUnitsOf, FileChangeStatus, RiskSeverity, SyntaxAnalysisStatus } from "@lens/review-model"
+import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis, UnitRef } from "@lens/review-model"
+import { worstSeverity } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 import { FileMap, MIN_UNITS_FOR_MAP } from "./FileMap.tsx"
 import { HunkView } from "./HunkView.tsx"
-import { RiskList } from "./Overview.tsx"
+import { RiskList } from "./RiskView.tsx"
 import { UnitCard } from "./UnitCard.tsx"
 
 const ViewMode = { Units: "units", Lines: "lines" } as const
@@ -16,9 +17,10 @@ interface FileViewProps {
   /** Risk findings located in this file. */
   readonly findings: readonly Risk[]
   readonly pullRequest: PullRequest
+  readonly onShowImpact: (unit: UnitRef) => void
 }
 
-export function FileView({ file, findings, pullRequest }: FileViewProps): ReactElement {
+export function FileView({ file, findings, pullRequest, onShowImpact }: FileViewProps): ReactElement {
   const units = changedUnitsOf(file)
   const [mode, setMode] = useState<ViewMode>(units.length > 0 ? ViewMode.Units : ViewMode.Lines)
   const { diff } = file
@@ -53,9 +55,12 @@ export function FileView({ file, findings, pullRequest }: FileViewProps): ReactE
         </p>
       )}
       {findings.length > 0 && (
-        <div className="file-risks">
+        <details className="file-risks" open={worstSeverity(findings) === RiskSeverity.High}>
+          <summary>
+            {findings.length} risk {findings.length === 1 ? "finding" : "findings"} in this file
+          </summary>
           <RiskList findings={findings} pullRequest={pullRequest} onOpenFile={undefined} />
-        </div>
+        </details>
       )}
       <AnalysisNote syntax={file.syntax} />
       {mode === ViewMode.Units && units.length > 0 ? (
@@ -66,7 +71,7 @@ export function FileView({ file, findings, pullRequest }: FileViewProps): ReactE
           )}
           {units.map((unit, index) => (
             // Overloads and cfg variants can repeat a name and change, so the index disambiguates.
-            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} index={index} pullRequest={pullRequest} />
+            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
           ))}
         </>
       ) : (

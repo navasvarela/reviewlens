@@ -1,22 +1,19 @@
 import type { ReactElement } from "react"
-import type { AiReview, PullRequest, Risk, RiskAssessment } from "@lens/review-model"
+import type { PullRequest, Risk, RiskAssessment } from "@lens/review-model"
 import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
-import { AiReviewView } from "./AiReviewView.tsx"
 
 const LEVEL_EXPLANATION =
   "The highest severity among security findings: secrets, risky APIs, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe."
 
-interface OverviewProps {
+interface RiskViewProps {
   readonly risk: RiskAssessment
-  readonly ai: AiReview
-  readonly feedbackUrl: string | null
   readonly pullRequest: PullRequest
   readonly onOpenFile: (path: string) => void
 }
 
-/** The overview: security level, the AI review, every finding grouped by rule, and what was not checked. */
-export function Overview({ risk, ai, feedbackUrl, pullRequest, onOpenFile }: OverviewProps): ReactElement {
+/** The security level, every finding grouped by rule, and what was not checked. */
+export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): ReactElement {
   return (
     <section className="risk-view">
       <div className={`level-box level-${risk.securityLevel}`}>
@@ -25,8 +22,6 @@ export function Overview({ risk, ai, feedbackUrl, pullRequest, onOpenFile }: Ove
         </p>
         <p className="level-explanation">{LEVEL_EXPLANATION}</p>
       </div>
-
-      <AiReviewView ai={ai} pullRequest={pullRequest} onOpenFile={onOpenFile} />
 
       <h2 className="section-title">Risk findings ({risk.findings.length})</h2>
       {risk.findings.length === 0 ? (
@@ -43,16 +38,6 @@ export function Overview({ risk, ai, feedbackUrl, pullRequest, onOpenFile }: Ove
           </li>
         ))}
       </ul>
-
-      {feedbackUrl !== null && (
-        <p className="ai-note">
-          Was this report useful?{" "}
-          <a href={feedbackUrl} target="_blank" rel="noreferrer">
-            Leave feedback
-          </a>
-          .
-        </p>
-      )}
     </section>
   )
 }

@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { ReactElement } from "react"
-import type { ReviewModel } from "@lens/review-model"
+import type { ReviewModel, UnitRef } from "@lens/review-model"
+import { AiReviewView } from "./components/AiReviewView.tsx"
 import { FileList } from "./components/FileList.tsx"
 import { FileView } from "./components/FileView.tsx"
+import { ImpactView } from "./components/ImpactView.tsx"
 import { PullRequestHeader } from "./components/PullRequestHeader.tsx"
-import { Overview } from "./components/Overview.tsx"
+import { ReportTabs, tabButtonId, tabPanelId } from "./components/ReportTabs.tsx"
+import { RiskView } from "./components/RiskView.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
 import { findingsInFile } from "./risks.ts"
+import { ReportTab, summarizeTabs, tabFromHash } from "./tabs.ts"
 
 export function App(): ReactElement {
   const [load, setLoad] = useState<ReviewLoad>({ status: "loading" })
@@ -30,39 +34,76 @@ interface ReportProps {
   readonly review: ReviewModel
 }
 
-type Selection = { readonly kind: "overview" } | { readonly kind: "file"; readonly path: string }
-
-const OVERVIEW: Selection = { kind: "overview" }
-
 function Report({ review }: ReportProps): ReactElement {
-  const [selection, setSelection] = useState<Selection>(OVERVIEW)
-  const openFile = (path: string): void => setSelection({ kind: "file", path })
-  const selectedPath = selection.kind === "file" ? selection.path : undefined
+  const [tab, setTab] = useState<ReportTab>(tabFromHash(window.location.hash))
+  const firstReviewable = review.files.find((file) => file.noise === null) ?? review.files.at(0)
+  const [selectedPath, setSelectedPath] = useState(firstReviewable?.diff.path)
+  const [impactFocus, setImpactFocus] = useState<UnitRef>()
   const selectedFile = review.files.find((file) => file.diff.path === selectedPath)
+
+  // The hash is the source of truth for the tab, so the back button and shared links work.
+  useEffect(() => {
+    const followHash = (): void => setTab(tabFromHash(window.location.hash))
+    window.addEventListener("hashchange", followHash)
+    return () => window.removeEventListener("hashchange", followHash)
+  }, [])
+
+  // Browsers clear the scroll position of a hidden element, so it is kept here while on
+  // another tab. Opening a different file starts at its top.
+  const contentRef = useRef<HTMLElement>(null)
+  const changesScrollTop = useRef(0)
+  useLayoutEffect(() => {
+    changesScrollTop.current = 0
+    if (contentRef.current !== null) contentRef.current.scrollTop = 0
+  }, [selectedPath])
+  useLayoutEffect(() => {
+    if (tab === ReportTab.Changes && contentRef.current !== null) contentRef.current.scrollTop = changesScrollTop.current
+  }, [tab])
+  const rememberScroll = (): void => {
+    if (tab === ReportTab.Changes && contentRef.current !== null) changesScrollTop.current = contentRef.current.scrollTop
+  }
+
+  const showTab = (next: ReportTab): void => {
+    setTab(next)
+    window.location.hash = next
+  }
+  const openFile = (path: string): void => {
+    setSelectedPath(path)
+    showTab(ReportTab.Changes)
+  }
+  const showImpact = (unit: UnitRef): void => {
+    setImpactFocus(unit)
+    showTab(ReportTab.Impact)
+  }
 
   return (
     <div className="layout">
-      <PullRequestHeader pullRequest={review.pullRequest} files={review.files} risk={review.risk} />
-      <FileList
-        files={review.files}
-        findings={review.risk.findings}
-        selectedPath={selectedPath}
-        overviewSelected={selection.kind === "overview"}
-        onSelect={openFile}
-        onSelectOverview={() => setSelection(OVERVIEW)}
-      />
-      <main className="content">
-        {selectedFile === undefined ? (
-          <Overview risk={review.risk} ai={review.ai} feedbackUrl={review.feedbackUrl} pullRequest={review.pullRequest} onOpenFile={openFile} />
-        ) : (
-          <FileView
-            key={selectedFile.diff.path}
-            file={selectedFile}
-            findings={findingsInFile(review.risk.findings, selectedFile.diff.path)}
-            pullRequest={review.pullRequest}
-          />
-        )}
-      </main>
+      <PullRequestHeader pullRequest={review.pullRequest} files={review.files} risk={review.risk} feedbackUrl={review.feedbackUrl} />
+      <ReportTabs tabs={summarizeTabs(review)} selected={tab} onSelect={showTab} />
+      {/* Stays mounted while hidden, so expanded cards and the scroll position survive a tab switch. */}
+      <div id={tabPanelId(ReportTab.Changes)} role="tabpanel" aria-labelledby={tabButtonId(ReportTab.Changes)} className="changes-panel" hidden={tab !== ReportTab.Changes}>
+        <FileList files={review.files} findings={review.risk.findings} selectedPath={selectedPath} onSelect={setSelectedPath} />
+        <main ref={contentRef} className="content" onScroll={rememberScroll}>
+          {selectedFile === undefined ? (
+            <p className="notice">This pull request changes no files.</p>
+          ) : (
+            <FileView
+              key={selectedFile.diff.path}
+              file={selectedFile}
+              findings={findingsInFile(review.risk.findings, selectedFile.diff.path)}
+              pullRequest={review.pullRequest}
+              onShowImpact={showImpact}
+            />
+          )}
+        </main>
+      </div>
+      {tab !== ReportTab.Changes && (
+        <div id={tabPanelId(tab)} role="tabpanel" aria-labelledby={tabButtonId(tab)} className="content tab-panel">
+          {tab === ReportTab.Impact && <ImpactView files={review.files} focus={impactFocus} pullRequest={review.pullRequest} onOpenFile={openFile} />}
+          {tab === ReportTab.Risks && <RiskView risk={review.risk} pullRequest={review.pullRequest} onOpenFile={openFile} />}
+          {tab === ReportTab.AiReview && <AiReviewView ai={review.ai} pullRequest={review.pullRequest} onOpenFile={openFile} />}
+        </div>
+      )}
     </div>
   )
 }

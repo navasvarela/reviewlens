@@ -7,6 +7,8 @@ Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](
 
 ## What the report shows
 
+The report has four tabs: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
+
 - **Changed units, not hunks.** For Rust, TypeScript/JavaScript and Python, each changed function, method,
   type or class appears once, whole, before and after, with edited words marked. A class shows only the
   code it owns; its methods are separate cards.

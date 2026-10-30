@@ -21,26 +21,15 @@ interface FileListProps {
   readonly files: readonly ChangedFile[]
   readonly findings: readonly Risk[]
   readonly selectedPath: string | undefined
-  readonly overviewSelected: boolean
   readonly onSelect: (path: string) => void
-  readonly onSelectOverview: () => void
 }
 
-/** The overview, then files needing review; lockfiles, generated and vendored files grouped below. */
-export function FileList({ files, findings, selectedPath, overviewSelected, onSelect, onSelectOverview }: FileListProps): ReactElement {
+/** Files needing review first; lockfiles, generated and vendored files grouped below. */
+export function FileList({ files, findings, selectedPath, onSelect }: FileListProps): ReactElement {
   const reviewable = files.filter((file) => file.noise === null)
   const skippable = files.filter((file) => file.noise !== null)
   return (
     <nav className="file-list" aria-label="Changed files">
-      <button
-        type="button"
-        className={overviewSelected ? "file overview selected" : "file overview"}
-        aria-current={overviewSelected}
-        onClick={onSelectOverview}
-      >
-        <span className="path">Overview</span>
-        <span className="counts">{findings.length}</span>
-      </button>
       <FileGroup files={reviewable} findings={findings} selectedPath={selectedPath} onSelect={onSelect} />
       {skippable.length > 0 && (
         <>
