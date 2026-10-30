@@ -103,3 +103,7 @@ pnpm typecheck
 pnpm test
 pnpm --filter @lens/report-ui dev   # needs a review.json in packages/report-ui/public
 ```
+
+## License
+
+[FSL-1.1-ALv2](LICENSE.md), the Functional Source License. You can use, modify and redistribute this software for any purpose except offering it as a competing commercial product or service, and internal use is explicitly allowed. Each version becomes available under the Apache License 2.0 two years after its release. This is source-available, not an OSI-approved open source license.

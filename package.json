@@ -1,6 +1,7 @@
 {
   "name": "lens",
   "private": true,
+  "license": "FSL-1.1-ALv2",
   "type": "module",
   "packageManager": "pnpm@10.9.0",
   "engines": {
