@@ -7,15 +7,30 @@ const execFileAsync = promisify(execFile)
 // execFile's 1 MB default would fail them.
 const MAX_GIT_OUTPUT_BYTES = 1024 * 1024 * 1024
 
+/**
+ * Environment for git commands whose output is parsed. User and system config can change
+ * that output: `diff.submodule=log` drops the `diff --git` header of submodule changes, and
+ * `diff.suppressBlankEmpty` turns blank context lines into empty ones. Fetches keep the
+ * user's config, which may hold proxies and credential helpers.
+ */
+export const ISOLATED_CONFIG_ENV: Readonly<Record<string, string>> = {
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_CONFIG_COUNT: "0",
+}
+
 export class GitCommandError extends Error {
   override readonly name = "GitCommandError"
   readonly args: readonly string[]
   readonly stderr: string
+  /** Undefined when git could not be started at all. */
+  readonly exitCode: number | undefined
 
   constructor(args: readonly string[], stderr: string, cause: unknown) {
     super(`git ${args[0] ?? ""} failed: ${stderr.trim() || String(cause)}`, { cause })
     this.args = args
     this.stderr = stderr
+    this.exitCode = exitCodeOf(cause)
   }
 }
 
@@ -57,4 +72,11 @@ function stderrOf(error: unknown): string {
     return error.stderr
   }
   return ""
+}
+
+function exitCodeOf(error: unknown): number | undefined {
+  if (error instanceof Error && "code" in error && typeof error.code === "number") {
+    return error.code
+  }
+  return undefined
 }

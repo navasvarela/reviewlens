@@ -1,4 +1,5 @@
 import { extname } from "node:path"
+import { SourceLanguage } from "@lens/review-model"
 import type { LanguageSpec } from "./languageSpec.ts"
 import { pythonSpec } from "./python.ts"
 import { rustSpec } from "./rust.ts"
@@ -21,4 +22,15 @@ const SPEC_BY_EXTENSION: ReadonlyMap<string, LanguageSpec> = new Map([
 
 export function languageSpecFor(path: string): LanguageSpec | undefined {
   return SPEC_BY_EXTENSION.get(extname(path).toLowerCase())
+}
+
+/** Extensions of every language the engine can parse, for narrowing file searches. */
+export const SUPPORTED_EXTENSIONS: readonly string[] = [...SPEC_BY_EXTENSION.keys()]
+
+// TypeScript, TSX and plain JavaScript import each other freely; the others stay apart.
+const ECMASCRIPT_LANGUAGES: ReadonlySet<SourceLanguage> = new Set([SourceLanguage.TypeScript, SourceLanguage.Tsx])
+
+/** Whether code in one language can refer to units defined in the other. */
+export function canReferenceAcross(a: SourceLanguage, b: SourceLanguage): boolean {
+  return a === b || (ECMASCRIPT_LANGUAGES.has(a) && ECMASCRIPT_LANGUAGES.has(b))
 }

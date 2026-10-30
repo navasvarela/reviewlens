@@ -16,6 +16,7 @@ export function PullRequestHeader({ pullRequest, files }: PullRequestHeaderProps
   const needsAttention = summaries.reduce((sum, summary) => sum + summary.needsAttention, 0)
   const quiet = summaries.reduce((sum, summary) => sum + summary.quiet, 0)
   const skippable = files.filter((file) => file.noise !== null).length
+  const untouchedReferences = summaries.reduce((sum, summary) => sum + summary.untouchedReferences, 0)
 
   return (
     <header className="header">
@@ -36,6 +37,12 @@ export function PullRequestHeader({ pullRequest, files }: PullRequestHeaderProps
         {quiet > 0 && <> · {quiet} collapsed as formatting, comments, renames or moves</>}
         {skippable > 0 && <> · {skippable} skippable {skippable === 1 ? "file" : "files"}</>}
       </p>
+      {untouchedReferences > 0 && (
+        <p className="review-summary impact-summary">
+          <strong>{untouchedReferences}</strong> {untouchedReferences === 1 ? "place" : "places"} this PR did not touch
+          use code it changed. Check them before approving.
+        </p>
+      )}
     </header>
   )
 }

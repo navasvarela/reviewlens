@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { ReactElement } from "react"
 import { FileChangeStatus, SyntaxAnalysisStatus } from "@lens/review-model"
-import type { ChangedFile, SyntaxAnalysis } from "@lens/review-model"
+import type { ChangedFile, PullRequest, SyntaxAnalysis } from "@lens/review-model"
 import { summarizeFile, unitsOf } from "../unitChange.ts"
 import { HunkView } from "./HunkView.tsx"
 import { UnitCard } from "./UnitCard.tsx"
@@ -11,9 +11,10 @@ type ViewMode = (typeof ViewMode)[keyof typeof ViewMode]
 
 interface FileViewProps {
   readonly file: ChangedFile
+  readonly pullRequest: PullRequest
 }
 
-export function FileView({ file }: FileViewProps): ReactElement {
+export function FileView({ file, pullRequest }: FileViewProps): ReactElement {
   const units = unitsOf(file)
   const [mode, setMode] = useState<ViewMode>(units.length > 0 ? ViewMode.Units : ViewMode.Lines)
   const { diff } = file
@@ -53,7 +54,7 @@ export function FileView({ file }: FileViewProps): ReactElement {
           <UnitSummary file={file} />
           {units.map((unit, index) => (
             // Overloads and cfg variants can repeat a name and change, so the index disambiguates.
-            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} />
+            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} pullRequest={pullRequest} />
           ))}
         </>
       ) : (
@@ -63,7 +64,7 @@ export function FileView({ file }: FileViewProps): ReactElement {
   )
 }
 
-function UnitSummary({ file }: FileViewProps): ReactElement {
+function UnitSummary({ file }: { readonly file: ChangedFile }): ReactElement {
   const { needsAttention, quiet } = summarizeFile(file)
   return (
     <p className="unit-summary">

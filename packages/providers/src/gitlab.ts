@@ -52,6 +52,7 @@ export class GitLabHost implements GitHost {
       pullRequest: {
         host: GitHostKind.GitLab,
         url: mergeRequest.web_url,
+        repositoryWebUrl: `${webOrigin}/${projectPath}`,
         number: mergeRequest.iid,
         title: mergeRequest.title,
         description: mergeRequest.description ?? "",

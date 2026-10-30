@@ -1,7 +1,7 @@
 import { SourceLanguage, UnitKind } from "@lens/review-model"
 import type { Node } from "web-tree-sitter"
-import { namedDefinition } from "./languageSpec.ts"
-import type { ContainerContext, DefinitionHeader, LanguageSpec } from "./languageSpec.ts"
+import { classifyWithGrammar, isBindingWithGrammar, namedDefinition } from "./languageSpec.ts"
+import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec } from "./languageSpec.ts"
 
 const KIND_BY_NODE_TYPE: ReadonlyMap<string, UnitKind> = new Map([
   ["function_declaration", UnitKind.Function],
@@ -30,6 +30,29 @@ const OPAQUE_NODE_TYPES: ReadonlySet<string> = new Set([
   "statement_block",
 ])
 const STRING_DELIMITERS: ReadonlySet<string> = new Set(["'", '"'])
+
+const IDENTIFIER_GRAMMAR: IdentifierGrammar = {
+  member: new Map([["member_expression", ["property", "object"]]]),
+  path: new Map([["nested_type_identifier", ["name", "module"]]]),
+  // `import { parse } from "./x"` uses `parse`; it does not declare a new thing.
+  nameIsUse: new Set(["import_specifier", "export_specifier"]),
+  labels: new Map([["pair", "key"]]),
+  bindings: new Map([
+    ["required_parameter", "pattern"],
+    ["optional_parameter", "pattern"],
+    ["variable_declarator", "name"],
+    ["arrow_function", "parameter"],
+    ["catch_clause", "parameter"],
+    ["for_in_statement", "left"],
+  ]),
+}
+const FUNCTION_SCOPE_TYPES: ReadonlySet<string> = new Set([
+  "function_declaration",
+  "generator_function_declaration",
+  "function_expression",
+  "arrow_function",
+  "method_definition",
+])
 
 function describe(node: Node, container: ContainerContext | undefined): DefinitionHeader | undefined {
   if (node.type === "variable_declarator") {
@@ -88,6 +111,12 @@ function makeSpec(language: SourceLanguage, grammar: string): LanguageSpec {
     childPrefix: (_header, _node, qualifiedName) => qualifiedName,
     // Prettier and linters flip quote styles wholesale; 'a' and "a" are the same string.
     normalizeLeaf: (leaf) => (STRING_DELIMITERS.has(leaf.type) && leaf.parent?.type === "string" ? '"' : leaf.text),
+    identifierTypes: new Set(["identifier", "property_identifier", "type_identifier", "shorthand_property_identifier"]),
+    classifyIdentifier: (leaf) => classifyWithGrammar(leaf, IDENTIFIER_GRAMMAR),
+    selfReceivers: new Set(["this"]),
+    functionScopeTypes: FUNCTION_SCOPE_TYPES,
+    isBindingSite: (leaf) => isBindingWithGrammar(leaf, IDENTIFIER_GRAMMAR),
+    isImplicitlyInvoked: (methodName) => methodName === "constructor",
   }
 }
 

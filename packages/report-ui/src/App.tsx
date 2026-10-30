@@ -38,7 +38,7 @@ function Report({ review }: ReportProps): ReactElement {
       <PullRequestHeader pullRequest={review.pullRequest} files={review.files} />
       <FileList files={review.files} selectedPath={selectedPath} onSelect={setSelectedPath} />
       <main className="content">
-        {selectedFile === undefined ? <p className="notice">This pull request changes no files.</p> : <FileView key={selectedFile.diff.path} file={selectedFile} />}
+        {selectedFile === undefined ? <p className="notice">This pull request changes no files.</p> : <FileView key={selectedFile.diff.path} file={selectedFile} pullRequest={review.pullRequest} />}
       </main>
     </div>
   )

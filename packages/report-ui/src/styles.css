@@ -415,3 +415,111 @@ code {
     width: 32px;
   }
 }
+
+/* M2: blast radius */
+
+:root {
+  --warning-text: #9a6700;
+  --warning-bg: #fff8c5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --warning-text: #d29922;
+    --warning-bg: #2b2111;
+  }
+}
+
+.impact-summary {
+  color: var(--warning-text);
+}
+
+.file-hint-impact {
+  color: var(--warning-text);
+}
+
+.impact-badge {
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.impact {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.impact-warning {
+  background: var(--warning-bg);
+}
+
+.impact-note {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.impact-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.impact-touched > summary {
+  margin-top: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.impact-more {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+}
+
+.reference-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reference {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 2px 8px;
+  align-items: baseline;
+  padding: 3px 0;
+}
+
+.reference a {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.reference-caller {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.reference-snippet {
+  grid-column: 2 / -1;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.confidence {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.confidence-exact {
+  color: var(--added-text);
+}
+
+.confidence-possible {
+  color: var(--quiet-text);
+  font-weight: 400;
+}

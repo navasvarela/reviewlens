@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 2
+export const REVIEW_MODEL_SCHEMA_VERSION = 3
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -20,6 +20,8 @@ export type CommitSha = z.infer<typeof commitShaSchema>
 export const pullRequestSchema = z.object({
   host: z.enum(GitHostKind),
   url: z.url(),
+  /** The repository's web page, for linking to files at a commit. */
+  repositoryWebUrl: z.url(),
   number: z.number().int().positive(),
   title: z.string(),
   description: z.string(),
@@ -155,12 +157,70 @@ export const unitChangeSchema = z.discriminatedUnion("kind", [
 ])
 export type UnitChange = z.infer<typeof unitChangeSchema>
 
-export const changedUnitSchema = z.object({
+/** A unit and how it changed, before impact analysis. */
+export const comparedUnitSchema = z.object({
   kind: z.enum(UnitKind),
   name: z.string(),
   /** Container path and name, e.g. `SizeFilter::from_str` or `Parser.parse`; unique within the file. */
   qualifiedName: z.string(),
   change: unitChangeSchema,
+})
+export type ComparedUnit = z.infer<typeof comparedUnitSchema>
+
+/**
+ * How sure the engine is that a reference points at the changed unit. References are
+ * found by name and syntax, not by type resolution, so another item with the same
+ * name can match.
+ */
+export const ReferenceConfidence = {
+  /** Qualified with the unit's container, e.g. `Size::new` or `Parser.parse`. */
+  Exact: "exact",
+  /** The unit's name used directly, where it is the only kind of thing that name can be. */
+  Likely: "likely",
+  /** A method call or field access by name only (`x.parse()`), whose receiver type is unknown. */
+  Possible: "possible",
+} as const
+export type ReferenceConfidence = (typeof ReferenceConfidence)[keyof typeof ReferenceConfidence]
+
+export const referenceSchema = z.object({
+  path: z.string().min(1),
+  line: lineNumberSchema,
+  /** The unit containing the reference; null at module level. */
+  callerQualifiedName: z.string().nullable(),
+  confidence: z.enum(ReferenceConfidence),
+  /** False flags code this PR did not touch but whose behaviour may change with it. */
+  touchedByPullRequest: z.boolean(),
+  /** The referencing line, trimmed. */
+  snippet: z.string(),
+})
+export type Reference = z.infer<typeof referenceSchema>
+
+export const UnitImpactStatus = { Traced: "traced", TooCommon: "tooCommon", Skipped: "skipped" } as const
+
+/** Where the head commit still refers to a changed, removed or renamed unit. */
+export const unitImpactSchema = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal(UnitImpactStatus.Traced),
+    /** The name searched for: the old name for a renamed unit. */
+    searchedName: z.string(),
+    references: z.array(referenceSchema).readonly(),
+    /** All references found; `references` may be capped below this. */
+    totalReferences: z.number().int().nonnegative(),
+  }),
+  /** The name appears in too many files to trace by name alone (e.g. `new`, `get`). */
+  z.object({
+    status: z.literal(UnitImpactStatus.TooCommon),
+    searchedName: z.string(),
+    matchingFiles: z.number().int().positive(),
+  }),
+  /** Not traced to keep the run fast on very large PRs; `reason` says why. */
+  z.object({ status: z.literal(UnitImpactStatus.Skipped), searchedName: z.string(), reason: z.string() }),
+])
+export type UnitImpact = z.infer<typeof unitImpactSchema>
+
+export const changedUnitSchema = comparedUnitSchema.extend({
+  /** Null for changes that cannot affect callers (formatting, comments, moves, additions). */
+  impact: unitImpactSchema.nullable(),
 })
 export type ChangedUnit = z.infer<typeof changedUnitSchema>
 

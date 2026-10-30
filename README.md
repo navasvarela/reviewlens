@@ -3,7 +3,7 @@
 A review companion for GitHub pull requests and GitLab merge requests. `lens review <url>` fetches the
 change, analyzes it, and serves a local report. (Working name; the project name is still an open decision.)
 
-Status: milestones M0 and M1. Blast radius, risk and the AI layer come in M2–M4.
+Status: milestones M0–M2. Risk and the AI layer come in M3–M4.
 
 ## What the report shows
 
@@ -13,7 +13,15 @@ Status: milestones M0 and M1. Blast radius, risk and the AI layer come in M2–M
 - **Noise collapsed.** Formatting-only and comment-only edits, renames with unchanged bodies, and units moved
   unchanged between files or containers are folded away. Lockfiles, vendored and generated files (by path
   or a `@generated` / `DO NOT EDIT` header) are grouped as skippable.
+- **Blast radius.** For every function, method or type the PR changes, removes or renames, the report
+  lists where the rest of the code still uses it, linked to the host at the head commit, and flags the
+  callers this PR did not touch. Removed and renamed units show any references left behind.
 - **Line diff fallback** for other languages, skipped files, and on demand.
+
+References are found by name and syntax, not type resolution: each carries a confidence (exact when
+qualified with the unit's type, likely for a direct use, possible for `x.method()` on an unknown type),
+and parameters or locals that shadow the name are ignored. Names in more than 200 files (`new`, `get`)
+are reported as too common to trace.
 
 Known limits: changes inside test callbacks such as `describe(...)`/`it(...)` show under "imports & top
 level"; a unit both moved and edited shows as removed plus added; no syntax highlighting yet.
@@ -39,6 +47,9 @@ GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` fo
    repository under `~/.cache/lens/repos`, builds the file list and hunks from `git diff`, classifies noise,
    and parses both versions of each file with tree-sitter (WASM) to extract and compare units
    (`src/syntax`: one small spec per language, a shared walker, token fingerprints for comparison).
+   `src/impact` then scans the head commit's source for the changed names and parses the matching files
+   to resolve references. Git commands whose output is parsed run without user and system git config,
+   which can otherwise change the output format.
 3. The **review model** (`packages/review-model`) is the JSON contract between the engine and every
    consumer, validated with Zod on both sides.
 4. The **CLI** (`packages/cli`) writes the report (the prebuilt UI plus `review.json`) as a static directory

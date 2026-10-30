@@ -50,6 +50,7 @@ export class GitHubHost implements GitHost {
       pullRequest: {
         host: GitHostKind.GitHub,
         url: pull.html_url,
+        repositoryWebUrl: `${webOrigin}/${owner}/${repo}`,
         number: pull.number,
         title: pull.title,
         description: pull.body ?? "",

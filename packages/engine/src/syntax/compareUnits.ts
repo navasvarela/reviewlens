@@ -1,5 +1,5 @@
 import { ModificationWeight, UnitChangeKind, UnitKind } from "@lens/review-model"
-import type { ChangedUnit, UnitLocation } from "@lens/review-model"
+import type { ComparedUnit, UnitLocation } from "@lens/review-model"
 import { MODULE_SCOPE_NAME } from "./definitions.ts"
 import type { Definition, FileUnits, ModuleScope } from "./definitions.ts"
 
@@ -31,9 +31,9 @@ interface Located {
  *    the same container is a rename; the same body anywhere else is a move.
  * 4. Remaining candidates are reported as added or removed.
  */
-export function compareUnits(files: readonly FileVersions[]): Map<string, ChangedUnit[]> {
-  const unitsByPath = new Map<string, ChangedUnit[]>(files.map((file) => [file.path, []]))
-  const report = (path: string, unit: ChangedUnit): void => {
+export function compareUnits(files: readonly FileVersions[]): Map<string, ComparedUnit[]> {
+  const unitsByPath = new Map<string, ComparedUnit[]>(files.map((file) => [file.path, []]))
+  const report = (path: string, unit: ComparedUnit): void => {
     unitsByPath.get(path)?.push(unit)
   }
   const added: Located[] = []
@@ -80,7 +80,7 @@ export function compareUnits(files: readonly FileVersions[]): Map<string, Change
 }
 
 interface Pairing {
-  readonly modified: ChangedUnit[]
+  readonly modified: ComparedUnit[]
   readonly added: Definition[]
   readonly removed: Definition[]
 }
@@ -129,7 +129,7 @@ function modificationWeight(before: Definition, after: Definition): Modification
   return before.fingerprints.ownCode === after.fingerprints.ownCode ? ModificationWeight.CommentsOnly : ModificationWeight.Semantic
 }
 
-function compareModuleScopes(before: ModuleScope | undefined, after: ModuleScope | undefined): ChangedUnit | undefined {
+function compareModuleScopes(before: ModuleScope | undefined, after: ModuleScope | undefined): ComparedUnit | undefined {
   const unit = { kind: UnitKind.ModuleScope, name: MODULE_SCOPE_NAME, qualifiedName: MODULE_SCOPE_NAME }
   if (before === undefined && after === undefined) {
     return undefined
@@ -202,11 +202,11 @@ function locationOf(located: Located): UnitLocation {
 }
 
 // Module scope first, then in reading order of the file each unit now lives in.
-function byPositionInFile(a: ChangedUnit, b: ChangedUnit): number {
+function byPositionInFile(a: ComparedUnit, b: ComparedUnit): number {
   return sortPosition(a) - sortPosition(b)
 }
 
-function sortPosition(unit: ChangedUnit): number {
+function sortPosition(unit: ComparedUnit): number {
   if (unit.kind === UnitKind.ModuleScope) return 0
   return "after" in unit.change ? unit.change.after.startLine : unit.change.before.startLine
 }

@@ -1,8 +1,11 @@
 import { FileChangeStatus, FileContentKind, SyntaxAnalysisStatus } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, CommitSha, FileDiff, FileNoise, SyntaxAnalysis } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, CommitSha, ComparedUnit, FileDiff, FileNoise, SyntaxAnalysis } from "@lens/review-model"
 import { readBlobs } from "./blobs.ts"
 import type { BlobRequest } from "./blobs.ts"
 import { collectFileDiffs } from "./changedFiles.ts"
+import { traceImpact } from "./impact/traceImpact.ts"
+import { MAX_SOURCE_FILE_BYTES } from "./limits.ts"
+import type { AnalyzedFile } from "./impact/traceImpact.ts"
 import { classifyNoise, isNoiseByPath } from "./noise.ts"
 import { compareUnits } from "./syntax/compareUnits.ts"
 import type { FileVersions } from "./syntax/compareUnits.ts"
@@ -12,9 +15,6 @@ import type { LanguageSpec } from "./syntax/languageSpec.ts"
 import { languageSpecFor } from "./syntax/languages.ts"
 import { withSyntaxTree } from "./syntax/parser.ts"
 
-// Hand-written source files are far below this; files above it are almost always
-// generated or data, and parsing them would dominate the run time.
-const MAX_PARSED_FILE_BYTES = 1_000_000
 const NUL = 0
 
 interface FileText {
@@ -37,12 +37,26 @@ export async function analyzeChangedFiles(repoDir: string, from: CommitSha, to: 
     diffs.map((diff, index) => extractVersions(diff, textAt(texts, index), plans.at(index))),
   )
   const unitsByPath = compareUnits(versions.filter((version): version is FileVersions => version !== undefined))
+  const impacts = await traceImpact(repoDir, to, analyzedFiles(diffs, plans, unitsByPath))
+  const withImpact = (unit: ComparedUnit): ChangedUnit => ({ ...unit, impact: impacts.get(unit) ?? null })
 
   return diffs.map((diff, index) => ({
     diff,
     noise: noise.at(index) ?? null,
-    syntax: syntaxAnalysis(plans.at(index), unitsByPath.get(diff.path) ?? []),
+    syntax: syntaxAnalysis(plans.at(index), (unitsByPath.get(diff.path) ?? []).map(withImpact)),
   }))
+}
+
+function analyzedFiles(
+  diffs: readonly FileDiff[],
+  plans: readonly SyntaxPlan[],
+  unitsByPath: ReadonlyMap<string, ComparedUnit[]>,
+): AnalyzedFile[] {
+  return diffs.flatMap((diff, index) => {
+    const plan = plans.at(index)
+    if (plan?.kind !== "analyze") return []
+    return [{ path: diff.path, spec: plan.language, units: unitsByPath.get(diff.path) ?? [], isNew: diff.status === FileChangeStatus.Added }]
+  })
 }
 
 function planSyntaxAnalysis(diff: FileDiff, text: FileText, noise: FileNoise | null): SyntaxPlan {
@@ -117,7 +131,7 @@ async function readFileTexts(repoDir: string, from: CommitSha, to: CommitSha, di
 }
 
 function decodeText(blob: Buffer | undefined): string | undefined {
-  if (blob === undefined || blob.length > MAX_PARSED_FILE_BYTES || blob.includes(NUL)) {
+  if (blob === undefined || blob.length > MAX_SOURCE_FILE_BYTES || blob.includes(NUL)) {
     return undefined
   }
   return blob.toString("utf8")

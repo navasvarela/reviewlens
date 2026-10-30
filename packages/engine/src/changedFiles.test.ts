@@ -84,6 +84,52 @@ describe("collectFileDiffs", () => {
   })
 })
 
+describe("collectFileDiffs under unusual user git config", () => {
+  let repoDir = ""
+  const savedEnv = { ...process.env }
+
+  afterAll(async () => {
+    process.env = savedEnv
+    await rm(repoDir, { recursive: true, force: true })
+  })
+
+  it("keeps submodule sections and blank context lines that config would alter", async () => {
+    repoDir = await mkdtemp(join(tmpdir(), "lens-config-"))
+    const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: COMMITTER_ENV })
+    // No --all: the gitlink has no working-tree entry, so --all would stage it as deleted.
+    const commit = async (): Promise<CommitSha> => {
+      await git("add", "a.txt")
+      await git("commit", "--quiet", "--message", "change")
+      return commitShaSchema.parse((await git("rev-parse", "HEAD")).trim())
+    }
+    await git("init", "--quiet")
+    await writeFile(join(repoDir, "a.txt"), "one\n\nthree\n")
+    // A submodule pointer needs no submodule checkout: it is just a gitlink entry.
+    await git("update-index", "--add", "--cacheinfo", `160000,${"1".repeat(40)},vendor/lib`)
+    const base = await commit()
+    await writeFile(join(repoDir, "a.txt"), "one\n\nTHREE\n")
+    await git("update-index", "--cacheinfo", `160000,${"2".repeat(40)},vendor/lib`)
+    const head = await commit()
+
+    // The config that broke a rust-lang/rust PR, plus one that rewrites blank lines.
+    process.env.GIT_CONFIG_COUNT = "2"
+    process.env.GIT_CONFIG_KEY_0 = "diff.submodule"
+    process.env.GIT_CONFIG_VALUE_0 = "log"
+    process.env.GIT_CONFIG_KEY_1 = "diff.suppressBlankEmpty"
+    process.env.GIT_CONFIG_VALUE_1 = "true"
+
+    const diffs = await collectFileDiffs(repoDir, base, head)
+    expect(diffs.map((diff) => diff.path)).toEqual(["a.txt", "vendor/lib"])
+    const text = diffs.at(0)?.content
+    expect(text?.kind === "text" ? text.hunks.at(0)?.lines.at(1) : undefined).toEqual({
+      kind: "context",
+      content: "",
+      oldLine: 2,
+      newLine: 2,
+    })
+  })
+})
+
 describe("pairEntriesWithChunks", () => {
   it("rejects a patch with more sections than the file list", () => {
     expect(() => pairEntriesWithChunks([], [["diff --git a/x b/x"]])).toThrow(PatchMismatchError)

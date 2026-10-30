@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process"
 import type { CommitSha } from "@lens/review-model"
-import { GitCommandError } from "./git.ts"
+import { GitCommandError, ISOLATED_CONFIG_ENV } from "./git.ts"
 
 export interface BlobRequest {
   readonly commit: CommitSha
@@ -33,7 +33,11 @@ export async function readBlobs(repoDir: string, requests: readonly BlobRequest[
 function runCatFileBatch(repoDir: string, input: string): Promise<Buffer> {
   const args = ["cat-file", "--batch"]
   return new Promise((resolve, reject) => {
-    const child = spawn("git", args, { cwd: repoDir, stdio: ["pipe", "pipe", "pipe"] })
+    const child = spawn("git", args, {
+      cwd: repoDir,
+      env: { ...process.env, ...ISOLATED_CONFIG_ENV },
+      stdio: ["pipe", "pipe", "pipe"],
+    })
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk))

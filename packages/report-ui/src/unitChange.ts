@@ -1,5 +1,5 @@
-import { ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, UnitChange } from "@lens/review-model"
+import { ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, UnitChange, UnitImpact } from "@lens/review-model"
 
 export const Tone = { Added: "added", Removed: "removed", Modified: "modified", Quiet: "quiet" } as const
 export type Tone = (typeof Tone)[keyof typeof Tone]
@@ -49,10 +49,18 @@ export function unitsOf(file: ChangedFile): readonly ChangedUnit[] {
 export interface FileSummary {
   readonly needsAttention: number
   readonly quiet: number
+  /** References to this file's changed units from code the PR did not touch. */
+  readonly untouchedReferences: number
 }
 
 export function summarizeFile(file: ChangedFile): FileSummary {
   const units = unitsOf(file)
   const quiet = units.filter(isQuiet).length
-  return { needsAttention: units.length - quiet, quiet }
+  const untouchedReferences = units.reduce((sum, unit) => sum + untouchedReferenceCount(unit.impact), 0)
+  return { needsAttention: units.length - quiet, quiet, untouchedReferences }
+}
+
+export function untouchedReferenceCount(impact: UnitImpact | null): number {
+  if (impact?.status !== UnitImpactStatus.Traced) return 0
+  return impact.references.filter((reference) => !reference.touchedByPullRequest).length
 }

@@ -1,7 +1,7 @@
 import { SourceLanguage, UnitKind } from "@lens/review-model"
 import type { Node } from "web-tree-sitter"
-import { namedDefinition } from "./languageSpec.ts"
-import type { ContainerContext, DefinitionHeader, LanguageSpec } from "./languageSpec.ts"
+import { classifyWithGrammar, isBindingWithGrammar, namedDefinition } from "./languageSpec.ts"
+import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec } from "./languageSpec.ts"
 
 const KIND_BY_NODE_TYPE: ReadonlyMap<string, UnitKind> = new Map([
   ["struct_item", UnitKind.Struct],
@@ -17,6 +17,26 @@ const KIND_BY_NODE_TYPE: ReadonlyMap<string, UnitKind> = new Map([
 const FUNCTION_NODE_TYPES: ReadonlySet<string> = new Set(["function_item", "function_signature_item"])
 const METHOD_CONTAINERS: ReadonlySet<UnitKind> = new Set([UnitKind.Impl, UnitKind.Trait])
 const CONTAINERS: ReadonlySet<UnitKind> = new Set([UnitKind.Impl, UnitKind.Trait, UnitKind.Module])
+
+const IDENTIFIER_GRAMMAR: IdentifierGrammar = {
+  member: new Map([["field_expression", ["field", "value"]]]),
+  path: new Map([
+    ["scoped_identifier", ["name", "path"]],
+    ["scoped_type_identifier", ["name", "path"]],
+  ]),
+  nameIsUse: new Set(),
+  // `impl Opts {` implements the type rather than depending on its shape.
+  labels: new Map([
+    ["field_initializer", "field"],
+    ["impl_item", "type"],
+  ]),
+  bindings: new Map([
+    ["parameter", "pattern"],
+    ["let_declaration", "pattern"],
+    ["closure_parameters", null],
+    ["for_expression", "pattern"],
+  ]),
+}
 
 export const rustSpec: LanguageSpec = {
   language: SourceLanguage.Rust,
@@ -52,6 +72,13 @@ export const rustSpec: LanguageSpec = {
   },
 
   normalizeLeaf: (leaf) => leaf.text,
+  identifierTypes: new Set(["identifier", "field_identifier", "type_identifier"]),
+  classifyIdentifier: (leaf) => classifyWithGrammar(leaf, IDENTIFIER_GRAMMAR),
+  selfReceivers: new Set(["self", "Self"]),
+  functionScopeTypes: new Set(["function_item", "closure_expression"]),
+  isBindingSite: (leaf) => isBindingWithGrammar(leaf, IDENTIFIER_GRAMMAR),
+  // Rust calls only `drop` implicitly, and only through the Drop trait.
+  isImplicitlyInvoked: (methodName) => methodName === "drop",
 }
 
 function describeImpl(node: Node): DefinitionHeader | undefined {

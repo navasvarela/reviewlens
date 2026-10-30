@@ -1,6 +1,6 @@
 import { DiffLineKind, FileChangeStatus, FileContentKind } from "@lens/review-model"
 import type { CommitSha, FileContent, FileDiff } from "@lens/review-model"
-import { runGit } from "./git.ts"
+import { ISOLATED_CONFIG_ENV, runGit } from "./git.ts"
 import { EntryStatus, parseNameStatus } from "./nameStatus.ts"
 import type { NameStatusEntry } from "./nameStatus.ts"
 import { parseFileContent, splitPatchByFile } from "./patch.ts"
@@ -17,8 +17,8 @@ export class PatchMismatchError extends Error {
 
 export async function collectFileDiffs(repoDir: string, from: CommitSha, to: CommitSha): Promise<FileDiff[]> {
   const [nameStatus, patch] = await Promise.all([
-    runGit(["diff", ...COMMON_DIFF_FLAGS, "--name-status", "-z", from, to], { cwd: repoDir }),
-    runGit(["diff", ...COMMON_DIFF_FLAGS, "--unified=3", from, to], { cwd: repoDir }),
+    runGit(["diff", ...COMMON_DIFF_FLAGS, "--name-status", "-z", from, to], { cwd: repoDir, env: ISOLATED_CONFIG_ENV }),
+    runGit(["diff", ...COMMON_DIFF_FLAGS, "--unified=3", from, to], { cwd: repoDir, env: ISOLATED_CONFIG_ENV }),
   ])
   return pairEntriesWithChunks(parseNameStatus(nameStatus), splitPatchByFile(patch))
 }

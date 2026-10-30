@@ -1,4 +1,4 @@
-import type { ChangedUnit } from "@lens/review-model"
+import type { ComparedUnit } from "@lens/review-model"
 import { describe, expect, it } from "vitest"
 import { compareUnits } from "./compareUnits.ts"
 import { extractUnits } from "./definitions.ts"
@@ -20,7 +20,7 @@ interface FileChange {
   readonly after: string | undefined
 }
 
-async function compare(spec: LanguageSpec, changes: readonly FileChange[]): Promise<Map<string, ChangedUnit[]>> {
+async function compare(spec: LanguageSpec, changes: readonly FileChange[]): Promise<Map<string, ComparedUnit[]>> {
   const files = await Promise.all(
     changes.map(async (change) => ({
       path: change.path,
@@ -32,7 +32,7 @@ async function compare(spec: LanguageSpec, changes: readonly FileChange[]): Prom
 }
 
 /** `kind name: change[/weight]`, the shape a reviewer would scan for. */
-function summarize(units: readonly ChangedUnit[] | undefined): string[] {
+function summarize(units: readonly ComparedUnit[] | undefined): string[] {
   return (units ?? []).map((unit) => {
     const weight = unit.change.kind === "modified" ? `/${unit.change.weight}` : ""
     return `${unit.kind} ${unit.qualifiedName}: ${unit.change.kind}${weight}`

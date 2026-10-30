@@ -1,9 +1,31 @@
 import { SourceLanguage, UnitKind } from "@lens/review-model"
 import type { Node } from "web-tree-sitter"
-import { namedDefinition } from "./languageSpec.ts"
-import type { ContainerContext, DefinitionHeader, LanguageSpec } from "./languageSpec.ts"
+import { classifyWithGrammar, isBindingWithGrammar, namedDefinition } from "./languageSpec.ts"
+import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec } from "./languageSpec.ts"
 
 const CONTAINERS: ReadonlySet<UnitKind> = new Set([UnitKind.Class])
+
+const IDENTIFIER_GRAMMAR: IdentifierGrammar = {
+  member: new Map([["attribute", ["attribute", "object"]]]),
+  path: new Map(),
+  nameIsUse: new Set(),
+  // `f(timeout=3)` names a parameter, and `import x as y` declares `y`; neither refers to a unit.
+  labels: new Map([
+    ["keyword_argument", "name"],
+    ["aliased_import", "alias"],
+  ]),
+  bindings: new Map([
+    ["parameters", null],
+    ["lambda_parameters", null],
+    ["default_parameter", "name"],
+    ["typed_parameter", null],
+    ["typed_default_parameter", "name"],
+    ["assignment", "left"],
+    ["for_statement", "left"],
+  ]),
+}
+// Dunder methods (`__init__`, `__eq__`) are invoked by the interpreter, not by name.
+const DUNDER_METHOD = /^__\w+__$/
 
 export const pythonSpec: LanguageSpec = {
   language: SourceLanguage.Python,
@@ -28,4 +50,10 @@ export const pythonSpec: LanguageSpec = {
   isOpaque: (node) => node.type === "call" || node.type === "lambda",
   childPrefix: (_header, _node, qualifiedName) => qualifiedName,
   normalizeLeaf: (leaf) => leaf.text,
+  identifierTypes: new Set(["identifier"]),
+  classifyIdentifier: (leaf) => classifyWithGrammar(leaf, IDENTIFIER_GRAMMAR),
+  selfReceivers: new Set(["self", "cls"]),
+  functionScopeTypes: new Set(["function_definition", "lambda"]),
+  isBindingSite: (leaf) => isBindingWithGrammar(leaf, IDENTIFIER_GRAMMAR),
+  isImplicitlyInvoked: (methodName) => DUNDER_METHOD.test(methodName),
 }

@@ -80,13 +80,14 @@ function FileHint({ file }: { readonly file: ChangedFile }): ReactElement | null
   if (unitsOf(file).length === 0) {
     return null
   }
-  const { needsAttention, quiet } = summarizeFile(file)
+  const { needsAttention, quiet, untouchedReferences } = summarizeFile(file)
   if (needsAttention === 0) {
     return <span className="file-hint">no behaviour change</span>
   }
   return (
     <span className="file-hint">
       {needsAttention} to review{quiet > 0 ? ` · ${quiet} collapsed` : ""}
+      {untouchedReferences > 0 && <span className="file-hint-impact"> · {untouchedReferences} untouched callers</span>}
     </span>
   )
 }

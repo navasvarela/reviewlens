@@ -1,8 +1,9 @@
 import type { ReactElement } from "react"
 import { UnitChangeKind, UnitKind } from "@lens/review-model"
-import type { ChangedUnit, UnitChange, UnitSnapshot } from "@lens/review-model"
-import { changeLabel, isQuiet, Tone } from "../unitChange.ts"
+import type { ChangedUnit, PullRequest, UnitChange, UnitSnapshot } from "@lens/review-model"
+import { changeLabel, isQuiet, Tone, untouchedReferenceCount } from "../unitChange.ts"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"
+import { ImpactPanel } from "./ImpactPanel.tsx"
 
 const KIND_LABELS: Readonly<Record<UnitKind, string>> = {
   [UnitKind.Function]: "fn",
@@ -22,23 +23,35 @@ const KIND_LABELS: Readonly<Record<UnitKind, string>> = {
 
 interface UnitCardProps {
   readonly unit: ChangedUnit
+  readonly pullRequest: PullRequest
 }
 
-export function UnitCard({ unit }: UnitCardProps): ReactElement {
+export function UnitCard({ unit, pullRequest }: UnitCardProps): ReactElement {
   const label = changeLabel(unit.change)
+  const untouchedCallers = untouchedReferenceCount(unit.impact)
   return (
     <details className={`unit unit-${label.tone}`} open={!isQuiet(unit)}>
       <summary>
         <span className="unit-kind">{KIND_LABELS[unit.kind]}</span>
         {unit.kind !== UnitKind.ModuleScope && <code className="unit-name">{unit.qualifiedName}</code>}
+        {untouchedCallers > 0 && (
+          <span className="impact-badge" title="Places that use this unit but were not changed by this PR">
+            {untouchedCallers} untouched {untouchedCallers === 1 ? "caller" : "callers"}
+          </span>
+        )}
         <span className={`change-label tone-${label.tone}`}>{label.text}</span>
       </summary>
       <UnitBody unit={unit} />
+      {unit.impact !== null && <ImpactPanel unit={unit} impact={unit.impact} pullRequest={pullRequest} />}
     </details>
   )
 }
 
-function UnitBody({ unit }: UnitCardProps): ReactElement {
+interface UnitBodyProps {
+  readonly unit: ChangedUnit
+}
+
+function UnitBody({ unit }: UnitBodyProps): ReactElement {
   const { change } = unit
   // Collapsed nested units break the link between row and file line number.
   const numbered = !snapshotsOf(change).some((snapshot) => snapshot.elidesNestedUnits)
