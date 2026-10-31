@@ -49,7 +49,8 @@ export async function startAppServer(store: ReviewStore, service: ReviewService,
   const context: AppContext = { store, service, apiKey, allowedHosts }
   const server = createServer((request, response) => {
     handle(request, response, context).catch((error: unknown) => {
-      sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) })
+      console.error("Unhandled app server error", error)
+      sendJson(response, 500, { error: "Internal server error" })
     })
   })
   await listenOn(server, port)
