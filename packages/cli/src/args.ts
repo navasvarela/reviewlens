@@ -31,6 +31,9 @@ Options:
 Environment:
   GITHUB_TOKEN, GH_TOKEN   Token for GitHub (required for private repositories)
   GITLAB_TOKEN             Token for GitLab (required for private projects)
+  LENS_TRUSTED_GITHUB_HOSTS, LENS_TRUSTED_GITLAB_HOSTS
+                           Comma-separated hosts besides github.com and gitlab.com that
+                           may receive those tokens, such as git.acme.internal
   ANTHROPIC_API_KEY        Credential for --ai (or an \`ant auth login\` profile)
 
 Troubleshooting: https://github.com/navasvarela/reviewlens/blob/main/docs/troubleshooting.md`

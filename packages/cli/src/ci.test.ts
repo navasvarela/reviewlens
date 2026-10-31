@@ -192,7 +192,7 @@ describe("runComment against stand-in host APIs", () => {
     await writeFile(join(reportDir, "review.json"), JSON.stringify(modelWith(pullRequestUrl)))
     await runComment(
       { reportDir, reportUrl: "https://example.com/report" },
-      { tokens: { github: "gh-token", gitlab: "gl-token" }, stepSummaryPath, log: (message) => logs.push(message) },
+      { tokens: { github: "gh-token", gitlab: "gl-token", trustedOrigins: { github: [], gitlab: [] } }, stepSummaryPath, log: (message) => logs.push(message) },
     )
   }
 

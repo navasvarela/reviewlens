@@ -5,7 +5,9 @@ import { join } from "node:path"
 import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@lens/review-model"
 import type { ReviewModel } from "@lens/review-model"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { hostTokensFor } from "../environment.ts"
+import { parsePullRequestUrl } from "@lens/providers"
+import type { PullRequestRef } from "@lens/providers"
+import { hostTokensFor, readHostTokens } from "../environment.ts"
 import { API_KEY_HEADER, startAppServer, withMeta } from "./appServer.ts"
 import type { AppServer } from "./appServer.ts"
 import { ReviewService } from "./reviewService.ts"
@@ -185,19 +187,58 @@ describe("the app server", () => {
 })
 
 describe("hostTokensFor", () => {
-  it("prefers the environment, and otherwise asks gh for that hostname only", async () => {
+  const ref = (url: string): PullRequestRef => parsePullRequestUrl(url)
+  const github = ref("https://github.com/o/r/pull/1")
+  const enterprise = ref("https://git.acme.internal/o/r/pull/1")
+  const recordingGh = (): { asked: string[]; run: (command: string, args: readonly string[]) => Promise<string> } => {
     const asked: string[] = []
-    const run = async (_command: string, args: readonly string[]): Promise<string> => {
-      asked.push(args.join(" "))
-      return "gh-token\n"
+    return {
+      asked,
+      run: async (_command, args) => {
+        asked.push(args.join(" "))
+        return "gh-token\n"
+      },
     }
-    expect(await hostTokensFor("https://github.com", { GITHUB_TOKEN: "env" }, run)).toMatchObject({ github: "env" })
+  }
+
+  it("prefers the environment, and otherwise asks gh about that trusted host only", async () => {
+    const { asked, run } = recordingGh()
+    expect(await hostTokensFor(github, { GITHUB_TOKEN: "env" }, run)).toMatchObject({ github: "env" })
     expect(asked).toEqual([])
-    expect(await hostTokensFor("https://git.acme.internal", {}, run)).toMatchObject({ github: "gh-token" })
+    expect(await hostTokensFor(enterprise, { LENS_TRUSTED_GITHUB_HOSTS: "git.acme.internal" }, run)).toMatchObject({ github: "gh-token" })
     expect(asked).toEqual(["auth token --hostname git.acme.internal"])
   })
 
+  it("does not ask gh about an untrusted host or a GitLab link", async () => {
+    const { asked, run } = recordingGh()
+    expect((await hostTokensFor(enterprise, {}, run)).github).toBeUndefined()
+    expect((await hostTokensFor(ref("http://github.com/o/r/pull/1"), {}, run)).github).toBeUndefined()
+    expect((await hostTokensFor(ref("https://gitlab.com/g/p/-/merge_requests/1"), {}, run)).github).toBeUndefined()
+    expect(asked).toEqual([])
+  })
+
   it("leaves the token unset when gh is missing or signed out", async () => {
-    expect((await hostTokensFor("https://github.com", {}, async () => undefined)).github).toBeUndefined()
+    expect((await hostTokensFor(github, {}, async () => undefined)).github).toBeUndefined()
+  })
+})
+
+describe("readHostTokens", () => {
+  it.each([
+    ["git.acme.internal", ["https://git.acme.internal"]],
+    [" a.example , b.example:8443 ,", ["https://a.example", "https://b.example:8443"]],
+    ["http://intranet.example", ["http://intranet.example"]],
+    ["", []],
+  ])("reads trusted hosts from %j", (value, origins) => {
+    expect(readHostTokens({ LENS_TRUSTED_GITLAB_HOSTS: value }).trustedOrigins).toEqual({ github: [], gitlab: origins })
+  })
+
+  it("rejects an entry that is not a host", () => {
+    expect(() => readHostTokens({ LENS_TRUSTED_GITHUB_HOSTS: "not a host" })).toThrow("Not a host name")
+  })
+
+  it("trusts the CI server only inside that CI system", () => {
+    expect(readHostTokens({ GITHUB_ACTIONS: "true", GITHUB_SERVER_URL: "https://ghe.example" }).trustedOrigins.github).toEqual(["https://ghe.example"])
+    expect(readHostTokens({ GITLAB_CI: "true", CI_SERVER_URL: "https://gl.example" }).trustedOrigins.gitlab).toEqual(["https://gl.example"])
+    expect(readHostTokens({ GITHUB_SERVER_URL: "https://ghe.example", CI_SERVER_URL: "https://gl.example" }).trustedOrigins).toEqual({ github: [], gitlab: [] })
   })
 })

@@ -20,14 +20,32 @@
 
 | Variable | What it does |
 | --- | --- |
-| `GITHUB_TOKEN`, `GH_TOKEN` | Token for GitHub and GitHub Enterprise |
-| `GITLAB_TOKEN` | Token for GitLab, including self-managed |
+| `GITHUB_TOKEN`, `GH_TOKEN` | Token for GitHub, and GitHub Enterprise once it's trusted |
+| `GITLAB_TOKEN` | Token for GitLab, and self-managed GitLab once it's trusted |
+| `LENS_TRUSTED_GITHUB_HOSTS`, `LENS_TRUSTED_GITLAB_HOSTS` | Hosts besides github.com and gitlab.com that may receive those tokens |
 | `ANTHROPIC_API_KEY` | Credential for `--ai`, unless you use an `ant auth login` profile |
 | `XDG_CACHE_HOME` | Moves the cache from `~/.cache/lens` |
 | `XDG_DATA_HOME` | Moves the app's data from `~/.local/share/lens` |
 
-> [!WARNING]
-> Lens sends these tokens to the host named in the link you give it, including self-managed hosts. Only use links to hosts you trust while a token is set.
+### Tokens and trusted hosts
+
+Lens only sends tokens to `https://github.com`, `https://gitlab.com` and hosts you've added. For any other host, it reads the link without a token, which works for public repositories. A `GITHUB_TOKEN` goes only to GitHub hosts and a `GITLAB_TOKEN` only to GitLab hosts.
+
+To use GitHub Enterprise or self-managed GitLab, add your host:
+
+```bash
+export LENS_TRUSTED_GITHUB_HOSTS=git.acme.internal
+export LENS_TRUSTED_GITLAB_HOSTS=gitlab.acme.internal,gitlab.acme.dev:8443
+```
+
+| Rule | Why |
+| --- | --- |
+| A bare host means https | A token never goes over plain http unless you write `http://host` in the list |
+| Each trusted host of a kind receives the same token | Set the variable to a token meant for the host you're reviewing, not your github.com token |
+| The list can't be set in `.lens.json` | That file belongs to the repository the token would be sent to |
+| No setup is needed in CI | A job trusts its own server, from `GITHUB_SERVER_URL` or `CI_SERVER_URL` |
+
+In the app, a GitHub CLI login is used for github.com and for hosts in the list.
 
 ## Team rules: `.lens.json`
 
@@ -57,7 +75,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 
 | Destination | What is sent | When |
 | --- | --- | --- |
-| GitHub or GitLab | Your token, to read the PR and its code | Always |
+| The PR's host | Your token, if the host is trusted, to read the PR and its code | Always |
 | OSV | Names and versions of dependencies | Unless `--offline` |
 | Semgrep registry | A rule download; your code isn't uploaded | When Semgrep is installed, unless `--offline` |
 | Anthropic | The changed code, and the PR's title and description | Only with `--ai` |

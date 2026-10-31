@@ -54,6 +54,14 @@ For a private repository, this usually means the token is missing or can't read 
 
 In the app, a token set in the terminal only applies if it was set before `pnpm lens app` started. Restart the app after changing it.
 
+### `Lens sent no token, because … is not a trusted host`
+
+Lens doesn't send tokens to a host until you add it, so a private repository on GitHub Enterprise or self-managed GitLab fails until then. If you trust the host, add it and run the review again. See [Tokens and trusted hosts](configuration.md#tokens-and-trusted-hosts).
+
+### `Not a host name in a trusted hosts variable`
+
+An entry in `LENS_TRUSTED_GITHUB_HOSTS` or `LENS_TRUSTED_GITLAB_HOSTS` isn't valid. Use comma-separated hosts, such as `git.acme.internal,git.acme.dev:8443`.
+
 ### `responded 403` from GitHub
 
 You have probably hit the API rate limit, which is low without a token. Set `GITHUB_TOKEN` or `GH_TOKEN`. If you already have, check that the token can read the repository.

@@ -1,5 +1,6 @@
 import type { PullRequest } from "@lens/review-model"
 import type { MarkedComment } from "./markedComment.ts"
+import type { TrustedOrigins } from "./trustedHosts.ts"
 
 /** Credentials for git's HTTP transport, sent as Basic auth. */
 export interface GitHttpAuth {
@@ -22,4 +23,5 @@ export interface GitHost {
 export interface HostTokens {
   readonly github: string | undefined
   readonly gitlab: string | undefined
+  readonly trustedOrigins: TrustedOrigins
 }

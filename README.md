@@ -56,7 +56,7 @@ pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve
 ```
 
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
-GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
+GitHub Enterprise and self-managed GitLab work by URL; tokens go to them only once they're [trusted](docs/configuration.md#tokens-and-trusted-hosts). Run `pnpm lens --help` for all options.
 
 ## Keep track of several reviews
 
@@ -84,7 +84,7 @@ GITLAB_TOKEN=<token> pnpm lens review https://gitlab.com/group/project/-/merge_r
 GH_TOKEN=$(gh auth token) pnpm lens review https://github.com/owner/repo/pull/123
 ```
 
-`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables. Without a token, a private repository usually answers 404, and lens says which variable to set.
+`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables, once listed in `LENS_TRUSTED_GITLAB_HOSTS` or `LENS_TRUSTED_GITHUB_HOSTS`. Without a token, a private repository usually answers 404, and lens says which variable to set.
 
 Tokens and code stay on your machine, apart from the host itself, package names and versions sent to [OSV](https://osv.dev) (`--offline` skips that), and the code sent to the model if you pass `--ai`.
 
