@@ -2,6 +2,8 @@ export { parsePullRequestUrl, InvalidPullRequestUrlError, repositoryPath, displa
 export type { PullRequestRef, GitHubPullRequestRef, GitLabMergeRequestRef } from "./pullRequestUrl.ts"
 export { gitHostFor } from "./gitHostFor.ts"
 export type { GitHost, GitHttpAuth, HostTokens, PullRequestSnapshot } from "./gitHost.ts"
+export { isTrustedHost, TRUSTED_GITHUB_HOSTS_VARIABLE, TRUSTED_GITLAB_HOSTS_VARIABLE } from "./trustedHosts.ts"
+export type { TrustedOrigins } from "./trustedHosts.ts"
 export { HostApiError } from "./http.ts"
 export { DiffNotReadyError } from "./gitlab.ts"
 export type { MarkedComment } from "./markedComment.ts"

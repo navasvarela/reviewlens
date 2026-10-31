@@ -4,7 +4,7 @@ import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@l
 import type { HostTokens, PullRequestRef } from "@lens/providers"
 import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@lens/review-model"
 import type { AiReview, ReviewModel } from "@lens/review-model"
-import type { ReviewOptions } from "./args.ts"
+import type { AiOptions, ReviewOptions } from "./args.ts"
 import { detectPullRequestUrl } from "./ciEnvironment.ts"
 import type { CiEnvironment } from "./ciEnvironment.ts"
 import { writeReport } from "./report.ts"
@@ -12,12 +12,21 @@ import { serveReport } from "./server.ts"
 
 const SHORT_SHA_LENGTH = 10
 
-export interface ReviewDependencies {
+export interface AnalysisDependencies {
   readonly tokens: HostTokens
   readonly cacheDir: string
-  readonly env: CiEnvironment
   readonly now: () => Date
   readonly log: (message: string) => void
+}
+
+export interface ReviewDependencies extends AnalysisDependencies {
+  readonly env: CiEnvironment
+}
+
+/** What an analysis needs to know, whichever command asked for it. */
+export interface AnalysisRequest {
+  readonly network: boolean
+  readonly ai: AiOptions | undefined
 }
 
 export async function runReview(options: ReviewOptions, deps: ReviewDependencies): Promise<void> {
@@ -34,7 +43,7 @@ export async function runReview(options: ReviewOptions, deps: ReviewDependencies
   deps.log(`Serving the report at ${server.url} (Ctrl+C to stop)`)
 }
 
-async function analyzePullRequest(ref: PullRequestRef, options: ReviewOptions, deps: ReviewDependencies): Promise<ReviewModel> {
+export async function analyzePullRequest(ref: PullRequestRef, options: AnalysisRequest, deps: AnalysisDependencies): Promise<ReviewModel> {
   deps.log(`Fetching ${displayName(ref)}…`)
   const snapshot = await gitHostFor(ref, deps.tokens).fetchPullRequest()
   const { pullRequest } = snapshot
@@ -90,7 +99,7 @@ function describeAiReview(ai: AiReview): string {
   }
 }
 
-function defaultReportDir(cacheDir: string, ref: PullRequestRef): string {
+export function defaultReportDir(cacheDir: string, ref: PullRequestRef): string {
   return join(cacheDir, "reports", new URL(ref.webOrigin).host, repositoryPath(ref), String(ref.number))
 }
 

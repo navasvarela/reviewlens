@@ -39,10 +39,12 @@ const compareSchema = z.object({
 export class GitHubHost implements GitHost {
   readonly #ref: GitHubPullRequestRef
   readonly #token: string | undefined
+  readonly #authHint: string
 
-  constructor(ref: GitHubPullRequestRef, token: string | undefined) {
+  constructor(ref: GitHubPullRequestRef, token: string | undefined, authHint: string = AUTH_HINT) {
     this.#ref = ref
     this.#token = token
+    this.#authHint = authHint
   }
 
   async fetchPullRequest(): Promise<PullRequestSnapshot> {
@@ -95,11 +97,11 @@ export class GitHubHost implements GitHost {
   }
 
   #get<T>(url: string, schema: z.ZodType<T>): Promise<T> {
-    return getJson({ url, headers: this.#headers(), schema, authHint: AUTH_HINT })
+    return getJson({ url, headers: this.#headers(), schema, authHint: this.#authHint })
   }
 
   async #write(method: WriteMethod, url: string, body: unknown): Promise<void> {
-    await writeJson({ method, url, body, headers: this.#headers(), schema: z.unknown(), authHint: AUTH_HINT })
+    await writeJson({ method, url, body, headers: this.#headers(), schema: z.unknown(), authHint: this.#authHint })
   }
 
   #headers(): Record<string, string> {

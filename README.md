@@ -5,6 +5,8 @@ change, analyzes it, and serves a local report. (Working name; the project name 
 
 Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
 
+**Documentation:** [getting started](docs/getting-started.md), [configuration](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [security policy](SECURITY.md).
+
 ## What the report shows
 
 The report has four tabs: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
@@ -26,7 +28,8 @@ The report has four tabs: **Changes** (files, the map of each file and the chang
   dependency versions new to `package-lock.json`, `Cargo.lock`, `poetry.lock`, `uv.lock` or pinned
   requirements (via [OSV](https://osv.dev); `--offline` skips it). Review signals add large PRs, missing
   test changes and removed or renamed units that untouched code still uses. The security level is the
-  highest severity among security findings, and the report always lists the checks that did not run.
+  highest severity among security findings, and the report lists the checks that ran and those that did
+  not. [Security scanners](#security-scanners) add more when installed.
 - **AI review (opt-in, `--ai`).** A suggested reading order that groups the changed units into chapters,
   a check of the PR description against the code (matches, contradicts, not in the description, not found),
   and specific questions to answer before approving. Every statement must cite lines of the change; the
@@ -53,7 +56,17 @@ pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve
 ```
 
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
-GitHub Enterprise and self-managed GitLab work by URL. Run `pnpm lens --help` for all options.
+GitHub Enterprise and self-managed GitLab work by URL; tokens go to them only once they're [trusted](docs/configuration.md#tokens-and-trusted-hosts). Run `pnpm lens --help` for all options.
+
+## Keep track of several reviews
+
+```sh
+pnpm lens app
+```
+
+This runs a local page at `http://127.0.0.1:4317/`. Paste a pull request or merge request link to add it; analyses run one at a time, and the list shows each review's status, security level and counts. Refresh re-runs a review after new commits. The list is kept in SQLite under `~/.local/share/lens`, so it survives restarts. If `GITHUB_TOKEN` is not set, the app asks the GitHub CLI for its login on that PR's host.
+
+The server listens only on your machine, refuses requests for any other host name, and its API needs a key that is created each run.
 
 ## Private repositories
 
@@ -71,7 +84,7 @@ GITLAB_TOKEN=<token> pnpm lens review https://gitlab.com/group/project/-/merge_r
 GH_TOKEN=$(gh auth token) pnpm lens review https://github.com/owner/repo/pull/123
 ```
 
-`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables. Without a token, a private repository usually answers 404, and lens says which variable to set.
+`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables, once listed in `LENS_TRUSTED_GITLAB_HOSTS` or `LENS_TRUSTED_GITHUB_HOSTS`. Without a token, a private repository usually answers 404, and lens says which variable to set.
 
 Tokens and code stay on your machine, apart from the host itself, package names and versions sent to [OSV](https://osv.dev) (`--offline` skips that), and the code sent to the model if you pass `--ai`.
 
@@ -86,6 +99,35 @@ The GitHub Action (`navasvarela/reviewlens@main`) and the GitLab template (`ci/g
 or an `ant auth login` profile. `--ai-max-input-tokens` (default 40,000, about $0.16 of input) caps the
 prompt; past it, units are sent by name only and the report says how many. Without `--ai`, nothing is
 sent. A repository can forbid AI review entirely with `"ai": { "allowed": false }` in `.lens.json`.
+
+## Security scanners
+
+Lens runs [Semgrep](https://semgrep.dev), [gitleaks](https://github.com/gitleaks/gitleaks) and
+[osv-scanner](https://github.com/google/osv-scanner) when they are installed. All three are optional:
+the Risks tab lists each one under "Checks that ran" or under "Not checked", with how to install it.
+
+```bash
+brew install semgrep gitleaks osv-scanner
+```
+
+| Scanner | Finds | Network |
+| --- | --- | --- |
+| Semgrep | Risky code patterns, using the `p/default` rules | Downloads rules; your code is not uploaded |
+| gitleaks | Secrets | None |
+| osv-scanner | Known vulnerabilities in `pnpm-lock.yaml`, `yarn.lock` and `bun.lock` | Sends package names and versions to OSV |
+
+Only findings on lines the PR added are reported, and `--offline` skips Semgrep and osv-scanner.
+Scanners read a temporary copy of the changed files, without your tokens in their environment. A PR
+cannot silence them: `# nosemgrep` and `gitleaks:allow` comments are ignored, and scanner config files
+in the PR (`.gitleaks.toml`, `.semgrepignore` and others) are not used. Those files are not scanned either.
+
+Choose Semgrep's rules in `.lens.json`; an empty list turns Semgrep off:
+
+```json
+{ "scanners": { "semgrep": { "rules": ["p/default", "p/owasp-top-ten"] } } }
+```
+
+CI runners need the scanners installed in the job before running Lens.
 
 ## Team rules
 

@@ -1,12 +1,14 @@
 import { extname } from "node:path"
 import { RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { ChangedFile, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@lens/review-model"
+import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@lens/review-model"
 import { scanDangerousApis } from "./dangerousApis.ts"
 import { scanDependencies } from "./dependencies/scanDependencies.ts"
 import { reviewSignals } from "./reviewSignals.ts"
 import { isIgnored, readLensConfig, LENS_CONFIG_PATH } from "../config/lensConfig.ts"
 import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
+import { runCodeScanners } from "./scanners/runCodeScanners.ts"
+import type { ScannerProcessRunner } from "./scanners/scannerProcess.ts"
 import { scanSensitivePaths } from "./sensitivePaths.ts"
 
 export interface RiskAssessmentRequest {
@@ -17,6 +19,7 @@ export interface RiskAssessmentRequest {
   /** Head text of each file in `files`, aligned by index; undefined where not read. */
   readonly headTexts: readonly (string | undefined)[]
   readonly network: boolean
+  readonly runScanner: ScannerProcessRunner
 }
 
 /** Categories that make up the security level; the others are review signals. */
@@ -26,6 +29,7 @@ const SECURITY_CATEGORIES: ReadonlySet<RiskCategory> = new Set([
   RiskCategory.SensitivePath,
   RiskCategory.Dependency,
   RiskCategory.Vulnerability,
+  RiskCategory.CodeScan,
 ])
 
 const SEVERITY_RANK: Readonly<Record<RiskSeverity, number>> = {
@@ -41,14 +45,12 @@ const UNCOVERED_CODE_EXTENSIONS: ReadonlySet<string> = new Set([
 
 const ALWAYS_SKIPPED: readonly SkippedCheck[] = [
   {
-    check: "Third-party scanners (Semgrep, gitleaks, osv-scanner)",
-    reason: "not integrated yet; only the built-in secret, API and path rules ran",
-  },
-  {
     check: "Change history (frequently changed or bug-prone files)",
     reason: "needs repository history, which the CLI does not fetch",
   },
 ]
+
+const BUILT_IN_CHECK: CheckRun = { name: "Built-in rules", detail: "secrets, risky APIs and sensitive paths" }
 
 /** Runs every risk check over the change and rates its security level. */
 export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAssessment> {
@@ -63,20 +65,37 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
     head: request.head,
     diffs: scanned.map((file) => file.diff),
     network: request.network,
+    runScanner: request.runScanner,
   })
-  const findings = [
+  const codeScan = await runCodeScanners({ files: scanned, semgrepRules: config.scanners.semgrep.rules, network: request.network, run: request.runScanner })
+  const findings = withoutRepeatedSecrets([
     ...scanSecrets(scanned),
     ...(await scanDangerousApis(scanned)),
     ...scanSensitivePaths(scanned, config),
+    ...codeScan.findings,
     ...dependencies.findings,
     ...reviewSignals(request.files),
-  ].sort(byImportance)
+  ]).sort(byImportance)
 
   return {
     securityLevel: securityLevelOf(findings),
     findings,
-    notChecked: [...dependencies.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length), ...ALWAYS_SKIPPED],
+    checksRun: [BUILT_IN_CHECK, ...codeScan.checksRun, ...dependencies.checksRun],
+    notChecked: [...codeScan.notChecked, ...dependencies.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length), ...ALWAYS_SKIPPED],
   }
+}
+
+// Our rules, gitleaks and Semgrep can all flag one secret; one finding per line is enough.
+// The built-in rules come first, so theirs is the one kept.
+function withoutRepeatedSecrets(findings: readonly Risk[]): Risk[] {
+  const seen = new Set<string>()
+  return findings.filter((finding) => {
+    if (finding.category !== RiskCategory.Secret || finding.location === null) return true
+    const key = `${finding.location.path}\0${finding.location.line}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // Low means "nothing found by the checks that ran", never "safe"; notChecked says what did not run.

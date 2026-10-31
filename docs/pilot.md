@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
+      # For production, replace `main` with a full commit SHA you have reviewed.
       - uses: navasvarela/reviewlens@main
         # For AI review:
         # with:
@@ -75,7 +76,9 @@ Split every metric by AI-generated and hand-written PRs. These are measured by h
 
 ## Before you start
 
+- Read [where the report is hosted and who can open it](../SECURITY.md#the-report-in-ci).
 - Try it on a few merged PRs and check that nothing surprising appears in the comment. Comments are visible to everyone who can see the PR.
 - Decide on AI review per repository. It sends changed code, plus the PR's title and description, to Anthropic. `"ai": { "allowed": false }` in `.lens.json` forbids it, whatever the job is configured to do.
+- Install the security scanners in the CI job if you want them there; a runner without them lists them under "Not checked" in the report. See [Security scanners](../README.md#security-scanners).
 - `.lens.json` rules apply once merged: a PR is always judged by the rules on its merge base, and a change to the file is itself a finding.
 - The checks that did not run are listed in every report. Tell volunteers that a low security level is not an approval.

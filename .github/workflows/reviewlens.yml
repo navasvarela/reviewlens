@@ -12,6 +12,6 @@ jobs:
     # An analysis problem should never block a merge.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       # Runs this repository's own copy; other repositories use navasvarela/reviewlens@main.
       - uses: ./

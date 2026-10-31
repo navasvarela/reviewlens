@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 7
+export const REVIEW_MODEL_SCHEMA_VERSION = 8
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -326,6 +326,8 @@ export const RiskCategory = {
   SensitivePath: "sensitivePath",
   Dependency: "dependency",
   Vulnerability: "vulnerability",
+  /** Reported by a third-party code scanner such as Semgrep. */
+  CodeScan: "codeScan",
   /** Review signals: they say where to look harder, not that something is insecure. */
   Tests: "tests",
   Size: "size",
@@ -356,6 +358,10 @@ export type Risk = z.infer<typeof riskSchema>
 export const skippedCheckSchema = z.object({ check: z.string(), reason: z.string() })
 export type SkippedCheck = z.infer<typeof skippedCheckSchema>
 
+/** A check that did run, so "not checked" has its counterpart. */
+export const checkRunSchema = z.object({ name: z.string(), detail: z.string() })
+export type CheckRun = z.infer<typeof checkRunSchema>
+
 export const riskAssessmentSchema = z.object({
   /**
    * The highest severity among security findings (secrets, dangerous APIs, sensitive paths,
@@ -365,6 +371,7 @@ export const riskAssessmentSchema = z.object({
   securityLevel: z.enum(RiskSeverity),
   /** All findings, security and review signals, most severe first. */
   findings: z.array(riskSchema).readonly(),
+  checksRun: z.array(checkRunSchema).readonly(),
   notChecked: z.array(skippedCheckSchema).readonly(),
 })
 export type RiskAssessment = z.infer<typeof riskAssessmentSchema>
@@ -459,3 +466,34 @@ export const reviewModelSchema = z.object({
   feedbackUrl: z.url({ protocol: /^https?$/ }).nullable(),
 })
 export type ReviewModel = z.infer<typeof reviewModelSchema>
+
+export const ReviewStatus = { Queued: "queued", Analyzing: "analyzing", Ready: "ready", Failed: "failed" } as const
+export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus]
+
+/** One row of the local app's review list; the JSON its API and page share. */
+export const reviewSummarySchema = z.object({
+  id: z.number().int().positive(),
+  url: z.url(),
+  host: z.enum(GitHostKind),
+  /** `owner/repo#12` or `group/project!12`, known before the analysis finishes. */
+  displayName: z.string(),
+  status: z.enum(ReviewStatus),
+  /** Why the last analysis failed; null otherwise. */
+  error: z.string().nullable(),
+  /** False until an analysis succeeds; a failed refresh keeps the earlier report. */
+  hasReport: z.boolean(),
+  ai: z.boolean(),
+  title: z.string().nullable(),
+  author: z.string().nullable(),
+  securityLevel: z.enum(RiskSeverity).nullable(),
+  unitsToReview: z.number().int().nonnegative().nullable(),
+  untouchedReferences: z.number().int().nonnegative().nullable(),
+  findings: z.number().int().nonnegative().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+})
+export type ReviewSummary = z.infer<typeof reviewSummarySchema>
+
+/** The request body for adding a review to the local app. */
+export const addReviewRequestSchema = z.object({ url: z.string().min(1), ai: z.boolean() })
+export type AddReviewRequest = z.infer<typeof addReviewRequestSchema>

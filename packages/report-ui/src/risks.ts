@@ -13,6 +13,7 @@ export const CATEGORY_LABELS: Readonly<Record<RiskCategory, string>> = {
   [RiskCategory.SensitivePath]: "Sensitive area",
   [RiskCategory.Dependency]: "Dependency",
   [RiskCategory.Vulnerability]: "Known vulnerability",
+  [RiskCategory.CodeScan]: "Code scan",
   [RiskCategory.Tests]: "Tests",
   [RiskCategory.Size]: "Size",
   [RiskCategory.BrokenReference]: "Broken reference",

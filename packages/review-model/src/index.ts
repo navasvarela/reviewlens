@@ -36,6 +36,7 @@ export {
   fileNoiseSchema,
   syntaxAnalysisSchema,
   riskSchema,
+  checkRunSchema,
   riskAssessmentSchema,
   skippedCheckSchema,
   citationSchema,
@@ -44,6 +45,9 @@ export {
   intentFindingSchema,
   reviewerQuestionSchema,
   aiReviewSchema,
+  ReviewStatus,
+  reviewSummarySchema,
+  addReviewRequestSchema,
   reviewModelSchema,
 } from "./schema.ts"
 export type {
@@ -70,12 +74,15 @@ export type {
   RiskLocation,
   RiskAssessment,
   SkippedCheck,
+  CheckRun,
   Citation,
   UnitRef,
   Chapter,
   IntentFinding,
   ReviewerQuestion,
   AiReview,
+  ReviewSummary,
+  AddReviewRequest,
   ReviewModel,
 } from "./schema.ts"
 export { changedUnitsOf, isBehaviourChange, untouchedReferences } from "./queries.ts"
