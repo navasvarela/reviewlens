@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto"
-import type { UnitKind, UnitSnapshot } from "@lens/review-model"
+import { UnitKind } from "@lens/review-model"
+import type { UnitSnapshot } from "@lens/review-model"
 import type { Node, Tree } from "web-tree-sitter"
 import type { ContainerContext, DefinitionHeader, LanguageSpec } from "./languageSpec.ts"
+import { extractShape } from "./shape.ts"
+import type { UnitShape } from "./shape.ts"
 
 /**
  * Hashes of a unit's token stream at several levels of strictness. Comparing them tells
@@ -30,6 +33,8 @@ export interface Definition {
   readonly snapshot: UnitSnapshot
   readonly codeTokenCount: number
   readonly fingerprints: Fingerprints
+  /** Parameters, calls and control flow; undefined for anything but functions and methods. */
+  readonly shape: UnitShape | undefined
 }
 
 export interface ModuleScope {
@@ -66,6 +71,8 @@ interface Token {
 
 interface RawDefinition {
   readonly header: DefinitionHeader
+  /** The node that defines the unit, without attached prefixes and wrappers. */
+  readonly node: Node
   /** First to last node of the definition, attached prefixes and wrappers included. */
   readonly nodes: readonly Node[]
   readonly span: Span
@@ -131,6 +138,7 @@ class DefinitionWalker {
     const qualifiedName = container === undefined ? header.name : `${container.childPrefix}${this.#spec.separator}${header.name}`
     return {
       header,
+      node,
       nodes,
       span: { start: first.startIndex, end: outer.endIndex },
       headerRow: node.startPosition.row,
@@ -191,6 +199,7 @@ function toDefinition(spec: LanguageSpec, raw: RawDefinition, lines: readonly st
       elidesNestedUnits: raw.children.length > 0,
     },
     codeTokenCount: code.length,
+    shape: raw.header.kind === UnitKind.Function || raw.header.kind === UnitKind.Method ? extractShape(spec.shape, raw.node) : undefined,
     fingerprints: {
       code: hashCode(code),
       full: hashFull(all),

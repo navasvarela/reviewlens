@@ -79,6 +79,16 @@ export const rustSpec: LanguageSpec = {
   isBindingSite: (leaf) => isBindingWithGrammar(leaf, IDENTIFIER_GRAMMAR),
   // Rust calls only `drop` implicitly, and only through the Drop trait.
   isImplicitlyInvoked: (methodName) => methodName === "drop",
+  shape: {
+    functionNode: (definition) => definition,
+    calls: new Map([
+      ["call_expression", { calleeField: "function", suffix: "" }],
+      ["macro_invocation", { calleeField: "macro", suffix: "!" }],
+    ]),
+    errorCalls: new Set(["panic!", "bail!", "unreachable!", "todo!", "unimplemented!"]),
+    errorTypes: ["try_expression"],
+    branchTypes: ["if_expression", "match_arm", "while_expression", "for_expression", "loop_expression"],
+  },
 }
 
 function describeImpl(node: Node): DefinitionHeader | undefined {

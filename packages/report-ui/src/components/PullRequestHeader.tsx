@@ -9,16 +9,18 @@ interface PullRequestHeaderProps {
   readonly pullRequest: PullRequest
   readonly files: readonly ChangedFile[]
   readonly risk: RiskAssessment
+  readonly feedbackUrl: string | null
 }
 
-export function PullRequestHeader({ pullRequest, files, risk }: PullRequestHeaderProps): ReactElement {
+export function PullRequestHeader({ pullRequest, files, risk, feedbackUrl }: PullRequestHeaderProps): ReactElement {
   const additions = files.reduce((sum, file) => sum + file.diff.additions, 0)
   const deletions = files.reduce((sum, file) => sum + file.diff.deletions, 0)
-  const summaries = files.map(summarizeFile)
-  const needsAttention = summaries.reduce((sum, summary) => sum + summary.needsAttention, 0)
-  const quiet = summaries.reduce((sum, summary) => sum + summary.quiet, 0)
+  const quiet = files.map(summarizeFile).reduce((sum, summary) => sum + summary.quiet, 0)
   const skippable = files.filter((file) => file.noise !== null).length
-  const untouchedReferences = summaries.reduce((sum, summary) => sum + summary.untouchedReferences, 0)
+  const notes = [
+    ...(quiet > 0 ? [`${quiet} collapsed as formatting, comments, renames or moves`] : []),
+    ...(skippable > 0 ? [`${skippable} skippable ${skippable === 1 ? "file" : "files"}`] : []),
+  ]
 
   return (
     <header className="header">
@@ -37,15 +39,15 @@ export function PullRequestHeader({ pullRequest, files, risk }: PullRequestHeade
         <span className="removed">−{deletions}</span> · diff {pullRequest.mergeBaseSha.slice(0, SHORT_SHA_LENGTH)}..
         {pullRequest.headSha.slice(0, SHORT_SHA_LENGTH)}
       </p>
-      <p className="review-summary">
-        <strong>{needsAttention}</strong> code {needsAttention === 1 ? "unit changed" : "units changed"} in ways that need review
-        {quiet > 0 && <> · {quiet} collapsed as formatting, comments, renames or moves</>}
-        {skippable > 0 && <> · {skippable} skippable {skippable === 1 ? "file" : "files"}</>}
-      </p>
-      {untouchedReferences > 0 && (
-        <p className="review-summary impact-summary">
-          <strong>{untouchedReferences}</strong> {untouchedReferences === 1 ? "place" : "places"} this PR did not touch
-          use code it changed. Check them before approving.
+      {(notes.length > 0 || feedbackUrl !== null) && (
+        <p className="meta">
+          {notes.join(" · ")}
+          {notes.length > 0 && feedbackUrl !== null && " · "}
+          {feedbackUrl !== null && (
+            <a href={feedbackUrl} target="_blank" rel="noreferrer">
+              Leave feedback
+            </a>
+          )}
         </p>
       )}
     </header>

@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 6
+export const REVIEW_MODEL_SCHEMA_VERSION = 7
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -157,6 +157,22 @@ export const unitChangeSchema = z.discriminatedUnion("kind", [
 ])
 export type UnitChange = z.infer<typeof unitChangeSchema>
 
+/** What changed in a function, read from its syntax, so a reviewer knows before reading it. */
+export const unitFactsSchema = z.object({
+  parametersAdded: z.array(z.string()).readonly(),
+  parametersRemoved: z.array(z.string()).readonly(),
+  /** Parameters that kept their name but changed type or default. */
+  parametersChanged: z.array(z.string()).readonly(),
+  returnType: z.object({ before: z.string().nullable(), after: z.string().nullable() }).nullable(),
+  callsAdded: z.array(z.string()).readonly(),
+  callsRemoved: z.array(z.string()).readonly(),
+  /** Change in the number of places that raise, throw or bail out; negative means fewer. */
+  errorPathsDelta: z.number().int(),
+  /** Change in the number of conditionals and loops; negative means fewer. */
+  branchesDelta: z.number().int(),
+})
+export type UnitFacts = z.infer<typeof unitFactsSchema>
+
 /** A unit and how it changed, before impact analysis. */
 export const comparedUnitSchema = z.object({
   kind: z.enum(UnitKind),
@@ -164,6 +180,8 @@ export const comparedUnitSchema = z.object({
   /** Container path and name, e.g. `SizeFilter::from_str` or `Parser.parse`; unique within the file. */
   qualifiedName: z.string(),
   change: unitChangeSchema,
+  /** Only for functions whose code changed; null when there is nothing to state. */
+  facts: unitFactsSchema.nullable(),
 })
 export type ComparedUnit = z.infer<typeof comparedUnitSchema>
 
@@ -237,12 +255,28 @@ export const SyntaxAnalysisStatus = {
   Skipped: "skipped",
 } as const
 
+export const outlineEntrySchema = z.object({
+  kind: z.enum(UnitKind),
+  qualifiedName: z.string(),
+  startLine: lineNumberSchema,
+  endLine: lineNumberSchema,
+})
+export type OutlineEntry = z.infer<typeof outlineEntrySchema>
+
+export const unitCallSchema = z.object({ caller: z.string(), callee: z.string() })
+export type UnitCall = z.infer<typeof unitCallSchema>
+
 /** Whether the file's units could be extracted; when not, the UI falls back to hunks. */
 export const syntaxAnalysisSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal(SyntaxAnalysisStatus.Analyzed),
     language: z.enum(SourceLanguage),
+    /** Changed units in reading order: types, then helpers before their callers. */
     units: z.array(changedUnitSchema).readonly(),
+    /** Every definition in the head version of the file, in file order. */
+    outline: z.array(outlineEntrySchema).readonly(),
+    /** Which changed units call which, within this file, by qualified name. */
+    calls: z.array(unitCallSchema).readonly(),
   }),
   z.object({ status: z.literal(SyntaxAnalysisStatus.UnsupportedLanguage) }),
   z.object({ status: z.literal(SyntaxAnalysisStatus.Skipped), reason: z.string() }),

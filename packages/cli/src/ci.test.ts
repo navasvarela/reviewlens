@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
+import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@lens/review-model"
 import type { ChangedFile, ReviewModel } from "@lens/review-model"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { parseCommand, UsageError } from "./args.ts"
@@ -19,11 +19,14 @@ function modelWith(url: string, overrides: Partial<ReviewModel> = {}): ReviewMod
     syntax: {
       status: "analyzed",
       language: "python",
+      outline: [],
+      calls: [],
       units: [
         {
           kind: "function",
           name: "parse",
           qualifiedName: "parse",
+          facts: null,
           change: {
             kind: "modified",
             weight: "semantic",
@@ -41,7 +44,7 @@ function modelWith(url: string, overrides: Partial<ReviewModel> = {}): ReviewMod
     },
   }
   return {
-    schemaVersion: 6,
+    schemaVersion: REVIEW_MODEL_SCHEMA_VERSION,
     generatedAt: "2026-10-30T00:00:00Z",
     pullRequest: {
       host: "github",

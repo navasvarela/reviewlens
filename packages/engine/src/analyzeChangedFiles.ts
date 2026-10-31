@@ -11,6 +11,7 @@ import { assessRisk } from "./risk/assessRisk.ts"
 import { compareUnits } from "./syntax/compareUnits.ts"
 import type { FileVersions } from "./syntax/compareUnits.ts"
 import { extractUnits } from "./syntax/definitions.ts"
+import { orderUnits, outlineOf, unitCalls } from "./syntax/fileStructure.ts"
 import type { FileUnits } from "./syntax/definitions.ts"
 import type { LanguageSpec } from "./syntax/languageSpec.ts"
 import { languageSpecFor } from "./syntax/languages.ts"
@@ -59,7 +60,7 @@ export async function analyzeChangedFiles(
   const files = diffs.map((diff, index) => ({
     diff,
     noise: noise.at(index) ?? null,
-    syntax: syntaxAnalysis(plans.at(index), (unitsByPath.get(diff.path) ?? []).map(withImpact)),
+    syntax: syntaxAnalysis(plans.at(index), (unitsByPath.get(diff.path) ?? []).map(withImpact), versions.at(index)?.after),
   }))
   const risk = await assessRisk({
     repoDir,
@@ -126,11 +127,21 @@ function parseUnits(spec: LanguageSpec | undefined, source: string | undefined):
   return withSyntaxTree(spec, source, (tree) => extractUnits(spec, tree, source))
 }
 
-function syntaxAnalysis(plan: SyntaxPlan | undefined, units: ChangedUnit[]): SyntaxAnalysis {
+function syntaxAnalysis(plan: SyntaxPlan | undefined, units: ChangedUnit[], after: FileUnits | undefined): SyntaxAnalysis {
   if (plan === undefined) {
     return { status: SyntaxAnalysisStatus.Skipped, reason: "not analyzed" }
   }
-  return plan.kind === "settled" ? plan.analysis : { status: SyntaxAnalysisStatus.Analyzed, language: plan.language.language, units }
+  if (plan.kind === "settled") {
+    return plan.analysis
+  }
+  const calls = unitCalls(after, units)
+  return {
+    status: SyntaxAnalysisStatus.Analyzed,
+    language: plan.language.language,
+    units: orderUnits(units, calls),
+    outline: outlineOf(after),
+    calls,
+  }
 }
 
 /**
