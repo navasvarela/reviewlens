@@ -91,6 +91,7 @@ export function factPhrases(facts: UnitFacts): string[] {
   if (facts.returnType !== null) phrases.push(`Return type: ${facts.returnType.before ?? "none"} → ${facts.returnType.after ?? "none"}`)
   if (facts.errorPathsDelta !== 0) phrases.push(delta(facts.errorPathsDelta, "error path"))
   if (facts.branchesDelta !== 0) phrases.push(delta(facts.branchesDelta, "branch", "branches"))
+  if (facts.complexity !== null) phrases.push(`Complexity ${facts.complexity.before} → ${facts.complexity.after}`)
   if (facts.callsAdded.length > 0) phrases.push(`Now calls ${list(facts.callsAdded)}`)
   if (facts.callsRemoved.length > 0) phrases.push(`No longer calls ${list(facts.callsRemoved)}`)
   return phrases

@@ -26,12 +26,14 @@ export const lensConfigSchema = z.object({
   scanners: z
     .object({ semgrep: z.object({ rules: z.array(z.string().regex(/^[pr]\/[\w./-]+$/)).default(DEFAULT_SEMGREP_RULES) }).default({ rules: DEFAULT_SEMGREP_RULES }) })
     .default({ semgrep: { rules: DEFAULT_SEMGREP_RULES } }),
+  /** `enabled: false` turns off function metrics, linters and duplicate detection. */
+  quality: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
   /** Where pilot users send feedback; shown in the report and the PR comment. */
   feedback: z.object({ url: z.url({ protocol: /^https?$/ }).nullable().default(null) }).default({ url: null }),
 })
 export type LensConfig = z.infer<typeof lensConfigSchema>
 
-export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, feedback: { url: null } }
+export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, feedback: { url: null } }
 
 export class LensConfigError extends Error {
   override readonly name = "LensConfigError"

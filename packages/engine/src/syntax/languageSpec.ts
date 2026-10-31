@@ -65,6 +65,11 @@ export interface ShapeGrammar {
   readonly errorCalls: ReadonlySet<string>
   readonly errorTypes: readonly string[]
   readonly branchTypes: readonly string[]
+  /** Nodes that indent the code inside them, for measuring how deeply a function nests. */
+  readonly nestingTypes: readonly string[]
+  /** Nodes with an `operator` field, and which of those operators short-circuit. */
+  readonly logicalTypes: readonly string[]
+  readonly logicalOperators: ReadonlySet<string>
 }
 
 export interface CallSyntax {

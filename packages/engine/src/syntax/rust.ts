@@ -88,6 +88,9 @@ export const rustSpec: LanguageSpec = {
     errorCalls: new Set(["panic!", "bail!", "unreachable!", "todo!", "unimplemented!"]),
     errorTypes: ["try_expression"],
     branchTypes: ["if_expression", "match_arm", "while_expression", "for_expression", "loop_expression"],
+    nestingTypes: ["if_expression", "match_expression", "while_expression", "for_expression", "loop_expression"],
+    logicalTypes: ["binary_expression"],
+    logicalOperators: new Set(["&&", "||"]),
   },
 }
 

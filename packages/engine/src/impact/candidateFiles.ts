@@ -7,7 +7,7 @@ import { languageSpecFor } from "../syntax/languages.ts"
 
 // Files read and scanned per round, so memory stays bounded on very large repositories
 // (rust-lang/rust has ~140 MB of source at a commit).
-const SCAN_BATCH_FILES = 2000
+export const SCAN_BATCH_FILES = 2000
 // Characters that continue an identifier in Rust, TypeScript and Python.
 const IDENTIFIER_CHAR = String.raw`[\p{L}\p{N}_$]`
 
@@ -46,7 +46,7 @@ export async function filesMentioning(
 }
 
 /** Source files the engine can parse, leaving out lockfiles and vendored code. */
-async function listSourceFiles(repoDir: string, commit: CommitSha): Promise<string[]> {
+export async function listSourceFiles(repoDir: string, commit: CommitSha): Promise<string[]> {
   const output = await runGit(["ls-tree", "-r", "-z", "--name-only", commit], { cwd: repoDir, env: ISOLATED_CONFIG_ENV })
   return output.split("\0").filter((path) => path !== "" && languageSpecFor(path) !== undefined && !isNoiseByPath(path))
 }

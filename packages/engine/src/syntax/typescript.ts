@@ -127,6 +127,9 @@ function makeSpec(language: SourceLanguage, grammar: string): LanguageSpec {
       errorCalls: new Set(),
       errorTypes: ["throw_statement"],
       branchTypes: ["if_statement", "switch_case", "for_statement", "for_in_statement", "while_statement", "do_statement", "ternary_expression", "catch_clause"],
+      nestingTypes: ["if_statement", "switch_statement", "for_statement", "for_in_statement", "while_statement", "do_statement", "try_statement"],
+      logicalTypes: ["binary_expression"],
+      logicalOperators: new Set(["&&", "||", "??"]),
     },
   }
 }

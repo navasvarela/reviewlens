@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 8
+export const REVIEW_MODEL_SCHEMA_VERSION = 9
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -170,6 +170,8 @@ export const unitFactsSchema = z.object({
   errorPathsDelta: z.number().int(),
   /** Change in the number of conditionals and loops; negative means fewer. */
   branchesDelta: z.number().int(),
+  /** Decision points in the function (cyclomatic complexity); null when unchanged. */
+  complexity: z.object({ before: z.number().int(), after: z.number().int() }).nullable(),
 })
 export type UnitFacts = z.infer<typeof unitFactsSchema>
 
@@ -328,6 +330,8 @@ export const RiskCategory = {
   Vulnerability: "vulnerability",
   /** Reported by a third-party code scanner such as Semgrep. */
   CodeScan: "codeScan",
+  /** Poor implementation or bad practice; never counts towards the security level. */
+  CodeQuality: "codeQuality",
   /** Review signals: they say where to look harder, not that something is insecure. */
   Tests: "tests",
   Size: "size",

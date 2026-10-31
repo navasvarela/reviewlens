@@ -131,6 +131,48 @@ Choose Semgrep's rules in `.lens.json`; an empty list turns Semgrep off:
 
 CI runners need the scanners installed in the job before running Lens.
 
+## Code quality
+
+Lens flags poor implementations and bad practice in the code a PR adds, under the "Code quality"
+category in the Risks tab. These findings never change the security level.
+
+**Function metrics** are built in and cover Rust, TypeScript and Python. A function is flagged when
+the PR adds it over a limit, pushes it over one, or makes one already over the limit at least 20%
+worse. The Changes tab also shows each modified function's complexity change. Test code is left out.
+
+| Metric | Limit |
+| --- | --- |
+| Complexity (decision points) | 15 |
+| Nesting depth | 4 |
+| Lines | 80 |
+| Parameters | 6 |
+
+**Three optional scanners** run when installed. None of them use the network:
+
+```bash
+brew install ruff
+npm install -g oxlint jscpd
+```
+
+| Scanner | Finds | Reads |
+| --- | --- | --- |
+| Ruff | Likely bugs and bad practice in Python (rules `F`, `B`, `E7`, `E9`) | Changed files |
+| oxlint | Likely bugs in TypeScript and JavaScript | Changed files |
+| jscpd | New code of 10 lines or more copied from elsewhere | All source at the PR's head, except tests |
+
+Lens uses its own rules for these scanners and does not read your `ruff.toml`, `.oxlintrc.json` or
+`.jscpd.json`, whether they are in the PR or on the default branch. Comments such as `# noqa` and
+`eslint-disable` are still honoured, because each one is visible in the diff.
+
+Rust has no linter here: Clippy can run a PR's build scripts and macros, so Lens does not run it on
+untrusted code. Design problems, such as a wrong abstraction, are for human or AI review.
+
+To turn all of this off for a repository, add this to `.lens.json` on the default branch:
+
+```json
+{ "quality": { "enabled": false } }
+```
+
 ## Team rules
 
 A `.lens.json` at the repository root adds sensitive areas, excludes paths from risk rules, and can
