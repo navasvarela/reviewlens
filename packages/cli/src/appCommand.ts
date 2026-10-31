@@ -41,7 +41,7 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
     },
     deps.log,
   )
-  const server = await startAppServer(store, service, options.port)
+  const server = await startAppServer(store, service, { port: options.port, log: deps.log })
   deps.log(`Lens is running at ${server.url} (Ctrl+C to stop)`)
   const scanners = await findInstalledScanners()
   deps.log(`Security scanners: ${scanners.installed.join(", ") || "none"} installed${scanners.missing.length > 0 ? `; not found: ${scanners.missing.join(", ")}` : ""}`)

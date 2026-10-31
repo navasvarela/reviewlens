@@ -23,6 +23,8 @@ const APP_UI_DIST = resolve(import.meta.dirname, "../../../app-ui/dist")
 // Pages show text and code from PRs, and the API behind them can act with the user's token.
 const APP_PAGE_POLICY = `${BASE_POLICY}; script-src 'self'; style-src 'self'`
 
+const UNEXPECTED_ERROR = "Something went wrong. The terminal running Lens has the details."
+
 export interface AppServer {
   readonly url: string
   close(): Promise<void>
@@ -43,14 +45,23 @@ export class AppPortInUseError extends Error {
   }
 }
 
+export interface AppServerOptions {
+  readonly port: number
+  readonly log: (message: string) => void
+  /** Tests fix the key; otherwise a new one is created for this run. */
+  readonly apiKey?: string
+}
+
 /** Serves the review list, the reports and their API, on the loopback interface only. */
-export async function startAppServer(store: ReviewStore, service: ReviewService, port: number, apiKey: string = newApiKey()): Promise<AppServer> {
+export async function startAppServer(store: ReviewStore, service: ReviewService, options: AppServerOptions): Promise<AppServer> {
+  const { port, log, apiKey = newApiKey() } = options
   const allowedHosts = new Set<string>()
   const context: AppContext = { store, service, apiKey, allowedHosts }
   const server = createServer((request, response) => {
     handle(request, response, context).catch((error: unknown) => {
-      console.error("Unhandled app server error", error)
-      sendJson(response, 500, { error: "Internal server error" })
+      // Details such as file paths go to the terminal, not to whatever made the request.
+      log(`The app could not answer ${request.method ?? ""} ${request.url ?? ""}: ${error instanceof Error ? error.message : String(error)}`)
+      sendJson(response, 500, { error: UNEXPECTED_ERROR })
     })
   })
   await listenOn(server, port)
@@ -167,8 +178,22 @@ async function sendReportPage(response: ServerResponse, id: number, context: App
     sendText(response, 404, "This review has no report yet.")
     return
   }
-  const page = await readFile(join(reportDir, REPORT_PAGE_FILE), "utf8")
+  const page = await readReportPage(reportDir)
+  if (page === undefined) {
+    sendText(response, 404, "This report is no longer on disk. Refresh the review to create it again.")
+    return
+  }
   sendHtml(response, withMeta(page, context.apiKey), REPORT_PAGE_POLICY)
+}
+
+/** Undefined when the file is gone, which happens after the cache folder is cleared. */
+async function readReportPage(reportDir: string): Promise<string | undefined> {
+  try {
+    return await readFile(join(reportDir, REPORT_PAGE_FILE), "utf8")
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined
+    throw error
+  }
 }
 
 async function sendAppFile(response: ServerResponse, pathname: string, context: AppContext): Promise<void> {

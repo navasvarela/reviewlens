@@ -131,7 +131,7 @@ describe("the app server", () => {
     store = new ReviewStore(join(dir, "lens.db"), () => new Date("2026-10-30T10:00:00.000Z"))
     await writeFile(join(dir, "index.html"), "<html><head></head><body>report page</body></html>")
     const service = new ReviewService(store, async () => ({ model: fakeModel("Cap retries"), reportDir: dir }), () => undefined)
-    server = await startAppServer(store, service, 0, KEY)
+    server = await startAppServer(store, service, { port: 0, apiKey: KEY, log: () => undefined })
     base = server.url
   })
 
@@ -179,6 +179,32 @@ describe("the app server", () => {
     const response = await fetch(`${base}api/reviews`, { method: "POST", headers, body: JSON.stringify({ url: "nonsense", ai: false }) })
     expect(response.status).toBe(400)
     expect(await response.json()).toMatchObject({ error: expect.stringContaining("Not a pull request URL") })
+  })
+
+  it("keeps unexpected error details out of the response and logs them", async () => {
+    const brokenStore = new ReviewStore(join(dir, "broken.db"), () => new Date("2026-10-30T10:00:00.000Z"))
+    const logged: string[] = []
+    const service = new ReviewService(brokenStore, async () => ({ model: fakeModel("x"), reportDir: dir }), () => undefined)
+    const broken = await startAppServer(brokenStore, service, { port: 0, apiKey: KEY, log: (message) => logged.push(message) })
+    brokenStore.close()
+    const response = await fetch(`${broken.url}api/reviews`, { headers: { [API_KEY_HEADER]: KEY } })
+    await broken.close()
+    expect(response.status).toBe(500)
+    expect(await response.text()).not.toMatch(/database|stack|\/.+\.ts/i)
+    expect(logged.join()).toContain("/api/reviews")
+  })
+
+  it("says how to recover when a report is no longer on disk", async () => {
+    const headers = { [API_KEY_HEADER]: KEY, "Content-Type": "application/json" }
+    await fetch(`${base}api/reviews`, { method: "POST", headers, body: JSON.stringify({ url: PR_URL, ai: false }) })
+    await new Promise((done) => setTimeout(done, 20))
+    const [review] = store.list()
+    await rm(join(dir, "index.html"))
+    const page = await fetch(`${base}reviews/${review?.id ?? 0}/`)
+    await writeFile(join(dir, "index.html"), "<html><head></head><body>report page</body></html>")
+    await fetch(`${base}api/reviews/${review?.id ?? 0}`, { method: "DELETE", headers })
+    expect(page.status).toBe(404)
+    expect(await page.text()).toContain("Refresh the review")
   })
 
   it("adds its key to served pages only, not report files", () => {
