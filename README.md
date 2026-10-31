@@ -26,7 +26,8 @@ The report has four tabs: **Changes** (files, the map of each file and the chang
   dependency versions new to `package-lock.json`, `Cargo.lock`, `poetry.lock`, `uv.lock` or pinned
   requirements (via [OSV](https://osv.dev); `--offline` skips it). Review signals add large PRs, missing
   test changes and removed or renamed units that untouched code still uses. The security level is the
-  highest severity among security findings, and the report always lists the checks that did not run.
+  highest severity among security findings, and the report lists the checks that ran and those that did
+  not. [Security scanners](#security-scanners) add more when installed.
 - **AI review (opt-in, `--ai`).** A suggested reading order that groups the changed units into chapters,
   a check of the PR description against the code (matches, contradicts, not in the description, not found),
   and specific questions to answer before approving. Every statement must cite lines of the change; the
@@ -96,6 +97,35 @@ The GitHub Action (`navasvarela/reviewlens@main`) and the GitLab template (`ci/g
 or an `ant auth login` profile. `--ai-max-input-tokens` (default 40,000, about $0.16 of input) caps the
 prompt; past it, units are sent by name only and the report says how many. Without `--ai`, nothing is
 sent. A repository can forbid AI review entirely with `"ai": { "allowed": false }` in `.lens.json`.
+
+## Security scanners
+
+Lens runs [Semgrep](https://semgrep.dev), [gitleaks](https://github.com/gitleaks/gitleaks) and
+[osv-scanner](https://github.com/google/osv-scanner) when they are installed. All three are optional:
+the Risks tab lists each one under "Checks that ran" or under "Not checked", with how to install it.
+
+```bash
+brew install semgrep gitleaks osv-scanner
+```
+
+| Scanner | Finds | Network |
+| --- | --- | --- |
+| Semgrep | Risky code patterns, using the `p/default` rules | Downloads rules; your code is not uploaded |
+| gitleaks | Secrets | None |
+| osv-scanner | Known vulnerabilities in `pnpm-lock.yaml`, `yarn.lock` and `bun.lock` | Sends package names and versions to OSV |
+
+Only findings on lines the PR added are reported, and `--offline` skips Semgrep and osv-scanner.
+Scanners read a temporary copy of the changed files, without your tokens in their environment. A PR
+cannot silence them: `# nosemgrep` and `gitleaks:allow` comments are ignored, and scanner config files
+in the PR (`.gitleaks.toml`, `.semgrepignore` and others) are not used. Those files are not scanned either.
+
+Choose Semgrep's rules in `.lens.json`; an empty list turns Semgrep off:
+
+```json
+{ "scanners": { "semgrep": { "rules": ["p/default", "p/owasp-top-ten"] } } }
+```
+
+CI runners need the scanners installed in the job before running Lens.
 
 ## Team rules
 

@@ -4,7 +4,7 @@ import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
 
 const LEVEL_EXPLANATION =
-  "The highest severity among security findings: secrets, risky APIs, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe."
+  "The highest severity among security findings: secrets, risky APIs, code scans, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe."
 
 interface RiskViewProps {
   readonly risk: RiskAssessment
@@ -29,6 +29,15 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
       ) : (
         <RiskList findings={risk.findings} pullRequest={pullRequest} onOpenFile={onOpenFile} />
       )}
+
+      <h2 className="section-title">Checks that ran</h2>
+      <ul className="not-checked">
+        {risk.checksRun.map((check) => (
+          <li key={check.name}>
+            <strong>{check.name}</strong>: {check.detail}.
+          </li>
+        ))}
+      </ul>
 
       <h2 className="section-title">Not checked</h2>
       <ul className="not-checked">

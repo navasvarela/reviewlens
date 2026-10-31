@@ -21,7 +21,7 @@ function fakeModel(title: string): ReviewModel {
     generatedAt: "2026-10-30T00:00:00.000Z",
     pullRequest: { host: "github", url: PR_URL, repositoryWebUrl: "https://github.com/acme/app", number: 7, title, description: "", author: "dev", baseRef: "main", headRef: "x", baseSha: SHA, headSha: SHA, mergeBaseSha: SHA },
     files: [],
-    risk: { securityLevel: "high", findings: [], notChecked: [] },
+    risk: { securityLevel: "high", findings: [], checksRun: [], notChecked: [] },
     ai: { status: "disabled" },
     feedbackUrl: null,
   }

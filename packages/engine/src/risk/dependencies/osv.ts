@@ -13,7 +13,7 @@ const batchResponseSchema = z.object({
   results: z.array(z.object({ vulns: z.array(z.object({ id: z.string() })).optional() })),
 })
 
-const vulnerabilitySchema = z.object({
+export const vulnerabilitySchema = z.object({
   id: z.string(),
   summary: z.string().optional(),
   aliases: z.array(z.string()).optional(),
@@ -73,15 +73,19 @@ export async function findVulnerabilities(packages: readonly PackageVersion[]): 
     const detail = details.get(id)
     return {
       package: entry,
-      vulnerability: {
-        id,
-        aliases: detail?.aliases ?? [],
-        summary: detail?.summary,
-        severity: severityOf(detail?.database_specific?.severity),
-        fixedIn: fixedVersion(detail, entry),
-      },
+      vulnerability: toKnownVulnerability(id, detail, entry),
     }
   })
+}
+
+export function toKnownVulnerability(id: string, detail: z.infer<typeof vulnerabilitySchema> | undefined, entry: PackageVersion): KnownVulnerability {
+  return {
+    id,
+    aliases: detail?.aliases ?? [],
+    summary: detail?.summary,
+    severity: severityOf(detail?.database_specific?.severity),
+    fixedIn: fixedVersion(detail, entry),
+  }
 }
 
 // GitHub advisories label severity LOW/MODERATE/HIGH/CRITICAL. Unknown counts as medium:

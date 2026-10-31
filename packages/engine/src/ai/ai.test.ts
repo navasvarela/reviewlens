@@ -61,7 +61,7 @@ function fileWith(path: string, units: readonly ChangedUnit[]): ChangedFile {
 const CONTEXT: ReviewContext = {
   pullRequest: PULL_REQUEST,
   files: [fileWith("app/retry.py", [modifiedUnit("retry", 10, "attempts = 3"), modifiedUnit("backoff", 20, "delay = 2")])],
-  risk: { securityLevel: "low", findings: [], notChecked: [] },
+  risk: { securityLevel: "low", findings: [], checksRun: [], notChecked: [] },
 }
 
 describe("buildPrompt", () => {

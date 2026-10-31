@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 7
+export const REVIEW_MODEL_SCHEMA_VERSION = 8
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -326,6 +326,8 @@ export const RiskCategory = {
   SensitivePath: "sensitivePath",
   Dependency: "dependency",
   Vulnerability: "vulnerability",
+  /** Reported by a third-party code scanner such as Semgrep. */
+  CodeScan: "codeScan",
   /** Review signals: they say where to look harder, not that something is insecure. */
   Tests: "tests",
   Size: "size",
@@ -356,6 +358,10 @@ export type Risk = z.infer<typeof riskSchema>
 export const skippedCheckSchema = z.object({ check: z.string(), reason: z.string() })
 export type SkippedCheck = z.infer<typeof skippedCheckSchema>
 
+/** A check that did run, so "not checked" has its counterpart. */
+export const checkRunSchema = z.object({ name: z.string(), detail: z.string() })
+export type CheckRun = z.infer<typeof checkRunSchema>
+
 export const riskAssessmentSchema = z.object({
   /**
    * The highest severity among security findings (secrets, dangerous APIs, sensitive paths,
@@ -365,6 +371,7 @@ export const riskAssessmentSchema = z.object({
   securityLevel: z.enum(RiskSeverity),
   /** All findings, security and review signals, most severe first. */
   findings: z.array(riskSchema).readonly(),
+  checksRun: z.array(checkRunSchema).readonly(),
   notChecked: z.array(skippedCheckSchema).readonly(),
 })
 export type RiskAssessment = z.infer<typeof riskAssessmentSchema>

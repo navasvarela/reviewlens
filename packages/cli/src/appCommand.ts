@@ -1,5 +1,6 @@
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
+import { findInstalledScanners } from "@lens/engine"
 import { DEFAULT_AI_MAX_INPUT_TOKENS, DEFAULT_AI_MODEL } from "./args.ts"
 import type { AppOptions } from "./args.ts"
 import { startAppServer } from "./app/appServer.ts"
@@ -42,4 +43,6 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
   )
   const server = await startAppServer(store, service, options.port)
   deps.log(`Lens is running at ${server.url} (Ctrl+C to stop)`)
+  const scanners = await findInstalledScanners()
+  deps.log(`Security scanners: ${scanners.installed.join(", ") || "none"} installed${scanners.missing.length > 0 ? `; not found: ${scanners.missing.join(", ")}` : ""}`)
 }

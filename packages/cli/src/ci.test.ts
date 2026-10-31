@@ -68,6 +68,7 @@ function modelWith(url: string, overrides: Partial<ReviewModel> = {}): ReviewMod
         { ruleId: "rust.unsafe", category: "dangerousApi", severity: "medium", title: "unsafe code", detail: "d", location: { path: "b.rs", line: 2 }, evidence: null },
         { ruleId: "dependency.added", category: "dependency", severity: "low", title: "New dependency: @evil/pkg [x](http://bad)", detail: "d", location: { path: "package.json", line: 1 }, evidence: null },
       ],
+      checksRun: [],
       notChecked: [{ check: "c", reason: "r" }],
     },
     ai: { status: "disabled" },

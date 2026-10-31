@@ -72,3 +72,11 @@ export function scanSecrets(files: readonly ScannedFile[]): Risk[] {
 function redact(line: string, secret: string): string {
   return line.replace(secret, `${secret.slice(0, VISIBLE_SECRET_PREFIX)}…[redacted]`)
 }
+
+/** Hides anything that looks like a credential, for lines shown in the report from other sources. */
+export function redactSecrets(line: string): string {
+  return SECRET_RULES.reduce((text, rule) => {
+    const secret = rule.pattern.exec(text)?.[rule.secretGroup]
+    return secret === undefined ? text : redact(text, secret)
+  }, line)
+}

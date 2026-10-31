@@ -55,7 +55,8 @@ describe("assessRisk", () => {
     )
     const head = await commit()
 
-    risk = (await analyzeChangedFiles(repoDir, base, head, { network: false })).risk
+    // No scanners, so the result does not depend on what this machine has installed.
+    risk = (await analyzeChangedFiles(repoDir, base, head, { network: false, runScanner: async () => undefined })).risk
   })
 
   afterAll(async () => {
@@ -82,9 +83,10 @@ describe("assessRisk", () => {
   it("leaves ignored paths out and says so, along with checks that did not run", () => {
     expect(ruleIds()).not.toContain("secret.private-key")
     expect(risk?.notChecked.map((skipped) => skipped.check)).toEqual([
+      "Semgrep code scan",
+      "gitleaks secret scan",
       "Known vulnerabilities in new dependency versions",
       "Risk rules on 1 file",
-      "Third-party scanners (Semgrep, gitleaks, osv-scanner)",
       "Change history (frequently changed or bug-prone files)",
     ])
   })

@@ -8,6 +8,8 @@ import { MAX_SOURCE_FILE_BYTES } from "./limits.ts"
 import type { AnalyzedFile } from "./impact/traceImpact.ts"
 import { classifyNoise, isNoiseByPath } from "./noise.ts"
 import { assessRisk } from "./risk/assessRisk.ts"
+import { runScannerProcess } from "./risk/scanners/scannerProcess.ts"
+import type { ScannerProcessRunner } from "./risk/scanners/scannerProcess.ts"
 import { compareUnits } from "./syntax/compareUnits.ts"
 import type { FileVersions } from "./syntax/compareUnits.ts"
 import { extractUnits } from "./syntax/definitions.ts"
@@ -31,6 +33,8 @@ type SyntaxPlan =
 export interface AnalysisOptions {
   /** False keeps the analysis offline: no dependency lookups in the OSV database. */
   readonly network: boolean
+  /** Runs third-party scanners; tests replace it. */
+  readonly runScanner?: ScannerProcessRunner
 }
 
 export interface PullRequestAnalysis {
@@ -69,6 +73,7 @@ export async function analyzeChangedFiles(
     files,
     headTexts: texts.map((text) => text.after),
     network: options.network,
+    runScanner: options.runScanner ?? runScannerProcess,
   })
   return { files, risk }
 }
