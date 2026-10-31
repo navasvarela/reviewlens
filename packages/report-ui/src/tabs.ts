@@ -24,11 +24,16 @@ export function summarizeTabs(review: ReviewModel): TabSummary[] {
   const units = review.files.flatMap(changedUnitsOf)
   const untouched = units.reduce((sum, unit) => sum + untouchedReferences(unit).length, 0)
   return [
-    { tab: ReportTab.Changes, label: "Changes", count: String(units.filter((unit) => isBehaviourChange(unit.change)).length), tone: undefined },
+    { tab: ReportTab.Changes, label: "Changes", count: changesCount(review.files.length, units.filter((unit) => isBehaviourChange(unit.change)).length), tone: undefined },
     { tab: ReportTab.Impact, label: "Impact", count: String(untouched), tone: untouched > 0 ? "medium" : undefined },
     { tab: ReportTab.Risks, label: "Risks", count: String(review.risk.findings.length), tone: review.risk.securityLevel },
     { tab: ReportTab.AiReview, label: "AI review", count: review.ai.status === AiReviewStatus.Completed ? String(review.ai.questions.length) : undefined, tone: undefined },
   ]
+}
+
+// Two different numbers, so each names what it counts.
+export function changesCount(files: number, units: number): string {
+  return `${files} ${files === 1 ? "file" : "files"} · ${units} ${units === 1 ? "unit" : "units"}`
 }
 
 /** The next tab for an arrow key, wrapping at both ends. */

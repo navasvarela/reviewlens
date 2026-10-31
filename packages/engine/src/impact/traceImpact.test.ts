@@ -89,7 +89,7 @@ describe("traceImpact", () => {
     await write("web/caller.ts", 'import { newName } from "./format"\nexport const twice = (x: number) => newName(x * 1)\n')
     const head = await commit()
 
-    files = (await analyzeChangedFiles(repoDir, base, head, { network: false })).files
+    files = (await analyzeChangedFiles(repoDir, base, head, { network: false, runScanner: async () => undefined })).files
   })
 
   afterAll(async () => {
@@ -168,7 +168,7 @@ describe("traceImpact with names defined more than once", () => {
     await write("core/intrinsics.rs", "\n")
     await write("core/walk.rs", "pub fn scan() -> u32 { 2 }\n")
     const head = await commit()
-    files = (await analyzeChangedFiles(repoDir, base, head, { network: false })).files
+    files = (await analyzeChangedFiles(repoDir, base, head, { network: false, runScanner: async () => undefined })).files
   })
 
   afterAll(async () => {

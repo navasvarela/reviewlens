@@ -68,6 +68,7 @@ function modelWith(url: string, overrides: Partial<ReviewModel> = {}): ReviewMod
         { ruleId: "rust.unsafe", category: "dangerousApi", severity: "medium", title: "unsafe code", detail: "d", location: { path: "b.rs", line: 2 }, evidence: null },
         { ruleId: "dependency.added", category: "dependency", severity: "low", title: "New dependency: @evil/pkg [x](http://bad)", detail: "d", location: { path: "package.json", line: 1 }, evidence: null },
       ],
+      checksRun: [],
       notChecked: [{ check: "c", reason: "r" }],
     },
     ai: { status: "disabled" },
@@ -191,7 +192,7 @@ describe("runComment against stand-in host APIs", () => {
     await writeFile(join(reportDir, "review.json"), JSON.stringify(modelWith(pullRequestUrl)))
     await runComment(
       { reportDir, reportUrl: "https://example.com/report" },
-      { tokens: { github: "gh-token", gitlab: "gl-token" }, stepSummaryPath, log: (message) => logs.push(message) },
+      { tokens: { github: "gh-token", gitlab: "gl-token", trustedOrigins: { github: [], gitlab: [] } }, stepSummaryPath, log: (message) => logs.push(message) },
     )
   }
 

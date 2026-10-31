@@ -38,7 +38,7 @@ const MANIFESTS: readonly ManifestFormat[] = [
   { ecosystem: Ecosystem.PyPI, matches: (name) => REQUIREMENTS_FILE.test(name), parse: parseRequirements },
 ]
 
-// pnpm-lock.yaml and yarn.lock are not read yet; the report lists that as not checked.
+// pnpm-lock.yaml and yarn.lock are not parsed here; osv-scanner reads them when installed.
 const LOCKFILES: readonly LockfileFormat[] = [
   { ecosystem: Ecosystem.Npm, matches: (name) => name === "package-lock.json", parse: parsePackageLock },
   { ecosystem: Ecosystem.Crates, matches: (name) => name === "Cargo.lock", parse: (text) => tomlPackages(text, Ecosystem.Crates) },
@@ -47,6 +47,8 @@ const LOCKFILES: readonly LockfileFormat[] = [
 ]
 
 export const UNREAD_LOCKFILES: ReadonlySet<string> = new Set(["pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb"])
+// Binary, and not readable by osv-scanner either.
+export const UNSCANNABLE_LOCKFILES: ReadonlySet<string> = new Set(["bun.lockb"])
 
 export function manifestFormatFor(path: string): ManifestFormat | undefined {
   return MANIFESTS.find((format) => format.matches(basename(path)))

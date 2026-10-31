@@ -1,13 +1,19 @@
 #!/usr/bin/env node
+import { runApp } from "./appCommand.ts"
 import { parseCommand, USAGE, UsageError } from "./args.ts"
-import { defaultCacheDir, readHostTokens } from "./environment.ts"
+import { defaultCacheDir, protectLocalData, readHostTokens } from "./environment.ts"
 import { runComment } from "./commentCommand.ts"
 import { runReview } from "./reviewCommand.ts"
 
 const EXIT_FAILURE = 1
 const EXIT_USAGE = 2
 
+// Reports, cached repositories and the review list all hold private code or its details.
+const OWNER_ONLY_UMASK = 0o077
+
 async function main(argv: readonly string[]): Promise<void> {
+  process.umask(OWNER_ONLY_UMASK)
+  await protectLocalData(process.env)
   const command = parseCommand(argv)
   switch (command.kind) {
     case "help":
@@ -21,6 +27,9 @@ async function main(argv: readonly string[]): Promise<void> {
         now: () => new Date(),
         log: (message) => console.error(message),
       })
+      return
+    case "app":
+      await runApp(command.options, { env: process.env, now: () => new Date(), log: (message) => console.error(message) })
       return
     case "comment":
       await runComment(command.options, {

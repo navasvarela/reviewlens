@@ -39,16 +39,18 @@ export class DiffNotReadyError extends Error {
 export class GitLabHost implements GitHost {
   readonly #ref: GitLabMergeRequestRef
   readonly #token: string | undefined
+  readonly #authHint: string
 
-  constructor(ref: GitLabMergeRequestRef, token: string | undefined) {
+  constructor(ref: GitLabMergeRequestRef, token: string | undefined, authHint: string = AUTH_HINT) {
     this.#ref = ref
     this.#token = token
+    this.#authHint = authHint
   }
 
   async fetchPullRequest(): Promise<PullRequestSnapshot> {
     const { webOrigin, projectPath } = this.#ref
     const url = this.#mergeRequestApi()
-    const mergeRequest = await getJson({ url, headers: this.#headers(), schema: mergeRequestSchema, authHint: AUTH_HINT })
+    const mergeRequest = await getJson({ url, headers: this.#headers(), schema: mergeRequestSchema, authHint: this.#authHint })
     if (mergeRequest.diff_refs === null) {
       throw new DiffNotReadyError(mergeRequest.web_url)
     }
@@ -82,7 +84,7 @@ export class GitLabHost implements GitHost {
             url: `${notesUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
             headers: this.#headers(),
             schema: z.array(noteSchema),
-            authHint: AUTH_HINT,
+            authHint: this.#authHint,
           }),
         create: (body) => this.#write("POST", notesUrl, { body }),
         update: (id, body) => this.#write("PUT", `${notesUrl}/${id}`, { body }),
@@ -97,7 +99,7 @@ export class GitLabHost implements GitHost {
   }
 
   async #write(method: WriteMethod, url: string, body: unknown): Promise<void> {
-    await writeJson({ method, url, body, headers: this.#headers(), schema: z.unknown(), authHint: AUTH_HINT })
+    await writeJson({ method, url, body, headers: this.#headers(), schema: z.unknown(), authHint: this.#authHint })
   }
 
   #headers(): Record<string, string> {

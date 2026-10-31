@@ -42,7 +42,7 @@ export async function fetchCommits(request: FetchCommitsRequest): Promise<string
 
   // Each commit gets its own ref so `git gc` never prunes it as unreachable.
   const refspecs = missing.map((sha) => `${sha}:refs/lens/commits/${sha}`)
-  await runGit(["fetch", "--no-tags", "--quiet", "--depth=1", request.cloneUrl, ...refspecs], {
+  await runGit(["fetch", "--no-tags", "--no-recurse-submodules", "--quiet", "--depth=1", "--", request.cloneUrl, ...refspecs], {
     cwd: repoDir,
     env: credentialEnv(request.credentials),
   })
@@ -75,17 +75,24 @@ async function missingCommits(repoDir: string, commits: readonly CommitSha[]): P
   return commits.filter((_, index) => present.at(index) !== true)
 }
 
+// Links are pasted by hand, so git may only speak http(s) here, never `ext::` or `file://`.
+const ALLOWED_PROTOCOLS = "https:http"
+
 // The header travels through GIT_CONFIG_* variables rather than `-c` arguments or the
 // remote URL, which keeps the token out of `ps` output and out of the repository's config.
+// Redirects are refused because git would send this header to wherever one points.
 function credentialEnv(credentials: GitCredentials | undefined): Record<string, string> {
   if (credentials === undefined) {
-    return {}
+    return { GIT_ALLOW_PROTOCOL: ALLOWED_PROTOCOLS }
   }
   const basic = Buffer.from(`${credentials.username}:${credentials.token}`).toString("base64")
   return {
-    GIT_CONFIG_COUNT: "1",
+    GIT_ALLOW_PROTOCOL: ALLOWED_PROTOCOLS,
+    GIT_CONFIG_COUNT: "2",
     GIT_CONFIG_KEY_0: "http.extraHeader",
     GIT_CONFIG_VALUE_0: `Authorization: Basic ${basic}`,
+    GIT_CONFIG_KEY_1: "http.followRedirects",
+    GIT_CONFIG_VALUE_1: "false",
   }
 }
 

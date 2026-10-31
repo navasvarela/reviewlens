@@ -30,6 +30,7 @@ export function FileList({ files, findings, selectedPath, onSelect }: FileListPr
   const skippable = files.filter((file) => file.noise !== null)
   return (
     <nav className="file-list" aria-label="Changed files">
+      <h3 className="file-group-title">To review ({reviewable.length})</h3>
       <FileGroup files={reviewable} findings={findings} selectedPath={selectedPath} onSelect={onSelect} />
       {skippable.length > 0 && (
         <>

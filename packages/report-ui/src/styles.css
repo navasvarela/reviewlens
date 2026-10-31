@@ -943,3 +943,9 @@ code {
 .unit {
   scroll-margin-top: 8px;
 }
+
+.home-link {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}

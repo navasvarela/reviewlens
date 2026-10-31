@@ -10,7 +10,10 @@ import { readBlobs } from "../blobs.ts"
  */
 export const LENS_CONFIG_PATH = ".lens.json"
 
-const lensConfigSchema = z.object({
+// Semgrep's general-purpose pack; its noisier audit packs are left for teams to opt into.
+const DEFAULT_SEMGREP_RULES = ["p/default"]
+
+export const lensConfigSchema = z.object({
   /** Areas the team considers sensitive beyond the built-in ones. */
   riskPaths: z
     .array(z.object({ pattern: z.string().min(1), severity: z.enum(RiskSeverity), reason: z.string().min(1) }))
@@ -19,12 +22,16 @@ const lensConfigSchema = z.object({
   ignore: z.array(z.string().min(1)).default([]),
   /** `allowed: false` keeps this repository's code from ever being sent to a model. */
   ai: z.object({ allowed: z.boolean().default(true) }).default({ allowed: true }),
+  /** Semgrep rule packs from its registry; an empty list turns Semgrep off. */
+  scanners: z
+    .object({ semgrep: z.object({ rules: z.array(z.string().regex(/^[pr]\/[\w./-]+$/)).default(DEFAULT_SEMGREP_RULES) }).default({ rules: DEFAULT_SEMGREP_RULES }) })
+    .default({ semgrep: { rules: DEFAULT_SEMGREP_RULES } }),
   /** Where pilot users send feedback; shown in the report and the PR comment. */
   feedback: z.object({ url: z.url({ protocol: /^https?$/ }).nullable().default(null) }).default({ url: null }),
 })
 export type LensConfig = z.infer<typeof lensConfigSchema>
 
-export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, feedback: { url: null } }
+export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, feedback: { url: null } }
 
 export class LensConfigError extends Error {
   override readonly name = "LensConfigError"

@@ -61,7 +61,7 @@ function fileWith(path: string, units: readonly ChangedUnit[]): ChangedFile {
 const CONTEXT: ReviewContext = {
   pullRequest: PULL_REQUEST,
   files: [fileWith("app/retry.py", [modifiedUnit("retry", 10, "attempts = 3"), modifiedUnit("backoff", 20, "delay = 2")])],
-  risk: { securityLevel: "low", findings: [], notChecked: [] },
+  risk: { securityLevel: "low", findings: [], checksRun: [], notChecked: [] },
 }
 
 describe("buildPrompt", () => {
@@ -71,6 +71,26 @@ describe("buildPrompt", () => {
     expect(plan.text).toContain("11|     attempts = 3 + 1")
     expect(plan.shownRanges).toContainEqual({ path: "app/retry.py", side: "after", startLine: 10, endLine: 12 })
     expect(plan.summarizedOnly).toBe(0)
+  })
+
+  it("redacts credentials and leaves credential files out of what is sent", () => {
+    const fakeKey = ["AKIA", "Q3EGUJKLMNOPQRST"].join("")
+    const envFile: ChangedFile = {
+      diff: {
+        status: "added",
+        path: "deploy/.env.production",
+        additions: 1,
+        deletions: 0,
+        content: { kind: "text", hunks: [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 1, section: "", lines: [{ kind: "added", content: "DB_NAME=orders-secret-value", newLine: 1 }] }] },
+      },
+      noise: null,
+      syntax: { status: "unsupportedLanguage" },
+    }
+    const context = { ...CONTEXT, pullRequest: { ...PULL_REQUEST, description: `Rotated ${fakeKey}` }, files: [...CONTEXT.files, envFile] }
+    const plan = buildPrompt(context, 40_000)
+    expect(plan.text).not.toContain(fakeKey)
+    expect(plan.text).not.toContain("orders-secret-value")
+    expect(plan.text).toContain('path="deploy/.env.production" status="added" omitted="may hold credentials"')
   })
 
   it("lists units by name only once the budget is spent, and counts them", () => {

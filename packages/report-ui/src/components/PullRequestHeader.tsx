@@ -22,8 +22,16 @@ export function PullRequestHeader({ pullRequest, files, risk, feedbackUrl }: Pul
     ...(skippable > 0 ? [`${skippable} skippable ${skippable === 1 ? "file" : "files"}`] : []),
   ]
 
+  // Only the local app adds this, so a report opened from a file or CI artifact has no link.
+  const homeUrl = document.querySelector('meta[name="lens-home"]')?.getAttribute("content") ?? null
+
   return (
     <header className="header">
+      {homeUrl !== null && (
+        <a className="home-link" href={homeUrl}>
+          ← All reviews
+        </a>
+      )}
       <h1>
         <span className={`level-badge level-${risk.securityLevel}`} title="Security level: highest severity among security findings">
           {SEVERITY_LABELS[risk.securityLevel]}

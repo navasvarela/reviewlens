@@ -1,12 +1,14 @@
 import { basename } from "node:path"
 import { FileChangeStatus, RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { CommitSha, FileDiff, Risk, SkippedCheck } from "@lens/review-model"
+import type { CheckRun, CommitSha, FileDiff, Risk, SkippedCheck } from "@lens/review-model"
 import { readBlobs } from "../../blobs.ts"
 import { findingAt } from "../scannedFile.ts"
 import type { RuleDescription } from "../scannedFile.ts"
 import { findVulnerabilities, OsvUnavailableError } from "./osv.ts"
 import type { VulnerablePackage } from "./osv.ts"
+import { scanUnreadLockfiles } from "./osvScanner.ts"
 import { lockfileFormatFor, manifestFormatFor, UNREAD_LOCKFILES } from "./packages.ts"
+import type { ScannerProcessRunner } from "../scanners/scannerProcess.ts"
 import type { PackageVersion } from "./packages.ts"
 
 export interface DependencyScanRequest {
@@ -16,12 +18,16 @@ export interface DependencyScanRequest {
   readonly diffs: readonly FileDiff[]
   /** False skips the OSV lookup, which sends package names and versions to api.osv.dev. */
   readonly network: boolean
+  readonly runScanner: ScannerProcessRunner
 }
 
 export interface DependencyScan {
   readonly findings: Risk[]
+  readonly checksRun: CheckRun[]
   readonly notChecked: SkippedCheck[]
 }
+
+const OSV_DATABASE_CHECK: CheckRun = { name: "OSV database", detail: "package versions new to lockfiles" }
 
 const VULNERABILITY_CHECK = "Known vulnerabilities in new dependency versions"
 
@@ -43,11 +49,11 @@ export async function scanDependencies(request: DependencyScanRequest): Promise<
     (diff) => diff.status !== FileChangeStatus.Deleted && (manifestFormatFor(diff.path) ?? lockfileFormatFor(diff.path)) !== undefined,
   )
   const findings: Risk[] = []
-  const notChecked: SkippedCheck[] = request.diffs
-    .filter((diff) => UNREAD_LOCKFILES.has(basename(diff.path)))
-    .map((diff) => ({ check: `${VULNERABILITY_CHECK} (${diff.path})`, reason: `${basename(diff.path)} is not read yet` }))
+  const checksRun: CheckRun[] = []
+  const notChecked: SkippedCheck[] = []
+  await scanUnreadLockfilesInto(request, { findings, checksRun, notChecked })
   if (relevant.length === 0) {
-    return { findings, notChecked }
+    return { findings, checksRun, notChecked }
   }
 
   const blobs = await readBlobs(
@@ -69,11 +75,11 @@ export async function scanDependencies(request: DependencyScanRequest): Promise<
   })
 
   if (newVersions.length === 0) {
-    return { findings, notChecked }
+    return { findings, checksRun, notChecked }
   }
   if (!request.network) {
     notChecked.push({ check: VULNERABILITY_CHECK, reason: "offline mode: the OSV database was not queried" })
-    return { findings, notChecked }
+    return { findings, checksRun, notChecked }
   }
   try {
     const vulnerable = withoutAliasDuplicates(await findVulnerabilities(newVersions.map((entry) => entry.version)))
@@ -81,11 +87,23 @@ export async function scanDependencies(request: DependencyScanRequest): Promise<
       const source = newVersions.find((entry) => entry.version === found.package)
       if (source !== undefined) findings.push(vulnerabilityFinding(found, source.lockfile, source.text))
     }
+    checksRun.push(OSV_DATABASE_CHECK)
   } catch (error: unknown) {
     if (!(error instanceof OsvUnavailableError)) throw error
     notChecked.push({ check: VULNERABILITY_CHECK, reason: error.message })
   }
-  return { findings, notChecked }
+  return { findings, checksRun, notChecked }
+}
+
+async function scanUnreadLockfilesInto(request: DependencyScanRequest, scan: DependencyScan): Promise<void> {
+  const lockfiles = request.diffs.filter((diff) => diff.status !== FileChangeStatus.Deleted && UNREAD_LOCKFILES.has(basename(diff.path)))
+  const result = await scanUnreadLockfiles(lockfiles, request)
+  scan.notChecked.push(...result.notChecked)
+  scan.checksRun.push(...result.checksRun)
+  for (const found of withoutAliasDuplicates(result.vulnerable.map((entry) => entry.found))) {
+    const source = result.vulnerable.find((entry) => entry.found === found)
+    if (source !== undefined) scan.findings.push(vulnerabilityFinding(found, source.lockfile, source.text))
+  }
 }
 
 function newlyDeclared(path: string, before: string | undefined, after: string): Risk[] {
