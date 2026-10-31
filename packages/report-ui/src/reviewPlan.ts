@@ -111,8 +111,12 @@ export function isTestPath(path: string): boolean {
   return TEST_PATH.test(path)
 }
 
+export function isTestUnit(unit: ChangedUnit): boolean {
+  return TEST_UNIT.test(unit.qualifiedName)
+}
+
 function isOnThePathKind(unit: ChangedUnit): boolean {
-  return isBehaviourChange(unit.change) && !TEST_UNIT.test(unit.qualifiedName)
+  return isBehaviourChange(unit.change) && !isTestUnit(unit)
 }
 
 function stopsForFile(file: ChangedFile, findings: readonly Risk[], testFiles: readonly ChangedFile[]): ReviewStop[] {

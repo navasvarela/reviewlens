@@ -1,6 +1,8 @@
 import type { ReactElement } from "react"
 import { changedUnitsOf, FileChangeStatus } from "@lens/review-model"
 import type { ChangedFile, Risk } from "@lens/review-model"
+import { fileProgress } from "../reviewProgress.ts"
+import { useReviewState } from "../reviewState.tsx"
 import { findingsInFile, SEVERITY_LABELS, worstSeverity } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 
@@ -72,6 +74,7 @@ function FileGroup({ files, findings, selectedPath, onSelect }: FileGroupProps):
                 {diff.path}
                 <FileHint file={file} />
               </span>
+              <FileReviewMark file={file} />
               <RiskBadge findings={findingsInFile(findings, diff.path)} />
               <span className="counts">
                 <span className="added">+{diff.additions}</span> <span className="removed">−{diff.deletions}</span>
@@ -81,6 +84,22 @@ function FileGroup({ files, findings, selectedPath, onSelect }: FileGroupProps):
         )
       })}
     </ul>
+  )
+}
+
+/** Shows marking from anywhere in the review, including the guided path. */
+function FileReviewMark({ file }: { readonly file: ChangedFile }): ReactElement | null {
+  const { state } = useReviewState()
+  const { reviewed, total } = fileProgress(file, state)
+  if (total === 0 || reviewed === 0) return null
+  return reviewed === total ? (
+    <span className="file-review-mark file-review-done" title="All changes in this file are reviewed">
+      ✓
+    </span>
+  ) : (
+    <span className="file-review-mark" title={`${reviewed} of ${total} changes in this file are reviewed`}>
+      {reviewed}/{total}
+    </span>
   )
 }
 

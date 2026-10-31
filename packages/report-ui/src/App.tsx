@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ReactElement } from "react"
 import type { ReviewModel, UnitRef } from "@lens/review-model"
 import { AiReviewView } from "./components/AiReviewView.tsx"
@@ -12,7 +12,9 @@ import { RiskView } from "./components/RiskView.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
 import { findingsInFile } from "./risks.ts"
-import { guideRouteFromHash, REVIEW_HASH } from "./reviewPlan.ts"
+import { buildReviewPlan, guideRouteFromHash, REVIEW_HASH } from "./reviewPlan.ts"
+import { overallProgress, pathProgress } from "./reviewProgress.ts"
+import { ReviewStateProvider, useReviewState } from "./reviewState.tsx"
 import { ReportTab, summarizeTabs, tabFromHash } from "./tabs.ts"
 
 export function App(): ReactElement {
@@ -41,11 +43,27 @@ function Routed({ review }: ReportProps): ReactElement {
     return () => window.removeEventListener("hashchange", followHash)
   }, [])
   const route = guideRouteFromHash(hash)
-  return route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />
+  return <ReviewStateProvider headSha={review.pullRequest.headSha}>{route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />}</ReviewStateProvider>
 }
 
 interface ReportProps {
   readonly review: ReviewModel
+}
+
+/** Keeps the guided review in view from the full lists, as both are one review. */
+function ReviewBar({ review }: ReportProps): ReactElement {
+  const { state } = useReviewState()
+  const plan = useMemo(() => buildReviewPlan(review), [review])
+  const path = pathProgress(plan, state)
+  const overall = overallProgress(review.files, state)
+  return (
+    <p className="guide-back">
+      <a href={REVIEW_HASH}>← Back to the review</a>
+      <span>
+        {path.reviewed} of {path.total} on the path · {overall.reviewed} of {overall.total} overall
+      </span>
+    </p>
+  )
 }
 
 function Report({ review }: ReportProps): ReactElement {
@@ -92,9 +110,7 @@ function Report({ review }: ReportProps): ReactElement {
 
   return (
     <div className="layout">
-      <p className="guide-back">
-        <a href={REVIEW_HASH}>← Back to the review</a>
-      </p>
+      <ReviewBar review={review} />
       <PullRequestHeader pullRequest={review.pullRequest} files={review.files} risk={review.risk} feedbackUrl={review.feedbackUrl} />
       <ReportTabs tabs={summarizeTabs(review)} selected={tab} onSelect={showTab} />
       {/* Stays mounted while hidden, so expanded cards and the scroll position survive a tab switch. */}

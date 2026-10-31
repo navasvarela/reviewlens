@@ -14,7 +14,7 @@ app runs a local page where you add pull requests and keep track of several revi
 
 Options:
   --out <dir>        Write the report here instead of the cache directory
-  --port <number>    Port for the local server (review: a free port; app: 4317)
+  --port <number>    Port for the local server (review: 4318, or any free port; app: 4317)
   --no-serve         Write the report and exit without serving it
   --offline          Skip network checks (dependency vulnerability lookups in OSV)
   --ai               Add an AI review (reading order, intent check, questions); sends the
@@ -49,7 +49,8 @@ export interface ReviewOptions {
   /** Undefined means: take it from the CI environment. */
   readonly url: string | undefined
   readonly outDir: string | undefined
-  readonly port: number
+  /** Undefined prefers a fixed port, falling back to any free one. */
+  readonly port: number | undefined
   readonly serve: boolean
   readonly cacheDir: string | undefined
   /** False when --offline: no package names or versions leave the machine. */
@@ -136,7 +137,7 @@ export function parseCommand(argv: readonly string[]): Command {
     options: {
       url,
       outDir: values.out,
-      port: values.port === undefined ? 0 : parsePort(values.port),
+      port: values.port === undefined ? undefined : parsePort(values.port),
       serve: values.serve,
       cacheDir: values["cache-dir"],
       network: !values.offline,

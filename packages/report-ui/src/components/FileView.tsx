@@ -2,10 +2,12 @@ import { useState } from "react"
 import type { ReactElement } from "react"
 import { changedUnitsOf, FileChangeStatus, RiskSeverity, SyntaxAnalysisStatus } from "@lens/review-model"
 import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis, UnitRef } from "@lens/review-model"
+import { itemsOfFile, unitItemId } from "../reviewProgress.ts"
 import { worstSeverity } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 import { FileMap, MIN_UNITS_FOR_MAP } from "./FileMap.tsx"
 import { HunkView } from "./HunkView.tsx"
+import { ReviewControls } from "./ReviewControls.tsx"
 import { RiskList } from "./RiskView.tsx"
 import { UnitCard } from "./UnitCard.tsx"
 
@@ -24,6 +26,7 @@ export function FileView({ file, findings, pullRequest, onShowImpact }: FileView
   const units = changedUnitsOf(file)
   const [mode, setMode] = useState<ViewMode>(units.length > 0 ? ViewMode.Units : ViewMode.Lines)
   const { diff } = file
+  const items = itemsOfFile(file)
 
   return (
     <section className="file-view">
@@ -48,6 +51,7 @@ export function FileView({ file, findings, pullRequest, onShowImpact }: FileView
             </button>
           </div>
         )}
+        {items.length > 0 && <ReviewControls ids={items.map((item) => item.id)} commentId={units.length === 0 ? items.at(0)?.id : undefined} markLabel={units.length === 0 ? "Mark as reviewed" : "Mark file as reviewed"} />}
       </header>
       {file.noise !== null && (
         <p className="notice">
@@ -71,7 +75,7 @@ export function FileView({ file, findings, pullRequest, onShowImpact }: FileView
           )}
           {units.map((unit, index) => (
             // Overloads and cfg variants can repeat a name and change, so the index disambiguates.
-            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
+            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} itemId={unitItemId(file, unit)} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
           ))}
         </>
       ) : (

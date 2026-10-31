@@ -2,16 +2,21 @@ import type { ReactElement } from "react"
 import { UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@lens/review-model"
 import type { ChangedUnit, UnitChange, UnitImpact, UnitSnapshot } from "@lens/review-model"
 import { changeLabel, factPhrases, isQuiet, Tone, unitAnchorId, UNIT_KIND_LABELS } from "../unitChange.ts"
+import { useReviewState } from "../reviewState.tsx"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"
+import { ReviewControls } from "./ReviewControls.tsx"
 
 interface UnitCardProps {
   readonly unit: ChangedUnit
+  /** Identifies this change in the review record, shared with the guided path. */
+  readonly itemId: string
   /** Position among the file's cards, which the file map links to. */
   readonly index: number
   readonly onShowImpact: () => void
 }
 
-export function UnitCard({ unit, index, onShowImpact }: UnitCardProps): ReactElement {
+export function UnitCard({ unit, itemId, index, onShowImpact }: UnitCardProps): ReactElement {
+  const { state } = useReviewState()
   const label = changeLabel(unit.change)
   const untouchedCallers = untouchedReferences(unit).length
   return (
@@ -24,6 +29,7 @@ export function UnitCard({ unit, index, onShowImpact }: UnitCardProps): ReactEle
             {untouchedCallers} untouched {untouchedCallers === 1 ? "caller" : "callers"}
           </span>
         )}
+        {state.reviewed.has(itemId) && <span className="unit-reviewed">✓ Reviewed</span>}
         <span className={`change-label tone-${label.tone}`}>{label.text}</span>
       </summary>
       {unit.facts !== null && (
@@ -35,6 +41,11 @@ export function UnitCard({ unit, index, onShowImpact }: UnitCardProps): ReactEle
       )}
       <UnitBody unit={unit} />
       {unit.impact !== null && <ImpactLine unit={unit} impact={unit.impact} onShow={onShowImpact} />}
+      {!isQuiet(unit) && (
+        <div className="unit-review">
+          <ReviewControls ids={[itemId]} commentId={itemId} />
+        </div>
+      )}
     </details>
   )
 }
