@@ -77,7 +77,7 @@ interface UnitBodyProps {
   readonly unit: ChangedUnit
 }
 
-function UnitBody({ unit }: UnitBodyProps): ReactElement {
+export function UnitBody({ unit }: UnitBodyProps): ReactElement {
   const { change } = unit
   // Collapsed nested units break the link between row and file line number.
   const numbered = !snapshotsOf(change).some((snapshot) => snapshot.elidesNestedUnits)

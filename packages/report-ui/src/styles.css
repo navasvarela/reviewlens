@@ -949,3 +949,239 @@ code {
   margin-bottom: 4px;
   font-size: 12px;
 }
+
+.guide {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+  font-size: 15px;
+}
+
+.guide-wide {
+  max-width: 1100px;
+  padding-top: 24px;
+}
+
+.guide-eyebrow,
+.guide-path,
+.guide-note,
+.guide-keys,
+.guide-lede {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.guide-eyebrow {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.guide-title {
+  margin: 0 0 28px;
+  font-size: 26px;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.guide-title + .guide-lede {
+  margin-top: -20px;
+  margin-bottom: 28px;
+}
+
+.guide-heading {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.guide-all-clear {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.guide-checks {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.guide-check {
+  padding: 12px 16px 12px 14px;
+  border-left: 3px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.guide-check + .guide-check {
+  border-top: 1px solid var(--border);
+}
+
+.guide-check-high {
+  border-left-color: var(--high-text);
+}
+
+.guide-check-medium {
+  border-left-color: var(--medium-text);
+}
+
+.guide-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.guide-effort {
+  flex: 1 1 280px;
+  margin: 0;
+}
+
+.guide-button {
+  display: inline-block;
+  padding: 9px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.guide-button:hover {
+  background: var(--bg-subtle);
+}
+
+.guide-button-primary,
+.guide-button-primary:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.guide-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.guide-progress-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.guide-progress {
+  height: 4px;
+  margin-bottom: 24px;
+  border-radius: 2px;
+  background: var(--selected-bg);
+}
+
+.guide-progress-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.guide-stop-title {
+  margin: 0 0 2px;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.guide-stop-kind {
+  margin-left: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.guide-path {
+  margin-bottom: 14px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.guide-why {
+  margin: 14px 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+}
+
+.guide-why-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.guide-why ul,
+.guide-facts,
+.guide-plain-list {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.guide-why p {
+  margin: 0;
+}
+
+.guide-facts {
+  margin-bottom: 14px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.guide-section {
+  margin-top: 24px;
+}
+
+.guide-details > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.guide-tests {
+  margin: 16px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.guide-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.guide-keys {
+  margin-top: 10px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.guide-back {
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.guide-check a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}

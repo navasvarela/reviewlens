@@ -6,11 +6,13 @@ import { FileList } from "./components/FileList.tsx"
 import { FileView } from "./components/FileView.tsx"
 import { ImpactView } from "./components/ImpactView.tsx"
 import { PullRequestHeader } from "./components/PullRequestHeader.tsx"
+import { ReviewGuide } from "./components/ReviewGuide.tsx"
 import { ReportTabs, tabButtonId, tabPanelId } from "./components/ReportTabs.tsx"
 import { RiskView } from "./components/RiskView.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
 import { findingsInFile } from "./risks.ts"
+import { guideRouteFromHash, REVIEW_HASH } from "./reviewPlan.ts"
 import { ReportTab, summarizeTabs, tabFromHash } from "./tabs.ts"
 
 export function App(): ReactElement {
@@ -26,8 +28,20 @@ export function App(): ReactElement {
     case "failed":
       return <p className="notice notice-error">{load.message}</p>
     case "loaded":
-      return <Report review={load.review} />
+      return <Routed review={load.review} />
   }
+}
+
+/** The guided review comes first; the full lists are one link away from it. */
+function Routed({ review }: ReportProps): ReactElement {
+  const [hash, setHash] = useState(window.location.hash)
+  useEffect(() => {
+    const followHash = (): void => setHash(window.location.hash)
+    window.addEventListener("hashchange", followHash)
+    return () => window.removeEventListener("hashchange", followHash)
+  }, [])
+  const route = guideRouteFromHash(hash)
+  return route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />
 }
 
 interface ReportProps {
@@ -78,6 +92,9 @@ function Report({ review }: ReportProps): ReactElement {
 
   return (
     <div className="layout">
+      <p className="guide-back">
+        <a href={REVIEW_HASH}>← Back to the review</a>
+      </p>
       <PullRequestHeader pullRequest={review.pullRequest} files={review.files} risk={review.risk} feedbackUrl={review.feedbackUrl} />
       <ReportTabs tabs={summarizeTabs(review)} selected={tab} onSelect={showTab} />
       {/* Stays mounted while hidden, so expanded cards and the scroll position survive a tab switch. */}
