@@ -31,7 +31,9 @@ Options:
 Environment:
   GITHUB_TOKEN, GH_TOKEN   Token for GitHub (required for private repositories)
   GITLAB_TOKEN             Token for GitLab (required for private projects)
-  ANTHROPIC_API_KEY        Credential for --ai (or an \`ant auth login\` profile)`
+  ANTHROPIC_API_KEY        Credential for --ai (or an \`ant auth login\` profile)
+
+Troubleshooting: https://github.com/navasvarela/reviewlens/blob/main/docs/troubleshooting.md`
 
 const MAX_PORT = 65_535
 // About $0.16 of input on Claude Opus 5.5; enough for the full text of most PRs' changed units.

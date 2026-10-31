@@ -4,6 +4,9 @@ import { ReviewStatus, RiskSeverity } from "@lens/review-model"
 import type { ReviewSummary } from "@lens/review-model"
 import { addReview, listReviews, refreshReview, removeReview } from "./api.ts"
 
+const DOCS_URL = "https://github.com/navasvarela/reviewlens/blob/main/docs/README.md"
+const TROUBLESHOOTING_URL = "https://github.com/navasvarela/reviewlens/blob/main/docs/troubleshooting.md"
+
 // Often enough that an analysis finishing feels immediate; only while one is running.
 const POLL_INTERVAL_MS = 1500
 
@@ -69,6 +72,14 @@ export function App(): ReactElement {
           ))}
         </ul>
       )}
+      <footer className="page-footer">
+        <a href={DOCS_URL} target="_blank" rel="noreferrer">
+          Documentation
+        </a>
+        <a href={TROUBLESHOOTING_URL} target="_blank" rel="noreferrer">
+          Troubleshooting
+        </a>
+      </footer>
     </main>
   )
 }
@@ -153,7 +164,14 @@ function ReviewRow({ review, onRefresh, onRemove }: ReviewRowProps): ReactElemen
         {review.ai && <> · AI</>}
         <> · updated {new Date(review.updatedAt).toLocaleString()}</>
       </p>
-      {review.error !== null && <p className="problem">{review.error}</p>}
+      {review.error !== null && (
+        <p className="problem">
+          {review.error}{" "}
+          <a href={TROUBLESHOOTING_URL} target="_blank" rel="noreferrer">
+            How to fix this
+          </a>
+        </p>
+      )}
       <div className="review-actions">
         <button type="button" disabled={working} onClick={onRefresh}>
           Refresh

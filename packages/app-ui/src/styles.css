@@ -109,6 +109,13 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.page-footer {
+  display: flex;
+  gap: 16px;
+  margin-top: 32px;
+  font-size: 13px;
+}
+
 .empty,
 .notice {
   padding: 24px 0;
