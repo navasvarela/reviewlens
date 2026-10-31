@@ -5,7 +5,7 @@ change, analyzes it, and serves a local report. (Working name; the project name 
 
 Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
 
-**Documentation:** [getting started](docs/getting-started.md), [configuration](docs/configuration.md), [troubleshooting](docs/troubleshooting.md).
+**Documentation:** [getting started](docs/getting-started.md), [configuration](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [security policy](SECURITY.md).
 
 ## What the report shows
 

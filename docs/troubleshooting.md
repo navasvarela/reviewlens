@@ -62,6 +62,10 @@ Lens doesn't send tokens to a host until you add it, so a private repository on 
 
 An entry in `LENS_TRUSTED_GITHUB_HOSTS` or `LENS_TRUSTED_GITLAB_HOSTS` isn't valid. Use comma-separated hosts, such as `git.acme.internal,git.acme.dev:8443`.
 
+### `refused a redirect to another host`, or git fails with a redirect error
+
+Lens doesn't follow a redirect to another host while it holds a token, so the token can't go with it. Use the link's final address. For a renamed or moved repository, use its current link.
+
 ### `responded 403` from GitHub
 
 You have probably hit the API rate limit, which is low without a token. Set `GITHUB_TOKEN` or `GH_TOKEN`. If you already have, check that the token can read the repository.

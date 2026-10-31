@@ -8,5 +8,6 @@ Lens is a review companion for GitHub pull requests and GitLab merge requests. I
 | [Configuration](configuration.md) | You need an option, an environment variable or a `.lens.json` setting |
 | [Troubleshooting](troubleshooting.md) | Something failed, or a report looks wrong |
 | [Running a pilot](pilot.md) | You want to set up CI and try Lens with your team |
+| [Security policy](../SECURITY.md) | You want to know what Lens guarantees, or need to report a vulnerability |
 
 The [project README](../README.md) describes everything the report shows and how Lens works inside.

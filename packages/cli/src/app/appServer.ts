@@ -6,7 +6,7 @@ import { join, resolve } from "node:path"
 import { InvalidPullRequestUrlError } from "@lens/providers"
 import { addReviewRequestSchema } from "@lens/review-model"
 import { REPORT_PAGE_FILE } from "../report.ts"
-import { addressOf, listen, LOOPBACK_HOST, respond } from "../server.ts"
+import { addressOf, BASE_POLICY, listen, LOOPBACK_HOST, REPORT_PAGE_POLICY, respond, SECURITY_HEADERS } from "../server.ts"
 import type { ReviewService } from "./reviewService.ts"
 import type { ReviewStore } from "./reviewStore.ts"
 
@@ -21,17 +21,7 @@ const API_KEY_BYTES = 32
 const APP_UI_DIST = resolve(import.meta.dirname, "../../../app-ui/dist")
 
 // Pages show text and code from PRs, and the API behind them can act with the user's token.
-// Even if a crafted PR got script onto a page, it could reach nothing but this server.
-const BASE_POLICY = "default-src 'none'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 const APP_PAGE_POLICY = `${BASE_POLICY}; script-src 'self'; style-src 'self'`
-// A report is one self-contained file, so its script and styles are inline.
-const REPORT_PAGE_POLICY = `${BASE_POLICY}; script-src 'unsafe-inline'; style-src 'unsafe-inline'`
-
-const SECURITY_HEADERS: Readonly<Record<string, string>> = {
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff",
-  "Referrer-Policy": "no-referrer",
-}
 
 export interface AppServer {
   readonly url: string

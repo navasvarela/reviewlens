@@ -1,6 +1,8 @@
 import { changedUnitsOf, CitationSide as Side, DiffLineKind, FileContentKind, isBehaviourChange, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@lens/review-model"
 import type { ChangedFile, ChangedUnit, CitationSide, FileDiff, PullRequest, RiskAssessment, UnitRef, UnitSnapshot } from "@lens/review-model"
 
+import { isSecretFile, redactSecretsInText } from "../risk/secrets.ts"
+
 export interface ReviewContext {
   readonly pullRequest: PullRequest
   readonly files: readonly ChangedFile[]
@@ -64,6 +66,9 @@ export function buildPrompt(context: ReviewContext, maxInputTokens: number): Pro
   const otherSections = context.files
     .filter((file) => file.noise === null && changedUnitsOf(file).length === 0)
     .map((file) => {
+      if (isSecretFile(file.diff.path)) {
+        return `<file path="${attribute(file.diff.path)}" status="${file.diff.status}" omitted="may hold credentials"/>`
+      }
       const rendered = renderHunks(file.diff)
       if (fits(rendered.text)) {
         shownRanges.push(...rendered.ranges)
@@ -88,7 +93,8 @@ export function buildPrompt(context: ReviewContext, maxInputTokens: number): Pro
       }),
     ),
   ].join("\n\n")
-  return { text, unitsById, shownRanges, summarizedOnly }
+  // Redacted last, so nothing added above can bypass it, and the cache key never holds a secret.
+  return { text: redactSecretsInText(text), unitsById, shownRanges, summarizedOnly }
 }
 
 interface LocatedUnit {

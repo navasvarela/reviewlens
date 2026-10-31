@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { chmod } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
@@ -46,6 +47,7 @@ function ciServerOrigin(isCi: string | undefined, serverUrl: string | undefined)
 export type CommandRunner = (command: string, args: readonly string[]) => Promise<string | undefined>
 
 const CREDENTIAL_COMMAND_TIMEOUT_MS = 5_000
+const OWNER_ONLY_DIR_MODE = 0o700
 
 export const runCommand: CommandRunner = async (command, args) => {
   try {
@@ -67,6 +69,24 @@ export async function hostTokensFor(ref: PullRequestRef, env: Environment, run: 
   if (ref.host !== GitHostKind.GitHub || tokens.github !== undefined || !isTrustedHost(ref, tokens.trustedOrigins)) return tokens
   const output = await run("gh", ["auth", "token", "--hostname", new URL(ref.webOrigin).host])
   return { ...tokens, github: nonEmpty(output?.trim()) }
+}
+
+/**
+ * Closes the default folders to other users of this machine. The umask only covers new
+ * files; earlier versions created these folders readable by everyone. Closing the top folder
+ * protects everything inside. Folders chosen with `--cache-dir` or `--out` are left alone,
+ * as they may be shared on purpose.
+ */
+export async function protectLocalData(env: Environment): Promise<void> {
+  await Promise.all([defaultCacheDir(env), defaultDataDir(env)].map((dir) => chmodIfPresent(dir, OWNER_ONLY_DIR_MODE)))
+}
+
+async function chmodIfPresent(path: string, mode: number): Promise<void> {
+  try {
+    await chmod(path, mode)
+  } catch (error: unknown) {
+    if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error
+  }
 }
 
 export function defaultDataDir(env: Environment): string {

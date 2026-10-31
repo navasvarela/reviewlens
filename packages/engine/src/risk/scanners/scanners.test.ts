@@ -90,7 +90,8 @@ describe("runCodeScanners", () => {
   })
 
   it("never puts a secret into the report", async () => {
-    const secret = "AKIAQ3EGUJKLMNOPQRST"
+    // Built from parts so secret scanners do not flag this fake key in the repository.
+    const secret = ["AKIA", "Q3EGUJKLMNOPQRST"].join("")
     const file = modifiedFile("src/a.py", `KEY = "${secret}"\ncall("${secret}")\n`, [1, 2])
     const { run } = fakeScanners({
       semgrep: { exitCode: 0, stdout: JSON.stringify({ results: [semgrepResult("src/a.py", 1, "generic.secrets.security.aws-key"), semgrepResult("src/a.py", 2, "python.lang.other.rule")] }), stderr: "" },

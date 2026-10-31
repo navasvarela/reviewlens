@@ -73,10 +73,44 @@ function redact(line: string, secret: string): string {
   return line.replace(secret, `${secret.slice(0, VISIBLE_SECRET_PREFIX)}…[redacted]`)
 }
 
+const PRIVATE_KEY_BEGIN = /-----BEGIN [A-Z ]*PRIVATE KEY/
+const PRIVATE_KEY_END = /-----END [A-Z ]*PRIVATE KEY/
+const REDACTED_KEY_LINE = "[redacted private key]"
+const GLOBAL_SECRET_RULES = SECRET_RULES.map((rule) => ({ pattern: new RegExp(rule.pattern, rule.pattern.flags.includes("g") ? rule.pattern.flags : `${rule.pattern.flags}g`), secretGroup: rule.secretGroup }))
+
 /** Hides anything that looks like a credential, for lines shown in the report from other sources. */
 export function redactSecrets(line: string): string {
-  return SECRET_RULES.reduce((text, rule) => {
-    const secret = rule.pattern.exec(text)?.[rule.secretGroup]
-    return secret === undefined ? text : redact(text, secret)
-  }, line)
+  return GLOBAL_SECRET_RULES.reduce(
+    (text, rule) =>
+      text.replace(rule.pattern, (match: string, ...groups: unknown[]) => {
+        const group = rule.secretGroup === 0 ? match : groups.at(rule.secretGroup - 1)
+        return typeof group === "string" && !PLACEHOLDER.test(group) ? redact(match, group) : match
+      }),
+    line,
+  )
+}
+
+/**
+ * For whole documents leaving the machine. Keeps every line in place, because citations refer
+ * to line numbers, and also hides private key bodies, which no single-line rule can recognise.
+ * This only catches known credential formats, so it reduces the risk rather than removing it.
+ */
+export function redactSecretsInText(text: string): string {
+  let insideKey = false
+  return text
+    .split("\n")
+    .map((line) => {
+      const opensKey = PRIVATE_KEY_BEGIN.test(line)
+      if (!insideKey && !opensKey) return redactSecrets(line)
+      insideKey = !PRIVATE_KEY_END.test(line)
+      return REDACTED_KEY_LINE
+    })
+    .join("\n")
+}
+
+const SECRET_FILE_NAME = /^(?:\.env(?:\.(?!example$|sample$|template$)[\w.-]+)?|.+\.(?:pem|key|p12|pfx|jks|keystore)|id_(?:rsa|dsa|ecdsa|ed25519)|credentials(?:\.json)?|secrets?\.(?:ya?ml|json|toml)|\.npmrc|\.pypirc|\.netrc)$/i
+
+/** Files whose whole purpose is holding credentials, so no part of them should leave the machine. */
+export function isSecretFile(path: string): boolean {
+  return SECRET_FILE_NAME.test(path.split("/").at(-1) ?? "")
 }

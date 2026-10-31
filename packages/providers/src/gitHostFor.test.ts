@@ -63,4 +63,24 @@ describe("gitHostFor", () => {
     expect(error).toContain("Set GITHUB_TOKEN")
     expect(error).not.toContain("trusted host")
   })
+
+  it("refuses to follow a redirect to another host, keeping the token there", async () => {
+    const fetchStub = vi.fn<typeof fetch>(async () => new Response(null, { status: 302, headers: { location: "https://evil.example/steal" } }))
+    vi.stubGlobal("fetch", fetchStub)
+    const host = gitHostFor(parsePullRequestUrl("https://gitlab.com/g/p/-/merge_requests/1"), tokens())
+    await expect(host.fetchPullRequest()).rejects.toThrow("refused a redirect to another host")
+    expect(fetchStub).toHaveBeenCalledTimes(1)
+  })
+
+  it("follows a redirect within the host, as for a renamed repository", async () => {
+    const fetchStub = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 301, headers: { location: "/repositories/42/pulls/1" } }))
+      .mockResolvedValue(new Response("{}", { status: 404 }))
+    vi.stubGlobal("fetch", fetchStub)
+    await gitHostFor(parsePullRequestUrl("https://github.com/o/r/pull/1"), tokens())
+      .fetchPullRequest()
+      .catch(() => undefined)
+    expect(String(fetchStub.mock.calls.at(1)?.[0])).toBe("https://api.github.com/repositories/42/pulls/1")
+  })
 })

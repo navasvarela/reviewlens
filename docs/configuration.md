@@ -78,7 +78,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | The PR's host | Your token, if the host is trusted, to read the PR and its code | Always |
 | OSV | Names and versions of dependencies | Unless `--offline` |
 | Semgrep registry | A rule download; your code isn't uploaded | When Semgrep is installed, unless `--offline` |
-| Anthropic | The changed code, and the PR's title and description | Only with `--ai` |
+| Anthropic | The changed code, and the PR's title and description, with known credential formats redacted and credential files left out | Only with `--ai` |
 
 ## Where Lens keeps files
 
