@@ -149,7 +149,7 @@ async function coverageFromCi(search: CoverageSearch, deps: AnalysisDependencies
 function describeAiReview(ai: AiReview): string {
   switch (ai.status) {
     case AiReviewStatus.Disabled:
-      return "AI review off (pass --ai to enable)."
+      return "AI review off. Turn it on with --ai, or with Include AI review in the app."
     case AiReviewStatus.Unavailable:
       return `AI review not available: ${ai.reason}.`
     case AiReviewStatus.Completed: {

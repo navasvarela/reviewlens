@@ -121,6 +121,10 @@ export class ReviewStore {
   }
 
   /** Sets a review's status, clearing any earlier error. */
+  setAi(id: number, ai: boolean): void {
+    this.#db.prepare("UPDATE reviews SET ai = ?, updated_at = ? WHERE id = ?").run(ai ? 1 : 0, this.#timestamp(), id)
+  }
+
   setStatus(id: number, status: ReviewStatus): void {
     this.#db.prepare("UPDATE reviews SET status = ?, error = NULL, updated_at = ? WHERE id = ?").run(status, this.#timestamp(), id)
   }
