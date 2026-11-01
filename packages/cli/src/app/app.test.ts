@@ -1,13 +1,14 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { request } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION, DEFAULT_APP_SETTINGS } from "@walkdiff/review-model"
+import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION, DEFAULT_APP_SETTINGS, reviewModelSchema } from "@walkdiff/review-model"
 import type { ReviewModel } from "@walkdiff/review-model"
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { HostApiError, parsePullRequestUrl } from "@walkdiff/providers"
 import type { GitHost, PullRequestRef } from "@walkdiff/providers"
-import { REPORT_FILE_POLICY_TAG } from "../report.ts"
+import { REPORT_FILE_POLICY_TAG, writeReport } from "../report.ts"
+import type { AttachedCoverage } from "../reviewCommand.ts"
 import { hostTokensFor, readHostTokens } from "../environment.ts"
 import { API_KEY_HEADER, startAppServer, withMeta } from "./appServer.ts"
 import type { AppServer } from "./appServer.ts"
@@ -215,6 +216,74 @@ describe("the app server", () => {
     })
   })
 
+  describe("attaching coverage", () => {
+    const LCOV = "SF:src/a.ts\nDA:1,1\nend_of_record\n"
+    const changedFile = {
+      diff: { status: "added", path: "src/a.ts", additions: 1, deletions: 0, content: { kind: "text", hunks: [{ oldStart: 0, oldLines: 0, newStart: 1, newLines: 1, section: "", lines: [{ kind: "added", content: "x", newLine: 1 }] }] } },
+      noise: null,
+      syntax: { status: "unsupportedLanguage" },
+    }
+    const headers = { [API_KEY_HEADER]: KEY, "Content-Type": "application/json" }
+    let reportDir = ""
+    let attachServer: AppServer
+    let attachId = 0
+    let attachedSeen: AttachedCoverage | undefined
+
+    const attach = (reports: unknown): Promise<Response> => fetch(`${attachServer.url}api/reviews/${attachId}/coverage`, { method: "POST", headers, body: JSON.stringify({ reports }) })
+    const savedModel = async (): Promise<ReviewModel> => reviewModelSchema.parse(JSON.parse(await readFile(join(reportDir, "review.json"), "utf8")))
+
+    beforeAll(async () => {
+      reportDir = await mkdtemp(join(tmpdir(), "walkdiff-attach-"))
+      const model = reviewModelSchema.parse({ ...fakeModel("x"), files: [changedFile] })
+      await writeReport(model, reportDir)
+      const service = new ReviewService(
+        store,
+        async (_ref, _ai, attached) => {
+          attachedSeen = attached
+          return { model, reportDir }
+        },
+        () => undefined,
+      )
+      attachServer = await startAppServer(store, service, { port: 0, apiKey: KEY, log: () => undefined })
+      attachId = service.add({ url: "https://github.com/acme/app/pull/88", ai: false }).id
+      await service.idle()
+    })
+    afterAll(async () => {
+      store.remove(attachId)
+      await attachServer.close()
+      await rm(reportDir, { recursive: true, force: true })
+    })
+
+    it("needs the key", async () => {
+      expect((await fetch(`${attachServer.url}api/reviews/${attachId}/coverage`, { method: "POST", body: "{}" })).status).toBe(401)
+    })
+
+    it("explains a report that says nothing about this PR, and changes nothing", async () => {
+      const response = await attach([{ name: "other.info", text: "SF:other.ts\nDA:1,1\nend_of_record\n" }])
+      expect(response.status).toBe(400)
+      expect(await response.text()).toContain("don't mention anything this PR changed")
+      expect((await savedModel()).testCoverage).toBeNull()
+    })
+
+    it("updates the report at once, and a refresh of the same commit keeps it", async () => {
+      const response = await attach([{ name: "lcov.info", text: LCOV }])
+      expect(response.status).toBe(201)
+      expect(await response.json()).toMatchObject({ coverageSource: "lcov.info, attached by you" })
+      expect((await savedModel()).testCoverage?.files).toEqual([{ path: "src/a.ts", coveredLines: [1], uncoveredLines: [] }])
+      expect(await readFile(join(reportDir, "index.html"), "utf8")).toContain("lcov.info, attached by you")
+      expect(store.attachedCoverageOf(attachId)).toMatchObject({ headSha: SHA })
+    })
+
+    it("answers 404 for a review without a report", async () => {
+      expect((await fetch(`${attachServer.url}api/reviews/99999/coverage`, { method: "POST", headers, body: JSON.stringify({ reports: [{ name: "a", text: LCOV }] }) })).status).toBe(404)
+    })
+
+    it("hands the attached report to the next analysis", async () => {
+      await fetch(`${attachServer.url}api/reviews/${attachId}/refresh`, { method: "POST", headers })
+      await vi.waitFor(() => expect(attachedSeen).toMatchObject({ headSha: SHA, coverage: { source: "lcov.info, attached by you" } }))
+    })
+  })
+
   describe("posting to the host", () => {
     const headers = { [API_KEY_HEADER]: KEY, "Content-Type": "application/json" }
     const HEAD = "a".repeat(40)
@@ -230,6 +299,7 @@ describe("the app server", () => {
       },
       replyToThread: async (id, body) => void calls.push(`reply ${id} ${body}`),
       setThreadResolved: async (id, resolved) => void calls.push(`resolve ${id} ${resolved}`),
+      fetchCoverageArchives: async () => [],
     }
     let hostServer: AppServer
     let hostBase = ""

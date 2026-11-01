@@ -464,12 +464,12 @@ export const aiReviewSchema = z.discriminatedUnion("status", [
 export type AiReview = z.infer<typeof aiReviewSchema>
 
 /**
- * Which lines the PR added ran in tests, from a report the user supplied. Lines that can't run,
- * such as comments, are in neither list. In CI the PR's own code produces the report, so it can
- * show that code ran, but is not proof against someone trying to deceive.
+ * Which lines the PR added ran in tests. Lines that can't run, such as comments, are in neither
+ * list. A report from CI or from the PR is produced by the PR's own code, so it can show that
+ * code ran, but is not proof against someone trying to deceive.
  */
 export const testCoverageSchema = z.object({
-  /** The report's file name, so a reader knows where this came from. */
+  /** Where the report came from, in words, so a reader can judge it. */
   source: z.string(),
   files: z
     .array(z.object({ path: z.string().min(1), coveredLines: z.array(lineNumberSchema).readonly(), uncoveredLines: z.array(lineNumberSchema).readonly() }))
@@ -495,6 +495,12 @@ export const ReviewStatus = { Queued: "queued", Analyzing: "analyzing", Ready: "
 export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus]
 
 /** One row of the local app's review list; the JSON its API and page share. */
+/** Coverage reports a reviewer picked for one PR, as text from their browser. */
+export const attachCoverageRequestSchema = z.object({
+  reports: z.array(z.object({ name: z.string().min(1), text: z.string() })).min(1),
+})
+export type AttachCoverageRequest = z.infer<typeof attachCoverageRequestSchema>
+
 export const reviewSummarySchema = z.object({
   id: z.number().int().positive(),
   url: z.url(),
@@ -513,6 +519,8 @@ export const reviewSummarySchema = z.object({
   unitsToReview: z.number().int().nonnegative().nullable(),
   untouchedReferences: z.number().int().nonnegative().nullable(),
   findings: z.number().int().nonnegative().nullable(),
+  /** Where the report's test coverage came from; null when none was found. */
+  coverageSource: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 })

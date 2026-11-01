@@ -5,12 +5,13 @@ import type { IncomingMessage, Server, ServerResponse } from "node:http"
 import { join, resolve } from "node:path"
 import { gitHostFor, HostApiError, InvalidPullRequestUrlError, parsePullRequestUrl } from "@walkdiff/providers"
 import type { GitHost, PullRequestRef } from "@walkdiff/providers"
-import { AI_API_KEY_VARIABLE, AiUnavailableError, createAiProvider, describeChecks } from "@walkdiff/engine"
-import { addReviewRequestSchema, appSettingsSchema, replySchema, resolveThreadSchema, submitReviewSchema } from "@walkdiff/review-model"
+import { AI_API_KEY_VARIABLE, AiUnavailableError, CoverageFileError, createAiProvider, describeChecks } from "@walkdiff/engine"
+import { addReviewRequestSchema, appSettingsSchema, attachCoverageRequestSchema, replySchema, resolveThreadSchema, submitReviewSchema } from "@walkdiff/review-model"
 import type { AiConnectionResult, SettingsView } from "@walkdiff/review-model"
 import { readHostTokens } from "../environment.ts"
 import { REPORT_FILE_POLICY_TAG, REPORT_PAGE_FILE } from "../report.ts"
 import { addressOf, BASE_POLICY, listen, LOOPBACK_HOST, REPORT_PAGE_POLICY, respond, SECURITY_HEADERS } from "../server.ts"
+import { attachCoverage } from "./attachCoverage.ts"
 import type { ReviewService } from "./reviewService.ts"
 import type { ReviewStore } from "./reviewStore.ts"
 
@@ -21,6 +22,8 @@ const REVIEW_ID_META = "walkdiff-review-id"
 const HOME_PATH = "/"
 // Large enough for a review with many comments.
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024
+// A whole monorepo's LCOV runs to tens of megabytes; only the changed lines are kept from it.
+const MAX_COVERAGE_UPLOAD_BYTES = 128 * 1024 * 1024
 const API_KEY_BYTES = 32
 
 // The UI's build sits at a fixed place in the workspace, as the CLI runs from source.
@@ -162,6 +165,11 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
     sendJson(response, 200, await testAiConnection(context))
     return
   }
+  const coverage = /^\/api\/reviews\/(\d+)\/coverage$/.exec(pathname)
+  if (coverage !== null && method === "POST") {
+    await attachCoverageReports(request, response, Number(coverage[1]), context)
+    return
+  }
   const action = /^\/api\/reviews\/(\d+)\/(conversation|submit)$/.exec(pathname)
   if (action !== null) {
     await handleReviewAction(request, response, Number(action[1]), action[2] ?? "", context)
@@ -223,6 +231,21 @@ async function testAiConnection(context: AppContext): Promise<AiConnectionResult
 }
 
 /** The host comes from the saved review, never the request, so a page can't aim a token elsewhere. */
+async function attachCoverageReports(request: IncomingMessage, response: ServerResponse, id: number, context: AppContext): Promise<void> {
+  const parsed = attachCoverageRequestSchema.safeParse(await readJsonBody(request, MAX_COVERAGE_UPLOAD_BYTES))
+  if (!parsed.success) {
+    sendJson(response, 400, { error: "Those files are too large to read, or weren't sent correctly." })
+    return
+  }
+  try {
+    const review = await attachCoverage(context.store, id, parsed.data.reports)
+    sendJson(response, review === undefined ? 404 : 201, review ?? { error: "This review has no report yet" })
+  } catch (error: unknown) {
+    if (!(error instanceof CoverageFileError)) throw error
+    sendJson(response, 400, { error: error.message })
+  }
+}
+
 async function hostOf(id: number, context: AppContext): Promise<GitHost | undefined> {
   const review = context.store.get(id)
   return review === undefined ? undefined : context.hostFor(parsePullRequestUrl(review.url))
@@ -306,13 +329,13 @@ async function addReview(request: IncomingMessage, response: ServerResponse, con
   }
 }
 
-async function readJsonBody(request: IncomingMessage): Promise<unknown> {
+async function readJsonBody(request: IncomingMessage, maxBytes: number = MAX_REQUEST_BODY_BYTES): Promise<unknown> {
   const chunks: Buffer[] = []
   let size = 0
   for await (const chunk of request) {
     const buffer = Buffer.from(chunk)
     size += buffer.length
-    if (size > MAX_REQUEST_BODY_BYTES) return undefined
+    if (size > maxBytes) return undefined
     chunks.push(buffer)
   }
   try {

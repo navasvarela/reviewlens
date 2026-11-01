@@ -2,10 +2,11 @@ import { displayName, parsePullRequestUrl, repositoryPath } from "@walkdiff/prov
 import type { PullRequestRef } from "@walkdiff/providers"
 import { changedUnitsOf, isBehaviourChange, ReviewStatus, untouchedReferences } from "@walkdiff/review-model"
 import type { AddReviewRequest, ReviewModel, ReviewSummary } from "@walkdiff/review-model"
+import type { AttachedCoverage } from "../reviewCommand.ts"
 import type { CompletedAnalysis, ReviewStore } from "./reviewStore.ts"
 
 /** Produces and writes a report for a PR, returning the directory it wrote. */
-export type ReportGenerator = (ref: PullRequestRef, ai: boolean) => Promise<GeneratedReport>
+export type ReportGenerator = (ref: PullRequestRef, ai: boolean, attachedCoverage: AttachedCoverage | undefined) => Promise<GeneratedReport>
 
 export interface GeneratedReport {
   readonly model: ReviewModel
@@ -79,7 +80,7 @@ export class ReviewService {
     if (review === undefined) return
     this.#store.setStatus(id, ReviewStatus.Analyzing)
     try {
-      const report = await this.#generate(parsePullRequestUrl(review.url), review.ai)
+      const report = await this.#generate(parsePullRequestUrl(review.url), review.ai, this.#store.attachedCoverageOf(id))
       if (this.#store.get(id) !== undefined) this.#store.markReady(id, summarize(report))
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error)
@@ -105,5 +106,6 @@ function summarize({ model, reportDir }: GeneratedReport): CompletedAnalysis {
     unitsToReview: units.filter((unit) => isBehaviourChange(unit.change)).length,
     untouchedReferences: units.reduce((sum, unit) => sum + untouchedReferences(unit).length, 0),
     findings: model.risk.findings.length,
+    coverageSource: model.testCoverage?.source ?? null,
   }
 }

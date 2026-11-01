@@ -28,11 +28,11 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
   store.markInterrupted()
   const service = new ReviewService(
     store,
-    async (ref, ai) => {
+    async (ref, ai, attachedCoverage) => {
       const settings = store.getSettings()
       const model = await analyzePullRequest(
         ref,
-        { network: options.network, coveragePath: undefined, ai: ai ? settings.ai : undefined, disabledChecks: settings.disabledChecks },
+        { network: options.network, coveragePath: undefined, attachedCoverage, ai: ai ? settings.ai : undefined, disabledChecks: settings.disabledChecks },
         // Looked up per PR, so a token is only ever asked for the host it belongs to.
         { tokens: await hostTokensFor(ref, deps.env, runCommand), cacheDir, now: deps.now, log: deps.log },
       )

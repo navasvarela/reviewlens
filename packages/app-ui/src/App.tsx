@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import type { FormEvent, ReactElement } from "react"
 import { aiDestination, ReviewStatus, RiskSeverity } from "@walkdiff/review-model"
 import type { AiDestination, ReviewSummary } from "@walkdiff/review-model"
-import { addReview, listReviews, loadCurrentSettings, refreshReview, removeReview } from "./api.ts"
+import { addReview, attachCoverage, listReviews, loadCurrentSettings, refreshReview, removeReview } from "./api.ts"
 import { Settings } from "./Settings.tsx"
 
 const DOCS_URL = "https://github.com/navasvarela/walkdiff/blob/main/docs/README.md"
@@ -84,6 +84,7 @@ function ReviewList(): ReactElement {
               key={review.id}
               review={review}
               onRefresh={() => act(() => refreshReview(review.id))}
+              onAttachCoverage={(files) => act(() => attachCoverage(review.id, files))}
               onRemove={() => act(() => removeReview(review.id))}
             />
           ))}
@@ -163,10 +164,11 @@ function aiOptionLabel(destination: AiDestination | undefined): string {
 interface ReviewRowProps {
   readonly review: ReviewSummary
   readonly onRefresh: () => void
+  readonly onAttachCoverage: (files: readonly File[]) => void
   readonly onRemove: () => void
 }
 
-function ReviewRow({ review, onRefresh, onRemove }: ReviewRowProps): ReactElement {
+function ReviewRow({ review, onRefresh, onAttachCoverage, onRemove }: ReviewRowProps): ReactElement {
   const working = review.status === ReviewStatus.Queued || review.status === ReviewStatus.Analyzing
   return (
     <li className="review">
@@ -195,6 +197,7 @@ function ReviewRow({ review, onRefresh, onRemove }: ReviewRowProps): ReactElemen
           </>
         )}
         {review.ai && <> · AI</>}
+        {review.hasReport && <> · {review.coverageSource === null ? "no coverage found" : `coverage from ${review.coverageSource}`}</>}
         <> · updated {new Date(review.updatedAt).toLocaleString()}</>
       </p>
       {review.error !== null && (
@@ -209,6 +212,20 @@ function ReviewRow({ review, onRefresh, onRemove }: ReviewRowProps): ReactElemen
         <button type="button" disabled={working} onClick={onRefresh}>
           Refresh
         </button>
+        {review.hasReport && !working && (
+          <label className="file-button" title="An LCOV or Cobertura report from this PR's latest commit. Applies to this PR only.">
+            {review.coverageSource === null ? "Attach coverage" : "Replace coverage"}
+            <input
+              type="file"
+              multiple
+              accept=".info,.lcov,.xml"
+              onChange={(event) => {
+                onAttachCoverage([...(event.target.files ?? [])])
+                event.target.value = ""
+              }}
+            />
+          </label>
+        )}
         <button type="button" onClick={onRemove}>
           Remove
         </button>
