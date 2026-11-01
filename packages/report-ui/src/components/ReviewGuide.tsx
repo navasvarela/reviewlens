@@ -110,23 +110,7 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
       {plan.checks.length === 0 ? (
         <AllClear checks={review.risk.checksRun} />
       ) : (
-        <section aria-labelledby="guide-checks">
-          <h2 id="guide-checks" className="guide-heading">
-            Check {plan.checks.length === 1 ? "this" : `these ${plan.checks.length} things`}
-          </h2>
-          <ul className="guide-checks">
-            {plan.checks.map((check) => (
-              <li key={check.message} className={`guide-check guide-check-${check.severity}`}>
-                {check.stopIndex === undefined ? check.message : <a href={hashForStop(check.stopIndex)}>{check.message}</a>}
-              </li>
-            ))}
-          </ul>
-          {plan.moreChecks > 0 && (
-            <p className="guide-note">
-              <a href="#risks">{plan.moreChecks} more</a> in the full list.
-            </p>
-          )}
-        </section>
+        <BriefChecks plan={plan} />
       )}
 
       <div className="guide-start">
@@ -165,6 +149,28 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
         <a href={ALL_CHANGES_HASH}>All changes</a>
       </footer>
     </main>
+  )
+}
+
+function BriefChecks({ plan }: { readonly plan: ReviewPlan }): ReactElement {
+  return (
+    <section aria-labelledby="guide-checks">
+      <h2 id="guide-checks" className="guide-heading">
+        Check {plan.checks.length === 1 ? "this" : `these ${plan.checks.length} things`}
+      </h2>
+      <ul className="guide-checks">
+        {plan.checks.map((check) => (
+          <li key={check.message} className={`guide-check guide-check-${check.severity}`}>
+            {check.stopIndex === undefined ? check.message : <a href={hashForStop(check.stopIndex)}>{check.message}</a>}
+          </li>
+        ))}
+      </ul>
+      {plan.moreChecks > 0 && (
+        <p className="guide-note">
+          <a href="#risks">{plan.moreChecks} more</a> in the full list.
+        </p>
+      )}
+    </section>
   )
 }
 
