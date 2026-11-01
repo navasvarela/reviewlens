@@ -17,17 +17,18 @@ const MAX_SCANNER_OUTPUT_BYTES = 256 * 1024 * 1024
 // A scanner reads untrusted code and has no need for the user's tokens, so it gets only these.
 const INHERITED_VARIABLES: readonly string[] = ["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "SSL_CERT_FILE"]
 
-/**
- * The engine's own copies of the scanners that ship with it, such as oxlint and jscpd. They come
- * first so everyone runs the versions pinned in the lockfile, whatever else is on their PATH. Any
- * other scanner is looked up on the PATH, and Windows falls back to the PATH too, as `execFile`
- * can't run the `.cmd` wrappers npm writes there.
- */
-const BUNDLED_BINARIES_DIR = resolve(import.meta.dirname, "../../../node_modules/.bin")
+/** Where `pnpm install` puts the scanners that aren't npm packages. See `installScanners`. */
+export const MANAGED_SCANNERS_ROOT = resolve(import.meta.dirname, "../../../node_modules/.walkdiff-scanners")
 
-export function scannerExecutable(binary: string, isFile: (path: string) => boolean = existsSync, directory: string = BUNDLED_BINARIES_DIR): string {
-  const bundled = join(directory, binary)
-  return isFile(bundled) ? bundled : binary
+/**
+ * The engine's own copies of the scanners that ship with it. They come first so everyone runs the
+ * pinned versions, whatever else is on their PATH. Any other scanner is looked up on the PATH, and
+ * Windows falls back to the PATH too, as `execFile` can't run the `.cmd` wrappers npm writes there.
+ */
+const BUNDLED_BINARY_DIRS: readonly string[] = [join(MANAGED_SCANNERS_ROOT, "bin"), resolve(import.meta.dirname, "../../../node_modules/.bin")]
+
+export function scannerExecutable(binary: string, isFile: (path: string) => boolean = existsSync, directories: readonly string[] = BUNDLED_BINARY_DIRS): string {
+  return directories.map((directory) => join(directory, binary)).find((path) => isFile(path)) ?? binary
 }
 
 export const runScannerProcess: ScannerProcessRunner = (binary, args, cwd) =>

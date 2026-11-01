@@ -73,13 +73,11 @@ pnpm walkdiff review https://github.com/owner/repo/pull/123 --coverage coverage/
 
 Generate the report from the PR's latest commit, or the line numbers won't match. In CI, use the Action's `coverage-file` input or the GitLab template's `WALKDIFF_COVERAGE` variable. The local app can't read reports yet.
 
-## Add more checks
+## Security scanners
 
-These are optional. Without them, Walkdiff still runs its built-in rules and lists what it skipped.
+`pnpm install` also installs Semgrep, gitleaks and osv-scanner, at pinned versions and just for Walkdiff, on macOS and Linux. Semgrep needs Python 3.10 or later. If one can't be installed, the install still finishes, and reports list it as not run.
 
-```bash
-brew install semgrep gitleaks osv-scanner
-```
+On other systems, install them yourself and Walkdiff finds them on your `PATH`.
 
 ## Next steps
 

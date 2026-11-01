@@ -98,7 +98,8 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | --- | --- | --- |
 | The PR's host | Your token, if the host is trusted, to read the PR and its code | Always |
 | OSV | Names and versions of dependencies | Unless `--offline` |
-| Semgrep registry | A rule download; your code isn't uploaded | When Semgrep is installed, unless `--offline` |
+| GitHub and PyPI | Downloads of the pinned scanners, checked against their hashes; nothing of yours is sent | On `pnpm install`, when a version isn't there yet |
+| Semgrep registry | A rule download; your code isn't uploaded | During a review, unless `--offline` |
 | Your AI provider | The changed code, and the PR's title and description, with known credential formats redacted and credential files left out | Only with `--ai` or the app's AI option. Nothing leaves your machine with a local model |
 
 ## Where Walkdiff keeps files

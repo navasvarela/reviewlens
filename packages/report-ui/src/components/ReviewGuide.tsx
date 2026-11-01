@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
-import { UnitImpactStatus } from "@walkdiff/review-model"
+import { namesOfChecks, UnitImpactStatus } from "@walkdiff/review-model"
 import type { ChangedUnit, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
 import { isConnectedToApp } from "../appApi.ts"
 import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, REVIEW_HASH } from "../reviewPlan.ts"
@@ -83,7 +83,9 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
       )}
 
       {plan.checks.length === 0 ? (
-        <p className="guide-all-clear">No warnings from the checks that ran. That doesn't mean the change is safe.</p>
+        <p className="guide-all-clear">
+          <strong>No security warnings or breaking changes.</strong> Checked with {namesOfChecks(review.risk.checksRun)}. They can miss real problems, so this doesn't mean the change is safe.
+        </p>
       ) : (
         <section aria-labelledby="guide-checks">
           <h2 id="guide-checks" className="guide-heading">
