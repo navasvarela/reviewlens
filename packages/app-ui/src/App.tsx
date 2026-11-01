@@ -197,7 +197,7 @@ function ReviewRow({ review, onRefresh, onAttachCoverage, onRemove }: ReviewRowP
           </>
         )}
         {review.ai && <> · AI</>}
-        {review.hasReport && <> · {review.coverageSource === null ? "no coverage found" : `coverage from ${review.coverageSource}`}</>}
+        {review.hasReport && <> · {coverageLabel(review.coverageSource)}</>}
         <> · updated {new Date(review.updatedAt).toLocaleString()}</>
       </p>
       {review.error !== null && (
@@ -212,24 +212,38 @@ function ReviewRow({ review, onRefresh, onAttachCoverage, onRemove }: ReviewRowP
         <button type="button" disabled={working} onClick={onRefresh}>
           Refresh
         </button>
-        {review.hasReport && !working && (
-          <label className="file-button" title="An LCOV or Cobertura report from this PR's latest commit. Applies to this PR only.">
-            {review.coverageSource === null ? "Attach coverage" : "Replace coverage"}
-            <input
-              type="file"
-              multiple
-              accept=".info,.lcov,.xml"
-              onChange={(event) => {
-                onAttachCoverage([...(event.target.files ?? [])])
-                event.target.value = ""
-              }}
-            />
-          </label>
-        )}
+        {review.hasReport && !working && <AttachCoverageButton hasCoverage={review.coverageSource !== null} onAttach={onAttachCoverage} />}
         <button type="button" onClick={onRemove}>
           Remove
         </button>
       </div>
     </li>
+  )
+}
+
+function coverageLabel(source: string | null): string {
+  return source === null ? "no coverage found" : `coverage from ${source}`
+}
+
+interface AttachCoverageButtonProps {
+  readonly hasCoverage: boolean
+  readonly onAttach: (files: readonly File[]) => void
+}
+
+function AttachCoverageButton({ hasCoverage, onAttach }: AttachCoverageButtonProps): ReactElement {
+  return (
+    <label className="file-button" title="An LCOV or Cobertura report from this PR's latest commit. Applies to this PR only.">
+      {hasCoverage ? "Replace coverage" : "Attach coverage"}
+      <input
+        type="file"
+        multiple
+        accept=".info,.lcov,.xml"
+        onChange={(event) => {
+          onAttach([...(event.target.files ?? [])])
+          // Cleared so that picking the same file again, after regenerating it, still fires.
+          event.target.value = ""
+        }}
+      />
+    </label>
   )
 }
