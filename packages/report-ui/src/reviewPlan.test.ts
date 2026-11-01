@@ -112,6 +112,15 @@ describe("buildReviewPlan", () => {
     expect(plan.stops.at(0)?.reasons).toEqual(["CI pipeline: Pipelines hold secrets."])
   })
 
+  it("shows code quality as a reason at a stop, not as a check, and below security findings", () => {
+    const messy = finding(RiskCategory.CodeQuality, RiskSeverity.High, "Very long function", "messy.ts", 2)
+    const risky = finding(RiskCategory.DangerousApi, RiskSeverity.Medium, "eval", "risky.ts", 2)
+    const plan = buildReviewPlan(review([file("messy.ts", [unit({ name: "messy" })]), file("risky.ts", [unit({ name: "risky" })])], [messy, risky]))
+    expect(plan.stops.at(0)?.title).toBe("risky")
+    expect(plan.stops.find((stop) => stop.title === "messy")?.reasons).toContain("Flagged: Very long function")
+    expect(plan.checks.map((check) => check.message)).toEqual([expect.stringContaining("eval")])
+  })
+
   it("finds tests by the code they mention, in other files or the same one", () => {
     const test: ChangedFile = {
       ...file("tests/run.spec.ts"),

@@ -14,6 +14,7 @@ const POINTS_FOR_FINDING: Readonly<Record<RiskSeverity, number>> = {
   [RiskSeverity.Medium]: 40,
   [RiskSeverity.Low]: 10,
 }
+const POINTS_FOR_CODE_QUALITY = 10
 // Several small findings in one place are one decision, so they must not outrank a serious one.
 const POINTS_PER_EXTRA_FINDING = 5
 const MAX_EXTRA_FINDINGS_COUNTED = 2
@@ -43,6 +44,12 @@ const MIN_NAME_LENGTH_TO_MATCH_IN_TESTS = 3
  */
 const DATA_KINDS: ReadonlySet<UnitKind> = new Set([UnitKind.Constant, UnitKind.Enum, UnitKind.Struct, UnitKind.TypeAlias, UnitKind.Interface])
 const DATA_KIND_CALLER_DIVISOR = 3
+
+/**
+ * The brief's checks are decisions about risk. Size has its own note, and code quality shows as
+ * a reason at each stop, so a PR with many lint findings can't push a security check out.
+ */
+const CATEGORIES_NOT_IN_CHECKS: ReadonlySet<RiskCategory> = new Set([RiskCategory.Size, RiskCategory.CodeQuality])
 
 const FIRST_SENTENCE = /^.+?[.!?](?=\s|$)/
 const TEST_PATH = /(^|\/)(tests?|__tests__|spec|testing)\/|[._-](test|spec)\.[a-z]+$|(^|\/)test_[^/]+\.py$/i
@@ -187,8 +194,13 @@ function scoreUnit(unit: ChangedUnit, findings: readonly Risk[], inFile: readonl
 }
 
 function pointsForFindings(findings: readonly Risk[]): number {
-  const worst = Math.max(0, ...findings.map((finding) => POINTS_FOR_FINDING[finding.severity]))
+  const worst = Math.max(0, ...findings.map(pointsForFinding))
   return worst + Math.min(MAX_EXTRA_FINDINGS_COUNTED, Math.max(0, findings.length - 1)) * POINTS_PER_EXTRA_FINDING
+}
+
+// Messy code deserves a look, but must never outrank something that could be a security problem.
+function pointsForFinding(finding: Risk): number {
+  return finding.category === RiskCategory.CodeQuality ? POINTS_FOR_CODE_QUALITY : POINTS_FOR_FINDING[finding.severity]
 }
 
 function reasonsFromFindings(findings: readonly Risk[]): string[] {
@@ -240,7 +252,7 @@ function summarizeLowerPriority(files: readonly ChangedFile[], stops: readonly R
 function groupChecks(findings: readonly Risk[], stops: readonly ReviewStop[]): ReviewCheck[] {
   const groups = new Map<string, Risk[]>()
   for (const finding of findings) {
-    if (finding.category === RiskCategory.Size) continue
+    if (CATEGORIES_NOT_IN_CHECKS.has(finding.category)) continue
     const key = finding.category === RiskCategory.Dependency ? `${finding.category}\0${finding.location?.path ?? ""}` : `${finding.category}\0${finding.title}`
     groups.set(key, [...(groups.get(key) ?? []), finding])
   }
@@ -276,6 +288,7 @@ function checkMessage(finding: Risk, count: number): string {
     case RiskCategory.BrokenReference:
       return `${finding.title}${where}. Check that nothing still depends on it.`
     case RiskCategory.Size:
+    case RiskCategory.CodeQuality:
       return finding.title
   }
 }
