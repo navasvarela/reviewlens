@@ -31,12 +31,17 @@ export class ReviewService {
     this.#log = log
   }
 
-  /** Adds a review, or refreshes it if that PR is already on the list. Throws on a bad URL. */
+  /**
+   * Adds a review, or refreshes it if that PR is already on the list, using the AI choice made
+   * this time: it decides whether code leaves the machine, so an old choice must not win. Throws
+   * on a bad URL.
+   */
   add(request: AddReviewRequest): ReviewSummary {
     const ref = parsePullRequestUrl(request.url.trim())
     const url = canonicalUrl(ref)
     const existing = this.#store.getByUrl(url)
     if (existing !== undefined) {
+      this.#store.setAi(existing.id, request.ai)
       return this.refresh(existing.id) ?? existing
     }
     const added = this.#store.add({ url, host: ref.host, displayName: displayName(ref), ai: request.ai })
