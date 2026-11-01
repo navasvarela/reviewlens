@@ -31,8 +31,8 @@ export interface CodeScanResult {
 
 const SEMGREP_CHECK = "Semgrep code scan"
 const GITLEAKS_CHECK = "gitleaks secret scan"
-const SEMGREP_INSTALL = "not installed; install with `pipx install semgrep` or `brew install semgrep`"
-const GITLEAKS_INSTALL = "not installed; install with `brew install gitleaks`"
+const SEMGREP_INSTALL = "not installed. Walkdiff installs it on `pnpm install` if Python 3.10 or later is available, or use `brew install semgrep`"
+const GITLEAKS_INSTALL = "not installed. Run `pnpm install` in Walkdiff, or use `brew install gitleaks`"
 const SEMGREP_SUCCESS_EXIT_CODE = 0
 const GITLEAKS_REPORT_FILE = "gitleaks-report.json"
 const SCAN_ROOT_DIR = "files"

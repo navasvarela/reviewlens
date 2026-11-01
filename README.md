@@ -106,13 +106,11 @@ sent. A repository can forbid AI review entirely with `"ai": { "allowed": false 
 
 ## Security scanners
 
-Walkdiff runs [Semgrep](https://semgrep.dev), [gitleaks](https://github.com/gitleaks/gitleaks) and
-[osv-scanner](https://github.com/google/osv-scanner) when they are installed. All three are optional:
-the Risks tab lists each one under "Checks that ran" or under "Not checked", with how to install it.
-
-```bash
-brew install semgrep gitleaks osv-scanner
-```
+`pnpm install` also installs pinned versions of [Semgrep](https://semgrep.dev),
+[gitleaks](https://github.com/gitleaks/gitleaks) and [osv-scanner](https://github.com/google/osv-scanner),
+checked against hashes in this repository, on macOS and Linux. Semgrep needs Python 3.10 or later. If one
+can't be installed, the install still finishes, and the Risks tab lists it under "Not checked". Copies on
+your `PATH` are used only when Walkdiff has none of its own.
 
 | Scanner | Finds | Network |
 | --- | --- | --- |

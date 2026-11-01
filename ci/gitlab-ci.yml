@@ -27,6 +27,8 @@ walkdiff:
     # The job reads commits through the API-authenticated fetch; it needs no checkout.
     GIT_STRATEGY: none
   script:
+    # Semgrep runs in its own Python environment, and the Node image leaves out what creates one.
+    - apt-get update -qq && apt-get install -y -qq python3-venv > /dev/null
     - git clone --quiet --depth 1 --branch "$WALKDIFF_REF" https://github.com/navasvarela/walkdiff.git /tmp/walkdiff
     - cd /tmp/walkdiff
     - corepack enable

@@ -171,13 +171,15 @@ The report probably came from a different commit than the PR's latest. Generate 
 
 ### A scanner is listed under "Not checked" as not installed
 
-Install it and start Walkdiff again:
+Run this in the Walkdiff folder, read what it says about the scanner, then start Walkdiff again:
 
 ```bash
-brew install semgrep gitleaks osv-scanner
+pnpm install
 ```
 
-If it's installed but still not found, Walkdiff can't see it on your `PATH`. Check from the terminal that starts Walkdiff:
+Usually Semgrep is the one missing, because it needs Python 3.10 or later with the `venv` module. On Debian and Ubuntu, that's the `python3-venv` package. A network that blocks GitHub or PyPI also stops the install.
+
+On Windows, or if you'd rather use your own copies, install them yourself. Walkdiff uses them when it has none of its own, but it has to see them on your `PATH`. Check from the terminal that starts Walkdiff:
 
 ```bash
 which semgrep gitleaks osv-scanner

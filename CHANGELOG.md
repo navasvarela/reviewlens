@@ -3,6 +3,8 @@
 ## Unreleased
 
 - **The app opens your browser:** `pnpm walkdiff app` now opens the review list. Use `--no-open` to turn this off.
+- **Clearer all-clear:** the brief and the PR comment now say what was found absent and name the checks used, instead of saying "the checks that ran".
+- **Semgrep, gitleaks and osv-scanner now install with Walkdiff,** so reports stop saying they didn't run, in CI too. `pnpm install` fetches pinned versions and checks them against hashes in this repository, on macOS and Linux. Semgrep needs Python 3.10 or later.
 - **oxlint and jscpd now install with Walkdiff,** so they work with no extra setup, including in CI, at versions pinned in the lockfile. Earlier global installs are no longer used.
 - **Post your review:** in the app, post comments and Comment, Approve or Request changes from the finish screen, to GitHub or GitLab. Nothing is posted until you press the button, and Walkdiff refuses if the PR has new commits since the report was made.
 - **Conversation:** the app shows existing threads in a new tab and beside each change, where you can reply and resolve them, plus who has reviewed so far.
