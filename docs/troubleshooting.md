@@ -86,7 +86,7 @@ Wait a moment and try again. This is common just after a merge request is opened
 
 ### `.walkdiff.json is not valid JSON` or `.walkdiff.json is invalid`
 
-The repository's own `.walkdiff.json` has a mistake, and the review stops until it's fixed. Walkdiff reads the file from the PR's merge base, so fixing it in the PR doesn't help. Fix it on the target branch, then run the review again. The settings are listed in [Configuration](configuration.md#team-rules-lensjson).
+The repository's own `.walkdiff.json` has a mistake, and the review stops until it's fixed. Walkdiff reads the file from the PR's merge base, so fixing it in the PR doesn't help. Fix it on the target branch, then run the review again. The settings are listed in [Configuration](configuration.md#team-rules-walkdiffjson).
 
 ## The report
 
