@@ -1,7 +1,7 @@
 # Adds a ReviewLens report to each merge request. In your .gitlab-ci.yml:
 #
 #   include:
-#     - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/main/ci/gitlab-ci.yml
+#     - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/v0.1.0/ci/gitlab-ci.yml
 #
 # Set GITLAB_TOKEN as a masked CI/CD variable: a project access token with the `api` scope
 # (CI_JOB_TOKEN cannot read merge request details or post notes). For AI review, also set
@@ -16,7 +16,7 @@ reviewlens:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
-    REVIEWLENS_REF: main
+    REVIEWLENS_REF: v0.1.0
     REVIEWLENS_AI: "false"
     # The job reads commits through the API-authenticated fetch; it needs no checkout.
     GIT_STRATEGY: none

@@ -16,11 +16,11 @@ Lens is maintained by one person, so these are goals, not contractual promises:
 | Assessment | 10 working days |
 | Fix for a confirmed high or critical issue | 30 days |
 
-Only the latest commit on `main` is supported until versioned releases exist. Testing against your own installation is welcome. Please don't test against other people's repositories, accounts or reports.
+Only the latest release is supported. Testing against your own installation is welcome. Please don't test against other people's repositories, accounts or reports.
 
 ## What Lens guarantees
 
-Each guarantee describes the code on `main` and has an automated test or setting behind it.
+Each guarantee describes the latest release and has an automated test or setting behind it.
 
 ### Your code
 
@@ -103,7 +103,7 @@ For the people who can already read the repository, the report adds little expos
 
 ## Using Lens safely in CI
 
-- **Pin the action to a full commit SHA**, not `@main`, so a later change can't reach your CI without your review.
+- **Pin the action to a release tag or, better, a full commit SHA**, not `@main`, so a later change can't reach your CI without your review. Release tags are signed.
 - **Use the narrowest token.** The default `github.token` with `contents: read` and `pull-requests: write` is enough.
 - **Don't use `pull_request_target`.** Use `on: pull_request`, as in the [pilot guide](docs/pilot.md).
 - **Keep the Anthropic key out of fork PRs.** GitHub doesn't give secrets to `pull_request` runs from forks by default, so keep it that way.

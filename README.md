@@ -3,13 +3,15 @@
 A review companion for GitHub pull requests and GitLab merge requests. `lens review <url>` fetches the
 change, analyzes it, and serves a local report. (Working name; the project name is still an open decision.)
 
-Status: milestones M0–M5. To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
+Status: early release, [v0.1.0](CHANGELOG.md). To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
 
 **Documentation:** [getting started](docs/getting-started.md), [configuration](docs/configuration.md), [troubleshooting](docs/troubleshooting.md), [security policy](SECURITY.md).
 
 ## What the report shows
 
-The report has four tabs: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
+The report opens on a brief: what to check, how many changes need attention, and where to start. A review path then takes you through the changes that matter most, one at a time, with why each one is there, its code, callers and tests. You can mark changes as reviewed and leave comments, and everything else stays one link away under **All changes**.
+
+All changes has four tabs: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
 
 - **Changed units, not hunks.** For Rust, TypeScript/JavaScript and Python, each changed function, method,
   type or class appears once, whole, before and after, with edited words marked. A class shows only the
@@ -90,7 +92,7 @@ Tokens and code stay on your machine, apart from the host itself, package names 
 
 ## In CI
 
-The GitHub Action (`navasvarela/reviewlens@main`) and the GitLab template (`ci/gitlab-ci.yml`) generate the report for each PR, keep it as a job artifact, and post one summary comment that is updated on each push. The [pilot guide](docs/pilot.md) has the setup. Locally, `lens review` also works without a URL inside a CI job, and `lens comment --report <dir> --report-url <url>` posts the summary.
+The GitHub Action (`navasvarela/reviewlens@v0.1.0`) and the GitLab template (`ci/gitlab-ci.yml`) generate the report for each PR, keep it as a job artifact, and post one summary comment that is updated on each push. The [pilot guide](docs/pilot.md) has the setup. Locally, `lens review` also works without a URL inside a CI job, and `lens comment --report <dir> --report-url <url>` posts the summary.
 
 ## AI review
 
