@@ -1871,4 +1871,110 @@ button.guide-button-primary:hover {
 .impact-entry-body {
   padding: 4px 14px 12px;
   border-top: 1px solid var(--border);
+
+.guide-home {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.guide-explain,
+.ai-more {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.guide-explain summary,
+.ai-more > summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guide-explain li {
+  margin-bottom: 4px;
+}
+
+.guide-tools {
+  margin: 8px 0;
+  color: var(--text-muted);
+}
+
+.guide-tools strong {
+  color: var(--text);
+}
+
+.check-table {
+  width: 100%;
+  margin-bottom: 8px;
+  border-collapse: collapse;
+}
+
+.check-table th,
+.check-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.check-table thead th {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.check-table tbody td:last-child {
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.check-result {
+  white-space: nowrap;
+}
+
+.check-issues .check-result,
+.check-notRun .check-result {
+  color: var(--medium-text);
+  font-weight: 600;
+}
+
+.check-clean .check-result {
+  color: var(--added-text);
+}
+
+.ai-points {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-point {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.ai-point summary,
+.ai-notes summary,
+.ai-chapters summary {
+  cursor: pointer;
+}
+
+.ai-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-notes li {
+  padding: 6px 0;
+}
+
+.ai-chapters {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.ai-chapters li {
+  margin-bottom: 6px;
 }

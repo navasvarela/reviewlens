@@ -1,24 +1,30 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
-import { namesOfChecks, UnitImpactStatus } from "@walkdiff/review-model"
+import { AiReviewStatus, namesOfChecks, UnitChangeKind, UnitImpactStatus } from "@walkdiff/review-model"
 import type { ChangedUnit, CheckRun, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
+import { aiNotesForStop, digestAiReview } from "../aiDigest.ts"
 import { isConnectedToApp } from "../appApi.ts"
-import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, REVIEW_HASH } from "../reviewPlan.ts"
+import { summarizeChecks, totalsOf } from "../checkSummary.ts"
+import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, PATH_RULES, REVIEW_HASH } from "../reviewPlan.ts"
 import type { GuideRoute, LineCoverage, ReviewPlan, ReviewStop } from "../reviewPlan.ts"
 import { commentsAsMarkdown, commentsOnItems, isReviewed, ItemKind, nextUnreviewedStop, overallProgress, pathProgress, remainingOffPath, reviewPlanFor, stopItems } from "../reviewProgress.ts"
 import type { ItemComment, Progress, RemainingCounts, ReviewState } from "../reviewProgress.ts"
 import { useReviewState } from "../reviewState.tsx"
+import { ReportTab } from "../tabs.ts"
 import { factPhrases } from "../unitChange.ts"
 import { SideBySide } from "./CodeViews.tsx"
 import { ReviewerSummary, StopThreads } from "./ConversationView.tsx"
 import { HunkView } from "./HunkView.tsx"
 import { ImpactPanel } from "./ImpactPanel.tsx"
+import { homeUrl } from "./PullRequestHeader.tsx"
 import { ReviewControls } from "./ReviewControls.tsx"
 import { SubmitReviewForm } from "./SubmitReviewForm.tsx"
 import { RiskList } from "./RiskView.tsx"
 import { UnitBody } from "./UnitCard.tsx"
 
 const ALL_CHANGES_HASH = "#changes"
+const RISKS_HASH = `#${ReportTab.Risks}`
+const AI_REVIEW_HASH = `#${ReportTab.AiReview}`
 const NEXT_KEY = "j"
 const PREVIOUS_KEY = "k"
 const MARK_KEY = "r"
@@ -57,6 +63,16 @@ export function ReviewGuide({ review, route }: ReviewGuideProps): ReactElement {
   )
 }
 
+function AllReviewsLink(): ReactElement | null {
+  const url = homeUrl()
+  if (url === undefined) return null
+  return (
+    <a className="home-link guide-home" href={url}>
+      ← All reviews
+    </a>
+  )
+}
+
 function AllClear({ checks }: { readonly checks: readonly CheckRun[] }): ReactElement {
   return (
     <p className="guide-all-clear">
@@ -74,6 +90,7 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
   const resumeAt = nextUnreviewedStop(plan, state)
   return (
     <main className="guide">
+      <AllReviewsLink />
       <p className="guide-eyebrow">
         <a href={pullRequest.url} target="_blank" rel="noreferrer">
           #{pullRequest.number}
@@ -93,23 +110,7 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
       {plan.checks.length === 0 ? (
         <AllClear checks={review.risk.checksRun} />
       ) : (
-        <section aria-labelledby="guide-checks">
-          <h2 id="guide-checks" className="guide-heading">
-            Check {plan.checks.length === 1 ? "this" : `these ${plan.checks.length} things`}
-          </h2>
-          <ul className="guide-checks">
-            {plan.checks.map((check) => (
-              <li key={check.message} className={`guide-check guide-check-${check.severity}`}>
-                {check.stopIndex === undefined ? check.message : <a href={hashForStop(check.stopIndex)}>{check.message}</a>}
-              </li>
-            ))}
-          </ul>
-          {plan.moreChecks > 0 && (
-            <p className="guide-note">
-              <a href="#risks">{plan.moreChecks} more</a> in the full list.
-            </p>
-          )}
-        </section>
+        <BriefChecks plan={plan} />
       )}
 
       <div className="guide-start">
@@ -137,12 +138,140 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
         <p className="guide-note">Nothing stands out for a close look. See everything under All changes.</p>
       )}
 
+      <OffPathWarning plan={plan} />
+      <WhyThesePanel plan={plan} />
+      <ChecksLine review={review} />
+      <AiLine review={review} />
+
       <NotCheckedWarning checks={review.risk.notChecked} />
 
       <footer className="guide-footer">
         <a href={ALL_CHANGES_HASH}>All changes</a>
       </footer>
     </main>
+  )
+}
+
+function BriefChecks({ plan }: { readonly plan: ReviewPlan }): ReactElement {
+  return (
+    <section aria-labelledby="guide-checks">
+      <h2 id="guide-checks" className="guide-heading">
+        Check {plan.checks.length === 1 ? "this" : `these ${plan.checks.length} things`}
+      </h2>
+      <ul className="guide-checks">
+        {plan.checks.map((check) => (
+          <li key={check.message} className={`guide-check guide-check-${check.severity}`}>
+            {check.stopIndex === undefined ? check.message : <a href={hashForStop(check.stopIndex)}>{check.message}</a>}
+          </li>
+        ))}
+      </ul>
+      {plan.moreChecks > 0 && (
+        <p className="guide-note">
+          <a href="#risks">{plan.moreChecks} more</a> in the full list.
+        </p>
+      )}
+    </section>
+  )
+}
+
+/** Anything flagged that the path can't take a reviewer to, which they could otherwise miss. */
+function OffPathWarning({ plan }: { readonly plan: ReviewPlan }): ReactElement | null {
+  if (plan.findingsOffPath === 0) return null
+  return (
+    <p className="guide-updated">
+      <strong>
+        {plan.findingsOffPath} {plan.findingsOffPath === 1 ? "finding isn't" : "findings aren't"} on the path,
+      </strong>{" "}
+      usually because {plan.findingsOffPath === 1 ? "it's" : "they're"} in a test or skippable file. <a href={RISKS_HASH}>Read them under Risks</a>.
+    </p>
+  )
+}
+
+/** The rules behind the path, and what they leave out, so "lower priority" is never a mystery. */
+function WhyThesePanel({ plan }: { readonly plan: ReviewPlan }): ReactElement {
+  const left = plan.lowerPriority
+  const leftOut = [
+    plan.pastTheLimit > 0 && `${plan.pastTheLimit} past the path's length limit. They earned a place, but have no findings.`,
+    left.otherCode > 0 && `${left.otherCode} other edits to existing code, with no signal above.`,
+    left.newCode > 0 && `${left.newCode} new functions or types that nothing else uses yet.`,
+    left.quiet > 0 && `${left.quiet} changes to formatting, comments, names or location only.`,
+    left.testFiles > 0 && `${left.testFiles} test files.`,
+    left.otherFiles > 0 && `${left.otherFiles} other files, such as docs or config.`,
+  ].filter((line) => typeof line === "string")
+  return (
+    <details className="guide-explain">
+      <summary>How Walkdiff chose what to highlight</summary>
+      <p>A change goes on the path for any of these, and the order follows the same list:</p>
+      <ol>
+        {PATH_RULES.map((rule) => (
+          <li key={rule}>{rule}</li>
+        ))}
+      </ol>
+      {leftOut.length > 0 && (
+        <>
+          <p>Not on the path, but still under <a href={ALL_CHANGES_HASH}>All changes</a>:</p>
+          <ul>
+            {leftOut.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p>
+        <strong>What this can miss:</strong> these are signals, and Walkdiff doesn't understand what the code is for. A wrong calculation in code nothing else uses would rank low, so if you know a change is delicate, look at it under All changes.
+      </p>
+    </details>
+  )
+}
+
+function ChecksLine({ review }: { readonly review: ReviewModel }): ReactElement {
+  const totals = totalsOf(summarizeChecks(review.risk))
+  const ran = totals.clean + totals.withIssues
+  return (
+    <p className="guide-tools">
+      <strong>
+        {ran} {ran === 1 ? "check" : "checks"} ran:
+      </strong>{" "}
+      {totals.withIssues} found issues, {totals.clean} clean{totals.notRun > 0 && `, and ${totals.notRun} didn't run`}. <a href={RISKS_HASH}>See each check</a>
+    </p>
+  )
+}
+
+function AiLine({ review }: { readonly review: ReviewModel }): ReactElement | null {
+  if (review.ai.status === AiReviewStatus.Unavailable) {
+    return (
+      <p className="guide-tools">
+        <strong>AI review didn't run:</strong> {review.ai.reason}.
+      </p>
+    )
+  }
+  const digest = digestAiReview(review.ai)
+  if (digest === undefined) return null
+  const count = (total: number, one: string, many: string): string => `${total} ${total === 1 ? one : many}`
+  return (
+    <p className="guide-tools">
+      <strong>AI review:</strong> {count(digest.mismatches.length, "difference", "differences")} from the description, {count(digest.questions.length, "question", "questions")} to answer. <a href={AI_REVIEW_HASH}>Read them</a>
+    </p>
+  )
+}
+
+function AiNotes({ review, stop }: { readonly review: ReviewModel; readonly stop: ReviewStop }): ReactElement | null {
+  const notes = aiNotesForStop(review.ai, stop)
+  if (notes.length === 0) return null
+  return (
+    <section className="guide-section">
+      <h2 className="guide-heading">AI asks about this</h2>
+      <ul className="ai-notes">
+        {notes.map((note) => (
+          <li key={note.title}>
+            <details>
+              <summary>{note.title}</summary>
+              <p>{note.detail}</p>
+            </details>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }
 
@@ -169,6 +298,7 @@ function ReviewRail({ review, plan, state, currentIndex }: ReviewRailProps): Rea
   const done = path.total > 0 && path.reviewed === path.total
   return (
     <nav className="guide-rail" aria-label="Review path">
+      <AllReviewsLink />
       <a className="guide-rail-brief" href={REVIEW_HASH}>
         ← Brief
       </a>
@@ -237,7 +367,7 @@ function StopView({ review, stop, index, total }: { readonly review: ReviewModel
       <div className="guide-why">
         <p className="guide-why-title">Why it's here</p>
         {stop.reasons.length === 0 ? (
-          <p>It changes how existing code behaves, though nothing specific stands out.</p>
+          <p>{stop.unit?.change.kind === UnitChangeKind.Added ? "It's new code, included so the path has somewhere to start. Nothing specific stands out." : "It changes existing code, though nothing specific stands out."}</p>
         ) : (
           <ul>
             {stop.reasons.map((reason) => (
@@ -256,6 +386,8 @@ function StopView({ review, stop, index, total }: { readonly review: ReviewModel
       )}
 
       <StopCode stop={stop} />
+
+      <AiNotes review={review} stop={stop} />
 
       {located.length > 0 && (
         <section className="guide-section">
