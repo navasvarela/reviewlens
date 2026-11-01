@@ -44,6 +44,20 @@ const MAX_CHECKS = 3
 const MIN_NAME_LENGTH_TO_MATCH_IN_TESTS = 3
 
 /**
+ * What puts a change on the path, most important first, in the reviewer's words. Keep this in step
+ * with `scoreUnit`: a reviewer relies on it to judge what they may have skipped.
+ */
+export const PATH_RULES: readonly string[] = [
+  "Security findings and breaking changes. These are always on the path, however many there are.",
+  "Removed code that places this PR didn't change still use.",
+  "Code used by places this PR didn't change. The more places, the higher it ranks.",
+  "Lines that didn't run in tests, when there's a coverage report.",
+  "A changed signature, error handling or branching.",
+  "Changes in a sensitive area, and large pieces of new code.",
+  "Other edits to existing code, with a small boost if no changed test mentions them.",
+]
+
+/**
  * Definitions rather than logic. Adding a value to an enum or a field to a struct can touch many
  * users without changing what any of them do, so these count for less than functions do.
  */
@@ -102,6 +116,10 @@ export interface ReviewPlan {
   readonly moreChecks: number
   readonly lowerPriority: LowerPriority
   readonly lowerPriorityTotal: number
+  /** Changes that earned a place but are past the path's limit; none of them has a finding. */
+  readonly pastTheLimit: number
+  /** Findings in places the path doesn't visit, such as test files. They need their own look. */
+  readonly findingsOffPath: number
   readonly sizeNote: string | null
 }
 
@@ -113,7 +131,9 @@ export function buildReviewPlan(review: ReviewModel): ReviewPlan {
     .flatMap((file) => stopsForFile(file, review.risk.findings, testFiles, review.testCoverage))
     .sort((a, b) => b.points - a.points || a.file.diff.path.localeCompare(b.file.diff.path))
   const qualifying = candidates.filter((stop) => stop.points >= POINTS_TO_BE_ON_THE_PATH).length
-  const stops = candidates.slice(0, Math.min(MAX_STOPS, Math.max(qualifying, MIN_STOPS)))
+  const limit = Math.min(MAX_STOPS, Math.max(qualifying, MIN_STOPS))
+  // The limit keeps a path short, but must never be why a flagged change goes unseen.
+  const stops = candidates.filter((stop, index) => index < limit || isFlagged(stop))
   const groups = groupChecks(review.risk.findings, stops)
   const lowerPriority = summarizeLowerPriority(review.files, stops, testFiles.length)
   return {
@@ -122,8 +142,19 @@ export function buildReviewPlan(review: ReviewModel): ReviewPlan {
     moreChecks: Math.max(0, groups.length - MAX_CHECKS),
     lowerPriority,
     lowerPriorityTotal: lowerPriority.newCode + lowerPriority.otherCode + lowerPriority.quiet + lowerPriority.testFiles + lowerPriority.otherFiles,
+    pastTheLimit: Math.max(0, qualifying - stops.filter((stop) => stop.points >= POINTS_TO_BE_ON_THE_PATH).length),
+    findingsOffPath: countFindingsOffPath(review.risk.findings, stops),
     sizeNote: review.risk.findings.find((finding) => finding.category === RiskCategory.Size)?.title ?? null,
   }
+}
+
+function isFlagged(stop: ReviewStop): boolean {
+  return stop.findings.some((finding) => !CATEGORIES_NOT_IN_CHECKS.has(finding.category))
+}
+
+function countFindingsOffPath(findings: readonly Risk[], stops: readonly ReviewStop[]): number {
+  const visited = new Set(stops.flatMap((stop) => stop.findings))
+  return findings.filter((finding) => !CATEGORIES_NOT_IN_CHECKS.has(finding.category) && !visited.has(finding)).length
 }
 
 export function isTestPath(path: string): boolean {

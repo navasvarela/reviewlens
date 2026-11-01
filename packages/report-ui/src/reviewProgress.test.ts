@@ -30,7 +30,7 @@ function stop(stopFile: ChangedFile, stopUnit: ChangedUnit | null): ReviewStop {
 }
 
 function plan(stops: readonly ReviewStop[]): ReviewPlan {
-  return { stops, checks: [], moreChecks: 0, lowerPriority: { newCode: 0, otherCode: 0, quiet: 0, testFiles: 0, otherFiles: 0 }, lowerPriorityTotal: 0, sizeNote: null }
+  return { stops, checks: [], moreChecks: 0, pastTheLimit: 0, findingsOffPath: 0, lowerPriority: { newCode: 0, otherCode: 0, quiet: 0, testFiles: 0, otherFiles: 0 }, lowerPriorityTotal: 0, sizeNote: null }
 }
 
 describe("one review record across the path and All changes", () => {
