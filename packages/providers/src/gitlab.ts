@@ -1,8 +1,9 @@
 import { commitShaSchema, GitHostKind, ReviewerState, ReviewEvent } from "@walkdiff/review-model"
 import type { Conversation, ReviewComment, SubmitResult, SubmitReview } from "@walkdiff/review-model"
 import { z } from "zod"
-import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
-import { getJson, writeJson } from "./http.ts"
+import { COVERAGE_ARCHIVE_NAME, MAX_COVERAGE_ARCHIVE_BYTES, MAX_COVERAGE_ARCHIVES } from "./gitHost.ts"
+import type { GitHost, GitHttpAuth, PullRequestSnapshot, CiArchive } from "./gitHost.ts"
+import { downloadFile, getJson, writeJson } from "./http.ts"
 import type { WriteMethod } from "./http.ts"
 import { COMMENTS_PER_PAGE, upsertMarkedComment } from "./markedComment.ts"
 import type { MarkedComment } from "./markedComment.ts"
@@ -71,6 +72,9 @@ export class DiffNotReadyError extends Error {
     super(`GitLab has not computed the diff for ${url} yet; try again in a moment.`)
   }
 }
+
+const pipelinesSchema = z.array(z.object({ id: z.number() }))
+const pipelineJobsSchema = z.array(z.object({ id: z.number(), name: z.string(), artifacts_file: z.object({ size: z.number() }).nullish() }))
 
 export class GitLabHost implements GitHost {
   readonly #ref: GitLabMergeRequestRef
@@ -194,6 +198,25 @@ export class GitLabHost implements GitHost {
 
   #get<T>(url: string, schema: z.ZodType<T>): Promise<T> {
     return getJson({ url, headers: this.#headers(), schema, authHint: this.#authHint })
+  }
+
+  async fetchCoverageArchives(headSha: string): Promise<readonly CiArchive[]> {
+    const { webOrigin, projectPath } = this.#ref
+    const projectApi = `${webOrigin}/api/v4/projects/${encodeURIComponent(projectPath)}`
+    const read = <T>(url: string, schema: z.ZodType<T>): Promise<T> => getJson({ url, headers: this.#headers(), schema, authHint: this.#authHint })
+    const [pipeline] = await read(`${projectApi}/pipelines?sha=${encodeURIComponent(headSha)}&per_page=1`, pipelinesSchema)
+    if (pipeline === undefined) return []
+    const jobs = await read(`${projectApi}/pipelines/${pipeline.id}/jobs?per_page=100`, pipelineJobsSchema)
+    const wanted = jobs
+      .filter((job) => job.artifacts_file != null && job.artifacts_file.size <= MAX_COVERAGE_ARCHIVE_BYTES && COVERAGE_ARCHIVE_NAME.test(job.name))
+      .slice(0, MAX_COVERAGE_ARCHIVES)
+    const downloaded = await Promise.all(
+      wanted.map(async (job) => ({
+        name: job.name,
+        zip: await downloadFile({ url: `${projectApi}/jobs/${job.id}/artifacts`, headers: this.#headers(), maxBytes: MAX_COVERAGE_ARCHIVE_BYTES, authHint: this.#authHint }),
+      })),
+    )
+    return downloaded.flatMap(({ name, zip }) => (zip === undefined ? [] : [{ name, zip }]))
   }
 
   #mergeRequestApi(): string {
