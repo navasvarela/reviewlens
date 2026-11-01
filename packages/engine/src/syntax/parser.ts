@@ -1,5 +1,5 @@
 import { createRequire } from "node:module"
-import type { SourceLanguage } from "@lens/review-model"
+import type { SourceLanguage } from "@walkdiff/review-model"
 import { Language, Parser } from "web-tree-sitter"
 import type { Tree } from "web-tree-sitter"
 import type { LanguageSpec } from "./languageSpec.ts"

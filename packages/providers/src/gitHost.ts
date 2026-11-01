@@ -1,4 +1,4 @@
-import type { PullRequest } from "@lens/review-model"
+import type { PullRequest } from "@walkdiff/review-model"
 import type { MarkedComment } from "./markedComment.ts"
 import type { TrustedOrigins } from "./trustedHosts.ts"
 

@@ -1,5 +1,5 @@
-import { commitShaSchema, GitHostKind } from "@lens/review-model"
-import type { CommitSha } from "@lens/review-model"
+import { commitShaSchema, GitHostKind } from "@walkdiff/review-model"
+import type { CommitSha } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
 import { getJson, writeJson } from "./http.ts"
@@ -13,7 +13,7 @@ const GITHUB_DOT_COM_API = "https://api.github.com"
 const GITHUB_API_VERSION = "2022-11-28"
 // GitHub accepts any username with a token over HTTPS; this is the one its docs use.
 const GITHUB_GIT_USERNAME = "x-access-token"
-const USER_AGENT = "lens-review"
+const USER_AGENT = "walkdiff-review"
 const AUTH_HINT = "Set GITHUB_TOKEN (or GH_TOKEN) to a token that can read this repository; posting comments also needs pull-requests: write."
 const DELETED_USER_LOGIN = "ghost"
 

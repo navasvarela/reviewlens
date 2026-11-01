@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from "react"
 import { EMPTY_REVIEW_STATE, parseSavedState, serializeState, withComment, withReviewed } from "./reviewProgress.ts"
 import type { ReviewState } from "./reviewProgress.ts"
 
-const STORAGE_KEY_PREFIX = "lens-review:"
+const STORAGE_KEY_PREFIX = "walkdiff-review:"
 
 export interface ReviewStateActions {
   readonly state: ReviewState

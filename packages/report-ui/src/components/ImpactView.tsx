@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 import type { ReactElement } from "react"
-import { changedUnitsOf, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, PullRequest, UnitImpact, UnitRef } from "@lens/review-model"
+import { changedUnitsOf, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, PullRequest, UnitImpact, UnitRef } from "@walkdiff/review-model"
 import { UNIT_KIND_LABELS } from "../unitChange.ts"
 import { ImpactPanel } from "./ImpactPanel.tsx"
 

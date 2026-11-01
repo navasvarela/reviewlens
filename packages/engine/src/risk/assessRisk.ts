@@ -1,12 +1,12 @@
 import { extname } from "node:path"
-import { RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@lens/review-model"
+import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@walkdiff/review-model"
 import { scanDangerousApis } from "./dangerousApis.ts"
 import { scanDependencies } from "./dependencies/scanDependencies.ts"
 import { scanFunctionMetrics } from "./functionMetrics.ts"
 import { reviewSignals } from "./reviewSignals.ts"
-import { isIgnored, readLensConfig, LENS_CONFIG_PATH } from "../config/lensConfig.ts"
-import type { LensConfig } from "../config/lensConfig.ts"
+import { isIgnored, readWalkdiffConfig, WALKDIFF_CONFIG_PATH } from "../config/walkdiffConfig.ts"
+import type { WalkdiffConfig } from "../config/walkdiffConfig.ts"
 import type { FunctionQuality } from "../syntax/functionQuality.ts"
 import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
@@ -59,11 +59,11 @@ const ALWAYS_SKIPPED: readonly SkippedCheck[] = [
 
 const BUILT_IN_CHECK: CheckRun = { name: "Built-in rules", detail: "secrets, risky APIs and sensitive paths" }
 const FUNCTION_METRICS_CHECK: CheckRun = { name: "Function metrics", detail: "complexity, nesting, length and parameters" }
-const QUALITY_TURNED_OFF: SkippedCheck = { check: "Code quality checks", reason: `turned off in ${LENS_CONFIG_PATH}` }
+const QUALITY_TURNED_OFF: SkippedCheck = { check: "Code quality checks", reason: `turned off in ${WALKDIFF_CONFIG_PATH}` }
 
 /** Runs every risk check over the change and rates its security level. */
 export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAssessment> {
-  const config = await readLensConfig(request.repoDir, request.base)
+  const config = await readWalkdiffConfig(request.repoDir, request.base)
   const scanned: ScannedFile[] = request.files
     .map((file, index) => ({ diff: file.diff, noise: file.noise, after: request.headTexts.at(index) }))
     .filter((file) => !isIgnored(config, file.diff.path))
@@ -96,7 +96,7 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
   }
 }
 
-async function assessQuality(request: RiskAssessmentRequest, scanned: readonly ScannedFile[], config: LensConfig): Promise<ScanOutcome<Risk>> {
+async function assessQuality(request: RiskAssessmentRequest, scanned: readonly ScannedFile[], config: WalkdiffConfig): Promise<ScanOutcome<Risk>> {
   const scanners = await runQualityScanners({
     repoDir: request.repoDir,
     head: request.head,
@@ -132,7 +132,7 @@ function securityLevelOf(findings: readonly Risk[]): RiskSeverity {
 function coverageGaps(files: readonly ChangedFile[], ignoredCount: number): SkippedCheck[] {
   const gaps: SkippedCheck[] = []
   if (ignoredCount > 0) {
-    gaps.push({ check: `Risk rules on ${ignoredCount} ${ignoredCount === 1 ? "file" : "files"}`, reason: `excluded by "ignore" in ${LENS_CONFIG_PATH}` })
+    gaps.push({ check: `Risk rules on ${ignoredCount} ${ignoredCount === 1 ? "file" : "files"}`, reason: `excluded by "ignore" in ${WALKDIFF_CONFIG_PATH}` })
   }
   const uncovered = [...new Set(files.map((file) => extname(file.diff.path)).filter((extension) => UNCOVERED_CODE_EXTENSIONS.has(extension)))]
   if (uncovered.length > 0) {

@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
-import type { ReviewModel } from "@lens/review-model"
+import type { ReviewModel } from "@walkdiff/review-model"
 
 export const REVIEW_MODEL_FILE = "review.json"
 export const REPORT_PAGE_FILE = "index.html"

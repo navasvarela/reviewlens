@@ -1,4 +1,4 @@
-import { RiskCategory, RiskSeverity } from "@lens/review-model"
+import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { ScannerFinding } from "./scannerFinding.ts"
 

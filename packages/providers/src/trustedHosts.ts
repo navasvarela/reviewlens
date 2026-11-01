@@ -1,4 +1,4 @@
-import { GitHostKind } from "@lens/review-model"
+import { GitHostKind } from "@walkdiff/review-model"
 import type { PullRequestRef } from "./pullRequestUrl.ts"
 
 /** Hosts beyond github.com and gitlab.com that may receive each kind of token, as URL origins. */
@@ -7,8 +7,8 @@ export interface TrustedOrigins {
   readonly gitlab: readonly string[]
 }
 
-export const TRUSTED_GITHUB_HOSTS_VARIABLE = "LENS_TRUSTED_GITHUB_HOSTS"
-export const TRUSTED_GITLAB_HOSTS_VARIABLE = "LENS_TRUSTED_GITLAB_HOSTS"
+export const TRUSTED_GITHUB_HOSTS_VARIABLE = "WALKDIFF_TRUSTED_GITHUB_HOSTS"
+export const TRUSTED_GITLAB_HOSTS_VARIABLE = "WALKDIFF_TRUSTED_GITLAB_HOSTS"
 
 const GITHUB_DOT_COM_ORIGIN = "https://github.com"
 const GITLAB_DOT_COM_ORIGIN = "https://gitlab.com"

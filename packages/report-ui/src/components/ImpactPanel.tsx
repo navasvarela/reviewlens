@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
-import { ReferenceConfidence, UnitChangeKind, UnitImpactStatus } from "@lens/review-model"
-import type { ChangedUnit, PullRequest, Reference, UnitImpact } from "@lens/review-model"
+import { ReferenceConfidence, UnitChangeKind, UnitImpactStatus } from "@walkdiff/review-model"
+import type { ChangedUnit, PullRequest, Reference, UnitImpact } from "@walkdiff/review-model"
 import { sourceLineUrl } from "../sourceLinks.ts"
 
 const CONFIDENCE_LABELS: Readonly<Record<ReferenceConfidence, string>> = {

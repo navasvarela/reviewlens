@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
-import { UnitImpactStatus } from "@lens/review-model"
-import type { ChangedUnit, ReviewModel } from "@lens/review-model"
+import { UnitImpactStatus } from "@walkdiff/review-model"
+import type { ChangedUnit, ReviewModel } from "@walkdiff/review-model"
 import { buildReviewPlan, changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, REVIEW_HASH } from "../reviewPlan.ts"
 import type { GuideRoute, ReviewPlan, ReviewStop } from "../reviewPlan.ts"
 import { commentsAsMarkdown, commentsOnItems, isReviewed, ItemKind, nextUnreviewedStop, overallProgress, pathProgress, remainingOffPath, stopItemIds } from "../reviewProgress.ts"
@@ -318,7 +318,7 @@ function Finish({ review, plan, state }: { readonly review: ReviewModel; readonl
     <main className="guide-stop guide-finish">
       <h1 className="guide-title">{allDone ? "You've reviewed every change" : pathDone ? "You've finished the review path" : `${path.reviewed} of ${path.total} reviewed on the path`}</h1>
       <p className="guide-lede">
-        {overall.reviewed} of {overall.total} changes reviewed overall. The decision is yours: Lens only points at what to look at.
+        {overall.reviewed} of {overall.total} changes reviewed overall. The decision is yours: Walkdiff only points at what to look at.
       </p>
 
       {comments.length > 0 && <Comments comments={comments} />}
@@ -339,7 +339,7 @@ function Finish({ review, plan, state }: { readonly review: ReviewModel; readonl
 
       {review.risk.notChecked.length > 0 && (
         <section className="guide-section">
-          <h2 className="guide-heading">What Lens couldn't check</h2>
+          <h2 className="guide-heading">What Walkdiff couldn't check</h2>
           <ul className="guide-plain-list">
             {review.risk.notChecked.map((skippedCheck) => (
               <li key={skippedCheck.check}>

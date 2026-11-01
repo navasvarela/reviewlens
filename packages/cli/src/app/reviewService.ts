@@ -1,7 +1,7 @@
-import { displayName, parsePullRequestUrl, repositoryPath } from "@lens/providers"
-import type { PullRequestRef } from "@lens/providers"
-import { changedUnitsOf, isBehaviourChange, ReviewStatus, untouchedReferences } from "@lens/review-model"
-import type { AddReviewRequest, ReviewModel, ReviewSummary } from "@lens/review-model"
+import { displayName, parsePullRequestUrl, repositoryPath } from "@walkdiff/providers"
+import type { PullRequestRef } from "@walkdiff/providers"
+import { changedUnitsOf, isBehaviourChange, ReviewStatus, untouchedReferences } from "@walkdiff/review-model"
+import type { AddReviewRequest, ReviewModel, ReviewSummary } from "@walkdiff/review-model"
 import type { CompletedAnalysis, ReviewStore } from "./reviewStore.ts"
 
 /** Produces and writes a report for a PR, returning the directory it wrote. */

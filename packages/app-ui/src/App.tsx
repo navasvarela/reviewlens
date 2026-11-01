@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import type { FormEvent, ReactElement } from "react"
-import { ReviewStatus, RiskSeverity } from "@lens/review-model"
-import type { ReviewSummary } from "@lens/review-model"
+import { ReviewStatus, RiskSeverity } from "@walkdiff/review-model"
+import type { ReviewSummary } from "@walkdiff/review-model"
 import { addReview, listReviews, refreshReview, removeReview } from "./api.ts"
 
-const DOCS_URL = "https://github.com/navasvarela/reviewlens/blob/main/docs/README.md"
-const TROUBLESHOOTING_URL = "https://github.com/navasvarela/reviewlens/blob/main/docs/troubleshooting.md"
+const DOCS_URL = "https://github.com/navasvarela/walkdiff/blob/main/docs/README.md"
+const TROUBLESHOOTING_URL = "https://github.com/navasvarela/walkdiff/blob/main/docs/troubleshooting.md"
 
 // Often enough that an analysis finishing feels immediate; only while one is running.
 const POLL_INTERVAL_MS = 1500

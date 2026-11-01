@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
-import { changedUnitsOf, FileChangeStatus } from "@lens/review-model"
-import type { ChangedFile, Risk } from "@lens/review-model"
+import { changedUnitsOf, FileChangeStatus } from "@walkdiff/review-model"
+import type { ChangedFile, Risk } from "@walkdiff/review-model"
 import { fileProgress } from "../reviewProgress.ts"
 import { useReviewState } from "../reviewState.tsx"
 import { findingsInFile, SEVERITY_LABELS, worstSeverity } from "../risks.ts"

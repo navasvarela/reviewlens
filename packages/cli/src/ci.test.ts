@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@lens/review-model"
-import type { ChangedFile, ReviewModel } from "@lens/review-model"
+import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@walkdiff/review-model"
+import type { ChangedFile, ReviewModel } from "@walkdiff/review-model"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { parseCommand, UsageError } from "./args.ts"
 import { detectPullRequestUrl } from "./ciEnvironment.ts"
@@ -72,7 +72,7 @@ function modelWith(url: string, overrides: Partial<ReviewModel> = {}): ReviewMod
       notChecked: [{ check: "c", reason: "r" }],
     },
     ai: { status: "disabled" },
-    feedbackUrl: "https://forms.example.com/lens",
+    feedbackUrl: "https://forms.example.com/walkdiff",
     ...overrides,
   }
 }
@@ -88,7 +88,7 @@ describe("renderSummaryComment", () => {
     expect(body).toContain("- Medium: unsafe code (×2)\n")
     expect(body).toContain("[Open the full report](https://example.com/report)")
     expect(body).toContain("1 check did not run")
-    expect(body).toContain("[leave feedback](https://forms.example.com/lens)")
+    expect(body).toContain("[leave feedback](https://forms.example.com/walkdiff)")
   })
 
   it("neutralizes names from the PR", () => {
@@ -102,7 +102,7 @@ describe("detectPullRequestUrl", () => {
   let dir = ""
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "lens-ci-"))
+    dir = await mkdtemp(join(tmpdir(), "walkdiff-ci-"))
   })
 
   afterAll(async () => {
@@ -172,7 +172,7 @@ describe("runComment against stand-in host APIs", () => {
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
     const address = server.address()
     origin = typeof address === "object" && address !== null ? `http://127.0.0.1:${address.port}` : ""
-    reportDir = await mkdtemp(join(tmpdir(), "lens-comment-"))
+    reportDir = await mkdtemp(join(tmpdir(), "walkdiff-comment-"))
   })
 
   afterAll(async () => {
@@ -226,6 +226,6 @@ describe("runComment against stand-in host APIs", () => {
     createStatus = 403
     await run(`${origin}/acme/app/pull/7`, summary)
     expect(logs.join("\n")).toContain("Could not post the summary comment")
-    expect(await readFile(summary, "utf8")).toContain("ReviewLens")
+    expect(await readFile(summary, "utf8")).toContain("Walkdiff")
   })
 })

@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
-import { UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@lens/review-model"
-import type { ChangedUnit, UnitChange, UnitImpact, UnitSnapshot } from "@lens/review-model"
+import { UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@walkdiff/review-model"
+import type { ChangedUnit, UnitChange, UnitImpact, UnitSnapshot } from "@walkdiff/review-model"
 import { changeLabel, factPhrases, isQuiet, Tone, unitAnchorId, UNIT_KIND_LABELS } from "../unitChange.ts"
 import { useReviewState } from "../reviewState.tsx"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"

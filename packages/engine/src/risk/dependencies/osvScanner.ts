@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import { FileChangeStatus } from "@lens/review-model"
-import type { CheckRun, CommitSha, FileDiff, SkippedCheck } from "@lens/review-model"
+import { FileChangeStatus } from "@walkdiff/review-model"
+import type { CheckRun, CommitSha, FileDiff, SkippedCheck } from "@walkdiff/review-model"
 import { z } from "zod"
 import { readBlobs } from "../../blobs.ts"
 import { firstErrorLine } from "../scanners/scannerProcess.ts"
@@ -71,7 +71,7 @@ export async function scanUnreadLockfiles(lockfiles: readonly FileDiff[], option
     return result
   }
 
-  const workspace = await mkdtemp(join(tmpdir(), "lens-osv-"))
+  const workspace = await mkdtemp(join(tmpdir(), "walkdiff-osv-"))
   try {
     const blobs = await readBlobs(
       options.repoDir,

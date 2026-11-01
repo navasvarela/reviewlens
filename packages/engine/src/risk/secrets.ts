@@ -1,5 +1,5 @@
-import { RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { Risk } from "@lens/review-model"
+import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import type { Risk } from "@walkdiff/review-model"
 import { addedLines, findingAt, isThirdParty } from "./scannedFile.ts"
 import type { RuleDescription, ScannedFile } from "./scannedFile.ts"
 

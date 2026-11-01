@@ -43,7 +43,7 @@ function CommentBox({ id }: { readonly id: string }): ReactElement {
         Your comment
       </label>
       <textarea id={fieldId} rows={3} value={text} autoFocus={open} placeholder="What should the author look at?" onChange={(event) => setComment(id, event.target.value)} />
-      <p className="review-comment-note">Saved in this browser. Lens can't post to the PR yet, so copy your comments from the finish screen.</p>
+      <p className="review-comment-note">Saved in this browser. Walkdiff can't post to the PR yet, so copy your comments from the finish screen.</p>
     </div>
   )
 }

@@ -1,9 +1,9 @@
 import { join } from "node:path"
-import { analyzeChangedFiles, AnthropicProvider, fetchCommits, readLensConfig, reviewWithAi } from "@lens/engine"
-import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@lens/providers"
-import type { HostTokens, PullRequestRef } from "@lens/providers"
-import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@lens/review-model"
-import type { AiReview, ReviewModel } from "@lens/review-model"
+import { analyzeChangedFiles, AnthropicProvider, fetchCommits, readWalkdiffConfig, reviewWithAi } from "@walkdiff/engine"
+import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@walkdiff/providers"
+import type { HostTokens, PullRequestRef } from "@walkdiff/providers"
+import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@walkdiff/review-model"
+import type { AiReview, ReviewModel } from "@walkdiff/review-model"
 import type { AiOptions, ReviewOptions } from "./args.ts"
 import { detectPullRequestUrl } from "./ciEnvironment.ts"
 import type { CiEnvironment } from "./ciEnvironment.ts"
@@ -100,7 +100,7 @@ export async function analyzePullRequest(ref: PullRequestRef, options: AnalysisR
     files,
     risk,
     ai,
-    feedbackUrl: (await readLensConfig(repoDir, pullRequest.mergeBaseSha)).feedback.url,
+    feedbackUrl: (await readWalkdiffConfig(repoDir, pullRequest.mergeBaseSha)).feedback.url,
   })
 }
 

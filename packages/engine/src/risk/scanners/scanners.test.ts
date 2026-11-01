@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { FileDiff } from "@lens/review-model"
+import type { FileDiff } from "@walkdiff/review-model"
 import { describe, expect, it } from "vitest"
 import { parseOsvScannerOutput } from "../dependencies/osvScanner.ts"
 import type { ScannedFile } from "../scannedFile.ts"

@@ -1,6 +1,6 @@
 import { basename } from "node:path"
-import { NoiseKind } from "@lens/review-model"
-import type { FileNoise } from "@lens/review-model"
+import { NoiseKind } from "@walkdiff/review-model"
+import type { FileNoise } from "@walkdiff/review-model"
 
 const LOCKFILE_NAMES: ReadonlySet<string> = new Set([
   "Cargo.lock",

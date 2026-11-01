@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
-import { DiffLineKind, FileContentKind } from "@lens/review-model"
-import type { DiffLine, FileDiff, Hunk } from "@lens/review-model"
+import { DiffLineKind, FileContentKind } from "@walkdiff/review-model"
+import type { DiffLine, FileDiff, Hunk } from "@walkdiff/review-model"
 
 interface HunkViewProps {
   readonly diff: FileDiff

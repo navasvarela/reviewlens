@@ -1,5 +1,5 @@
-import { changedUnitsOf, isBehaviourChange, UnitChangeKind } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit } from "@lens/review-model"
+import { changedUnitsOf, isBehaviourChange, UnitChangeKind } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit } from "@walkdiff/review-model"
 import { isTestPath, isTestUnit } from "./reviewPlan.ts"
 import type { ReviewPlan, ReviewStop } from "./reviewPlan.ts"
 
@@ -110,7 +110,7 @@ export function commentsOnItems(files: readonly ChangedFile[], state: ReviewStat
   })
 }
 
-/** Ready to paste into the PR, until Lens can post comments itself. */
+/** Ready to paste into the PR, until Walkdiff can post comments itself. */
 export function commentsAsMarkdown(comments: readonly ItemComment[]): string {
   return comments.map(({ item, text }) => (item.label === item.path ? `**\`${item.path}\`**\n\n${text}` : `**\`${item.label}\`** in \`${item.path}\`\n\n${text}`)).join("\n\n---\n\n")
 }

@@ -1,4 +1,4 @@
-import type { CommitSha } from "@lens/review-model"
+import type { CommitSha } from "@walkdiff/review-model"
 import { readBlobs } from "../blobs.ts"
 import { ISOLATED_CONFIG_ENV, runGit } from "../git.ts"
 import { MAX_SOURCE_FILE_BYTES } from "../limits.ts"

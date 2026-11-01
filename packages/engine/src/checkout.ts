@@ -1,6 +1,6 @@
 import { access, mkdir } from "node:fs/promises"
 import { join } from "node:path"
-import type { CommitSha } from "@lens/review-model"
+import type { CommitSha } from "@walkdiff/review-model"
 import { gitSucceeds, runGit } from "./git.ts"
 
 /** Credentials for git's HTTP transport, sent as Basic auth. */
@@ -41,7 +41,7 @@ export async function fetchCommits(request: FetchCommitsRequest): Promise<string
   }
 
   // Each commit gets its own ref so `git gc` never prunes it as unreachable.
-  const refspecs = missing.map((sha) => `${sha}:refs/lens/commits/${sha}`)
+  const refspecs = missing.map((sha) => `${sha}:refs/walkdiff/commits/${sha}`)
   await runGit(["fetch", "--no-tags", "--no-recurse-submodules", "--quiet", "--depth=1", "--", request.cloneUrl, ...refspecs], {
     cwd: repoDir,
     env: credentialEnv(request.credentials),

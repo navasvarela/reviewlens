@@ -1,4 +1,4 @@
-import { RiskSeverity } from "@lens/review-model"
+import { RiskSeverity } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { PackageVersion } from "./packages.ts"
 

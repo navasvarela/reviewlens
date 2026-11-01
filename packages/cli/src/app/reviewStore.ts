@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite"
-import { GitHostKind, ReviewStatus, reviewSummarySchema } from "@lens/review-model"
-import type { ReviewSummary } from "@lens/review-model"
+import { GitHostKind, ReviewStatus, reviewSummarySchema } from "@walkdiff/review-model"
+import type { ReviewSummary } from "@walkdiff/review-model"
 import { z } from "zod"
 
 /** Each entry moves the database one version forward; `PRAGMA user_version` records how far. */

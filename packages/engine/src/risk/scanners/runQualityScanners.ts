@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, extname, join } from "node:path"
-import { RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { CommitSha, Risk } from "@lens/review-model"
+import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import type { CommitSha, Risk } from "@walkdiff/review-model"
 import { readBlobs } from "../../blobs.ts"
 import { listSourceFiles, SCAN_BATCH_FILES } from "../../impact/candidateFiles.ts"
 import { MAX_SOURCE_FILE_BYTES } from "../../limits.ts"
@@ -58,7 +58,7 @@ export async function runQualityScanners(request: QualityScanRequest): Promise<S
   const candidates = request.files.filter(isFirstPartySource)
   if (candidates.length === 0) return { findings: [], checksRun: [], notChecked: [] }
 
-  const workspace = await realpath(await mkdtemp(join(tmpdir(), "lens-quality-")))
+  const workspace = await realpath(await mkdtemp(join(tmpdir(), "walkdiff-quality-")))
   try {
     const outcomes = await Promise.all([
       runLinter(request, candidates, workspace, RUFF, PYTHON_EXTENSIONS, runRuff),

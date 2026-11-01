@@ -1,5 +1,5 @@
-import { AiReviewStatus, changedUnitsOf, isBehaviourChange, untouchedReferences } from "@lens/review-model"
-import type { ReviewModel, RiskSeverity } from "@lens/review-model"
+import { AiReviewStatus, changedUnitsOf, isBehaviourChange, untouchedReferences } from "@walkdiff/review-model"
+import type { ReviewModel, RiskSeverity } from "@walkdiff/review-model"
 
 export const ReportTab = { Changes: "changes", Impact: "impact", Risks: "risks", AiReview: "ai-review" } as const
 export type ReportTab = (typeof ReportTab)[keyof typeof ReportTab]

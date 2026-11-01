@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
-import type { CommitSha, FileDiff } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { CommitSha, FileDiff } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { runGit } from "../../git.ts"
 import type { ScannedFile } from "../scannedFile.ts"
@@ -71,7 +71,7 @@ describe("runQualityScanners", () => {
   let head: CommitSha
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-quality-test-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-quality-test-"))
     const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: COMMITTER_ENV })
     await git("init", "--quiet")
     for (const [path, content] of [["src/app.py", NUMBERED], ["src/ui.ts", NUMBERED], ["src/old.ts", NUMBERED], ["src/old.test.ts", NUMBERED], ["ruff.toml", "x"], [".jscpd.json", "{}"], ["src/.oxlintrc.ts", "x"]] as const) {

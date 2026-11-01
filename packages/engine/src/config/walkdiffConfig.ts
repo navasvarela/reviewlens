@@ -1,6 +1,6 @@
 import { matchesGlob } from "node:path"
-import { RiskSeverity } from "@lens/review-model"
-import type { CommitSha } from "@lens/review-model"
+import { RiskSeverity } from "@walkdiff/review-model"
+import type { CommitSha } from "@walkdiff/review-model"
 import { z } from "zod"
 import { readBlobs } from "../blobs.ts"
 
@@ -8,12 +8,17 @@ import { readBlobs } from "../blobs.ts"
  * Per-repository settings. Callers read them from the merge base, not the PR's head: a PR
  * must not be able to loosen the rules it is judged by, for example by ignoring every path.
  */
-export const LENS_CONFIG_PATH = ".lens.json"
+export const WALKDIFF_CONFIG_PATH = ".walkdiff.json"
+/**
+ * The name before the project was renamed. It stays honoured because it can hold rules that
+ * protect code, such as forbidding AI review: ignoring it would silently send that code away.
+ */
+const LEGACY_CONFIG_PATH = ".lens.json"
 
 // Semgrep's general-purpose pack; its noisier audit packs are left for teams to opt into.
 const DEFAULT_SEMGREP_RULES = ["p/default"]
 
-export const lensConfigSchema = z.object({
+export const walkdiffConfigSchema = z.object({
   /** Areas the team considers sensitive beyond the built-in ones. */
   riskPaths: z
     .array(z.object({ pattern: z.string().min(1), severity: z.enum(RiskSeverity), reason: z.string().min(1) }))
@@ -31,33 +36,38 @@ export const lensConfigSchema = z.object({
   /** Where pilot users send feedback; shown in the report and the PR comment. */
   feedback: z.object({ url: z.url({ protocol: /^https?$/ }).nullable().default(null) }).default({ url: null }),
 })
-export type LensConfig = z.infer<typeof lensConfigSchema>
+export type WalkdiffConfig = z.infer<typeof walkdiffConfigSchema>
 
-export const DEFAULT_LENS_CONFIG: LensConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, feedback: { url: null } }
+export const DEFAULT_WALKDIFF_CONFIG: WalkdiffConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, feedback: { url: null } }
 
-export class LensConfigError extends Error {
-  override readonly name = "LensConfigError"
+export class WalkdiffConfigError extends Error {
+  override readonly name = "WalkdiffConfigError"
 }
 
-export async function readLensConfig(repoDir: string, head: CommitSha): Promise<LensConfig> {
-  const [blob] = await readBlobs(repoDir, [{ commit: head, path: LENS_CONFIG_PATH }])
+export async function readWalkdiffConfig(repoDir: string, head: CommitSha): Promise<WalkdiffConfig> {
+  const [current, legacy] = await readBlobs(repoDir, [
+    { commit: head, path: WALKDIFF_CONFIG_PATH },
+    { commit: head, path: LEGACY_CONFIG_PATH },
+  ])
+  const blob = current ?? legacy
   if (blob === undefined) {
-    return DEFAULT_LENS_CONFIG
+    return DEFAULT_WALKDIFF_CONFIG
   }
+  const path = current === undefined ? LEGACY_CONFIG_PATH : WALKDIFF_CONFIG_PATH
   let json: unknown
   try {
     json = JSON.parse(blob.toString("utf8"))
   } catch (error: unknown) {
-    throw new LensConfigError(`${LENS_CONFIG_PATH} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`)
+    throw new WalkdiffConfigError(`${path} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`)
   }
-  const result = lensConfigSchema.safeParse(json)
+  const result = walkdiffConfigSchema.safeParse(json)
   if (!result.success) {
-    throw new LensConfigError(`${LENS_CONFIG_PATH} is invalid: ${result.error.message}`)
+    throw new WalkdiffConfigError(`${path} is invalid: ${result.error.message}`)
   }
   return result.data
 }
 
-export function isIgnored(config: LensConfig, path: string): boolean {
+export function isIgnored(config: WalkdiffConfig, path: string): boolean {
   // Changes to the config itself are always reported, whatever it says.
-  return path !== LENS_CONFIG_PATH && config.ignore.some((pattern) => matchesGlob(path, pattern))
+  return path !== WALKDIFF_CONFIG_PATH && path !== LEGACY_CONFIG_PATH && config.ignore.some((pattern) => matchesGlob(path, pattern))
 }

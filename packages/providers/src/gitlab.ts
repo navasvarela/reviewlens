@@ -1,4 +1,4 @@
-import { commitShaSchema, GitHostKind } from "@lens/review-model"
+import { commitShaSchema, GitHostKind } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
 import { getJson, writeJson } from "./http.ts"

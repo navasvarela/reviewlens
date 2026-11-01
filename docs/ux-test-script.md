@@ -7,11 +7,11 @@ A 20-minute test with one engineer at a time, for 3 to 5 engineers. Testing find
 Generate reports for real PRs the person hasn't seen, from this branch:
 
 ```bash
-pnpm lens review https://github.com/sharkdp/fd/pull/2191
-pnpm lens review https://github.com/pallets/click/pull/3877
+pnpm walkdiff review https://github.com/sharkdp/fd/pull/2191
+pnpm walkdiff review https://github.com/pallets/click/pull/3877
 ```
 
-A PR from your own codebase is better still, as people can judge whether the ranking is right. Don't explain Lens first, and don't help. Ask them to think aloud.
+A PR from your own codebase is better still, as people can judge whether the ranking is right. Don't explain Walkdiff first, and don't help. Ask them to think aloud.
 
 ## Tasks
 
@@ -19,11 +19,11 @@ A PR from your own codebase is better still, as people can judge whether the ran
 | --- | --- | --- | --- |
 | 1 | Open the report. After 30 seconds, tell me what this PR does, what worries you, and where you'd start. | Whether they can answer from the brief alone | 4 out of 5 |
 | 2 | Start reviewing it however you like. | Whether their first click is "Start review" | 4 out of 5 |
-| 3 | At the first change: why does Lens show you this one first? | Whether they understand it, and whether they agree | 4 out of 5 |
+| 3 | At the first change: why does Walkdiff show you this one first? | Whether they understand it, and whether they agree | 4 out of 5 |
 | 4 | Find everything that calls this function. | Clicks needed | Under 2 clicks, for everyone |
 | 5 | Find out whether this function has tests. | Whether they read "a hint" correctly | Everyone |
 | 6 | Keep going for 5 minutes. Tell me if you get lost or want something that isn't there. | Where they stop or look elsewhere | Note every case |
-| 7 | How would you know you were finished? What didn't Lens check? | Whether they find the finish screen | Everyone |
+| 7 | How would you know you were finished? What didn't Walkdiff check? | Whether they find the finish screen | Everyone |
 | 8 | Show me every file this PR changed. | Whether they find "All changes" | Everyone |
 
 ## Questions to finish

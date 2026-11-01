@@ -2,11 +2,11 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { request } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@lens/review-model"
-import type { ReviewModel } from "@lens/review-model"
+import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@walkdiff/review-model"
+import type { ReviewModel } from "@walkdiff/review-model"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { parsePullRequestUrl } from "@lens/providers"
-import type { PullRequestRef } from "@lens/providers"
+import { parsePullRequestUrl } from "@walkdiff/providers"
+import type { PullRequestRef } from "@walkdiff/providers"
 import { hostTokensFor, readHostTokens } from "../environment.ts"
 import { API_KEY_HEADER, startAppServer, withMeta } from "./appServer.ts"
 import type { AppServer } from "./appServer.ts"
@@ -46,8 +46,8 @@ describe("ReviewStore and ReviewService", () => {
     )
 
   beforeEach(async () => {
-    dir = await mkdtemp(join(tmpdir(), "lens-store-"))
-    store = new ReviewStore(join(dir, "lens.db"), () => new Date("2026-10-30T10:00:00.000Z"))
+    dir = await mkdtemp(join(tmpdir(), "walkdiff-store-"))
+    store = new ReviewStore(join(dir, "walkdiff.db"), () => new Date("2026-10-30T10:00:00.000Z"))
     calls = []
     outcome = async () => ({ model: fakeModel("Cap retries"), reportDir: "/tmp/report" })
   })
@@ -105,7 +105,7 @@ describe("ReviewStore and ReviewService", () => {
   it("survives a restart, marking unfinished analyses as interrupted", () => {
     store.add({ url: PR_URL, host: "github", displayName: "acme/app#7", ai: false })
     store.close()
-    store = new ReviewStore(join(dir, "lens.db"), () => new Date())
+    store = new ReviewStore(join(dir, "walkdiff.db"), () => new Date())
     store.markInterrupted()
     expect(store.list()).toMatchObject([{ status: "failed", error: expect.stringContaining("Refresh") }])
   })
@@ -127,8 +127,8 @@ describe("the app server", () => {
   const KEY = "test-key"
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "lens-app-"))
-    store = new ReviewStore(join(dir, "lens.db"), () => new Date("2026-10-30T10:00:00.000Z"))
+    dir = await mkdtemp(join(tmpdir(), "walkdiff-app-"))
+    store = new ReviewStore(join(dir, "walkdiff.db"), () => new Date("2026-10-30T10:00:00.000Z"))
     await writeFile(join(dir, "index.html"), "<html><head></head><body>report page</body></html>")
     const service = new ReviewService(store, async () => ({ model: fakeModel("Cap retries"), reportDir: dir }), () => undefined)
     server = await startAppServer(store, service, { port: 0, apiKey: KEY, log: () => undefined })
@@ -167,7 +167,7 @@ describe("the app server", () => {
 
     const page = await fetch(`${base}reviews/1/`)
     expect(page.status).toBe(200)
-    expect(await page.text()).toContain('name="lens-home"')
+    expect(await page.text()).toContain('name="walkdiff-home"')
     expect(page.headers.get("content-security-policy")).toContain("default-src 'none'")
 
     expect((await fetch(`${base}api/reviews/1`, { method: "DELETE", headers })).status).toBe(200)
@@ -231,7 +231,7 @@ describe("hostTokensFor", () => {
     const { asked, run } = recordingGh()
     expect(await hostTokensFor(github, { GITHUB_TOKEN: "env" }, run)).toMatchObject({ github: "env" })
     expect(asked).toEqual([])
-    expect(await hostTokensFor(enterprise, { LENS_TRUSTED_GITHUB_HOSTS: "git.acme.internal" }, run)).toMatchObject({ github: "gh-token" })
+    expect(await hostTokensFor(enterprise, { WALKDIFF_TRUSTED_GITHUB_HOSTS: "git.acme.internal" }, run)).toMatchObject({ github: "gh-token" })
     expect(asked).toEqual(["auth token --hostname git.acme.internal"])
   })
 
@@ -255,11 +255,11 @@ describe("readHostTokens", () => {
     ["http://intranet.example", ["http://intranet.example"]],
     ["", []],
   ])("reads trusted hosts from %j", (value, origins) => {
-    expect(readHostTokens({ LENS_TRUSTED_GITLAB_HOSTS: value }).trustedOrigins).toEqual({ github: [], gitlab: origins })
+    expect(readHostTokens({ WALKDIFF_TRUSTED_GITLAB_HOSTS: value }).trustedOrigins).toEqual({ github: [], gitlab: origins })
   })
 
   it("rejects an entry that is not a host", () => {
-    expect(() => readHostTokens({ LENS_TRUSTED_GITHUB_HOSTS: "not a host" })).toThrow("Not a host name")
+    expect(() => readHostTokens({ WALKDIFF_TRUSTED_GITHUB_HOSTS: "not a host" })).toThrow("Not a host name")
   })
 
   it("trusts the CI server only inside that CI system", () => {

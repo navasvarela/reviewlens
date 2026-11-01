@@ -1,5 +1,5 @@
-import { CitationSide, IntentVerdict } from "@lens/review-model"
-import type { Chapter, Citation, IntentFinding, ReviewerQuestion, UnitRef } from "@lens/review-model"
+import { CitationSide, IntentVerdict } from "@walkdiff/review-model"
+import type { Chapter, Citation, IntentFinding, ReviewerQuestion, UnitRef } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { PromptPlan, ShownRange } from "./prompt.ts"
 

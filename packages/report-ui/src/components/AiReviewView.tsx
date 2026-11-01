@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
-import { AiReviewStatus, CitationSide, IntentVerdict } from "@lens/review-model"
-import type { AiReview, Citation, PullRequest } from "@lens/review-model"
+import { AiReviewStatus, CitationSide, IntentVerdict } from "@walkdiff/review-model"
+import type { AiReview, Citation, PullRequest } from "@walkdiff/review-model"
 import { sourceLineUrl } from "../sourceLinks.ts"
 
 const VERDICT_LABELS: Readonly<Record<IntentVerdict, string>> = {

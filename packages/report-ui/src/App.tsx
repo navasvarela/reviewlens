@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ReactElement } from "react"
-import type { ReviewModel, UnitRef } from "@lens/review-model"
+import type { ReviewModel, UnitRef } from "@walkdiff/review-model"
 import { AiReviewView } from "./components/AiReviewView.tsx"
 import { FileList } from "./components/FileList.tsx"
 import { FileView } from "./components/FileView.tsx"

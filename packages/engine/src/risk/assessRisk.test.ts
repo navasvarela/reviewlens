@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
-import type { CommitSha, RiskAssessment } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { CommitSha, RiskAssessment } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { analyzeChangedFiles } from "../analyzeChangedFiles.ts"
 import { runGit } from "../git.ts"
@@ -31,20 +31,20 @@ describe("assessRisk", () => {
   const ruleIds = (): string[] => (risk?.findings ?? []).map((finding) => finding.ruleId)
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-risk-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-risk-"))
     await git("init", "--quiet")
     await write("src/util.py", "def parse(text):\n    return int(text)\n\ndef keep():\n    return 1\n")
     await write("src/app.py", "from util import parse\n\ndef run(raw):\n    return parse(raw)\n")
     await write("package.json", '{"dependencies":{"react":"^19.0.0"}}\n')
     await write("package-lock.json", JSON.stringify({ lockfileVersion: 3, packages: { "": {} } }))
     await write(
-      ".lens.json",
+      ".walkdiff.json",
       JSON.stringify({ riskPaths: [{ pattern: "src/ledger/**", severity: "high", reason: "Moves customer funds" }], ignore: ["fixtures/**"] }),
     )
     const base = await commit()
 
     // The PR tries to silence every rule on itself.
-    await write(".lens.json", JSON.stringify({ ignore: ["**"] }))
+    await write(".walkdiff.json", JSON.stringify({ ignore: ["**"] }))
     await write("src/util.py", "def keep():\n    return 2\n")
     await write("src/ledger/post.py", "import subprocess\n\ndef post(cmd):\n    subprocess.run(cmd, shell=True)\n")
     await write("fixtures/keys.txt", "-----BEGIN PRIVATE KEY-----\n")
@@ -72,7 +72,7 @@ describe("assessRisk", () => {
       "config.src/ledger/**",
       "python.subprocess-shell",
       "reference.stale",
-      "path.lens-config",
+      "path.walkdiff-config",
       "tests.none",
       "dependency.added",
     ])
@@ -101,7 +101,7 @@ describe("code quality in the risk assessment", () => {
   const assess = async (baseConfig: object, headConfig: object): Promise<RiskAssessment> => {
     const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: COMMITTER_ENV })
     const commit = async (config: object, app: string): Promise<CommitSha> => {
-      await writeFile(join(repoDir, ".lens.json"), JSON.stringify(config))
+      await writeFile(join(repoDir, ".walkdiff.json"), JSON.stringify(config))
       await writeFile(join(repoDir, "app.py"), app)
       await git("add", "--all")
       await git("commit", "--quiet", "--allow-empty", "--message", "change")
@@ -113,7 +113,7 @@ describe("code quality in the risk assessment", () => {
   }
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-quality-risk-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-quality-risk-"))
     await runGit(["init", "--quiet"], { cwd: repoDir, env: COMMITTER_ENV })
   })
   afterAll(() => rm(repoDir, { recursive: true, force: true }))

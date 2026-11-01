@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
-import type { ChangedFile, CommitSha } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { ChangedFile, CommitSha } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { analyzeChangedFiles } from "./analyzeChangedFiles.ts"
 import { runGit } from "./git.ts"
@@ -37,7 +37,7 @@ describe("analyzeChangedFiles", () => {
   const file = (path: string): ChangedFile | undefined => files.find((changed) => changed.diff.path === path)
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-analyze-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-analyze-"))
     await git("init", "--quiet")
     await write("Cargo.lock", "version = 3\n")
     await write("src/cart.rs", `use crate::item::Item;\n\n${PRICE_FN}\npub fn empty() -> bool { true }\n`)

@@ -2,11 +2,12 @@
 
 ## Unreleased
 
-- **Code quality:** Lens flags complexity, long functions and lint problems in the code a PR adds, using built-in measures and optional Ruff, oxlint and jscpd. Findings appear as reasons on the review path and never change the security level.
+- **Renamed to Walkdiff.** The command is now `pnpm walkdiff`, the config file is `.walkdiff.json`, and the trusted hosts variables are `WALKDIFF_TRUSTED_GITHUB_HOSTS` and `WALKDIFF_TRUSTED_GITLAB_HOSTS`. An existing `.lens.json` keeps working, but the old variables don't, so set the new ones or tokens won't be sent to those hosts. Saved reviews aren't moved, so the app starts with an empty list.
+- **Code quality:** Walkdiff flags complexity, long functions and lint problems in the code a PR adds, using built-in measures and optional Ruff, oxlint and jscpd. Findings appear as reasons on the review path and never change the security level.
 
 ## 0.1.0
 
-The first release. Lens is early software, so expect changes, and it hasn't had an independent security audit.
+The first release, published under the name Lens. Walkdiff is early software, so expect changes, and it hasn't had an independent security audit.
 
 ### The review
 
@@ -20,9 +21,9 @@ The first release. Lens is early software, so expect changes, and it hasn't had 
 
 ### Using it
 
-- `lens review` for a single report, and `lens app` to keep track of several reviews.
+- `walkdiff review` for a single report, and `walkdiff app` to keep track of several reviews.
 - A GitHub Action and a GitLab CI template that add a report and a summary comment to each PR.
-- Team rules in `.lens.json`, read from the merge base so a PR can't change its own rules.
+- Team rules in `.walkdiff.json`, read from the merge base so a PR can't change its own rules.
 
 ### Security
 

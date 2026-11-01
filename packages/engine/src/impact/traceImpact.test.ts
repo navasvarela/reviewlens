@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, CommitSha } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, CommitSha } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { analyzeChangedFiles } from "../analyzeChangedFiles.ts"
 import { runGit } from "../git.ts"
@@ -43,7 +43,7 @@ describe("traceImpact", () => {
   }
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-impact-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-impact-"))
     await git("init", "--quiet")
     await write(
       "src/size.rs",
@@ -158,7 +158,7 @@ describe("traceImpact with names defined more than once", () => {
   }
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-ambiguous-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-ambiguous-"))
     await git("init", "--quiet")
     await write("core/intrinsics.rs", "pub fn abort() -> ! { loop {} }\n")
     await write("core/walk.rs", "pub fn scan() -> u32 { 1 }\n")

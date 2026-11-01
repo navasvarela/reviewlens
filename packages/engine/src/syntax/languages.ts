@@ -1,5 +1,5 @@
 import { extname } from "node:path"
-import { SourceLanguage } from "@lens/review-model"
+import { SourceLanguage } from "@walkdiff/review-model"
 import type { LanguageSpec } from "./languageSpec.ts"
 import { pythonSpec } from "./python.ts"
 import { rustSpec } from "./rust.ts"

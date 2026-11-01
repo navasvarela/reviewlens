@@ -6,10 +6,10 @@ The goal is to learn whether reviewers choose to use the report, and whether rev
 
 ### GitHub
 
-Add `.github/workflows/reviewlens.yml`:
+Add `.github/workflows/walkdiff.yml`:
 
 ```yaml
-name: ReviewLens
+name: Walkdiff
 on: pull_request
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
     continue-on-error: true
     steps:
       # For the strongest guarantee, replace the tag with the full commit SHA it points to.
-      - uses: navasvarela/reviewlens@v0.1.0
+      - uses: navasvarela/walkdiff@v0.1.0
         # For AI review:
         # with:
         #   ai: "true"
@@ -37,17 +37,17 @@ Include the template in `.gitlab-ci.yml`:
 
 ```yaml
 include:
-  - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/v0.1.0/ci/gitlab-ci.yml
+  - remote: https://raw.githubusercontent.com/navasvarela/walkdiff/v0.1.0/ci/gitlab-ci.yml
 ```
 
 Set `GITLAB_TOKEN` as a masked CI/CD variable: a project access token with the `api` scope. The job needs merge request pipelines. The report link opens in the browser on instances with GitLab Pages enabled; otherwise it downloads as a single HTML file that opens from disk.
 
 ### Feedback link
 
-Create a short form in a tool your team already uses, and add its address to `.lens.json` on the default branch. It then appears in the comment and the report:
+Create a short form in a tool your team already uses, and add its address to `.walkdiff.json` on the default branch. It then appears in the comment and the report:
 
 ```json
-{ "feedback": { "url": "https://forms.example.com/reviewlens" } }
+{ "feedback": { "url": "https://forms.example.com/walkdiff" } }
 ```
 
 Use your own form rather than this project's public issue tracker, since feedback may describe private code.
@@ -78,8 +78,8 @@ Split every metric by AI-generated and hand-written PRs. These are measured by h
 
 - Read [where the report is hosted and who can open it](../SECURITY.md#the-report-in-ci).
 - Try it on a few merged PRs and check that nothing surprising appears in the comment. Comments are visible to everyone who can see the PR.
-- Decide on AI review per repository. It sends changed code, plus the PR's title and description, to Anthropic. `"ai": { "allowed": false }` in `.lens.json` forbids it, whatever the job is configured to do.
+- Decide on AI review per repository. It sends changed code, plus the PR's title and description, to Anthropic. `"ai": { "allowed": false }` in `.walkdiff.json` forbids it, whatever the job is configured to do.
 - Install the security scanners in the CI job if you want them there; a runner without them lists them under "Not checked" in the report. See [Security scanners](../README.md#security-scanners).
-- Do the same for the code quality scanners. See [Code quality](../README.md#code-quality). Its findings do not affect the security level, and `"quality": { "enabled": false }` in `.lens.json` turns them off.
-- `.lens.json` rules apply once merged: a PR is always judged by the rules on its merge base, and a change to the file is itself a finding.
+- Do the same for the code quality scanners. See [Code quality](../README.md#code-quality). Its findings do not affect the security level, and `"quality": { "enabled": false }` in `.walkdiff.json` turns them off.
+- `.walkdiff.json` rules apply once merged: a PR is always judged by the rules on its merge base, and a change to the file is itself a finding.
 - The checks that did not run are listed in every report. Tell volunteers that a low security level is not an approval.

@@ -1,5 +1,5 @@
-import { FileChangeStatus, FileContentKind, SyntaxAnalysisStatus } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, CommitSha, ComparedUnit, FileDiff, FileNoise, RiskAssessment, SyntaxAnalysis } from "@lens/review-model"
+import { FileChangeStatus, FileContentKind, SyntaxAnalysisStatus } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, CommitSha, ComparedUnit, FileDiff, FileNoise, RiskAssessment, SyntaxAnalysis } from "@walkdiff/review-model"
 import { readBlobs } from "./blobs.ts"
 import type { BlobRequest } from "./blobs.ts"
 import { collectFileDiffs } from "./changedFiles.ts"

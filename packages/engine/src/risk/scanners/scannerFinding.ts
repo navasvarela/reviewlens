@@ -1,4 +1,4 @@
-import type { RiskCategory, RiskSeverity } from "@lens/review-model"
+import type { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 
 /** A finding as a scanner reports it, before it is checked against the lines the PR added. */
 export interface ScannerFinding {

@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import type { CheckRun, Risk, SkippedCheck } from "@lens/review-model"
+import type { CheckRun, Risk, SkippedCheck } from "@walkdiff/review-model"
 import { isThirdParty } from "../scannedFile.ts"
 import type { ScannedFile } from "../scannedFile.ts"
 import { GITLEAKS_BINARY, gitleaksArgs, parseGitleaksReport } from "./gitleaks.ts"
@@ -54,7 +54,7 @@ export async function runCodeScanners(request: CodeScanRequest): Promise<CodeSca
     return { findings: [], checksRun: [], notChecked: [] }
   }
 
-  const workspace = await mkdtemp(join(tmpdir(), "lens-scan-"))
+  const workspace = await mkdtemp(join(tmpdir(), "walkdiff-scan-"))
   try {
     const root = join(workspace, SCAN_ROOT_DIR)
     await mkdir(root, { recursive: true })
@@ -82,7 +82,7 @@ async function copyFiles(root: string, files: readonly ScannedFile[]): Promise<v
 }
 
 async function runSemgrep(request: CodeScanRequest, root: string): Promise<ScanOutcome> {
-  if (request.semgrepRules.length === 0) return notRun(SEMGREP_CHECK, "turned off in .lens.json")
+  if (request.semgrepRules.length === 0) return notRun(SEMGREP_CHECK, "turned off in .walkdiff.json")
   if (!request.network) return notRun(SEMGREP_CHECK, "offline mode: Semgrep downloads its rules")
   const result = await request.run(SEMGREP_BINARY, semgrepArgs(request.semgrepRules), root)
   if (result === undefined) return notRun(SEMGREP_CHECK, SEMGREP_INSTALL)

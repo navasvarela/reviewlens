@@ -1,5 +1,5 @@
 import type { ReactElement } from "react"
-import type { PullRequest, Risk, RiskAssessment } from "@lens/review-model"
+import type { PullRequest, Risk, RiskAssessment } from "@walkdiff/review-model"
 import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
 

@@ -1,5 +1,5 @@
-import { DiffLineKind, FileChangeStatus, FileContentKind } from "@lens/review-model"
-import type { CommitSha, FileContent, FileDiff } from "@lens/review-model"
+import { DiffLineKind, FileChangeStatus, FileContentKind } from "@walkdiff/review-model"
+import type { CommitSha, FileContent, FileDiff } from "@walkdiff/review-model"
 import { ISOLATED_CONFIG_ENV, runGit } from "./git.ts"
 import { EntryStatus, parseNameStatus } from "./nameStatus.ts"
 import type { NameStatusEntry } from "./nameStatus.ts"

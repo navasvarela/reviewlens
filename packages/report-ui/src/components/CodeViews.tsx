@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { ReactElement } from "react"
 import { diffWordsWithSpace } from "diff"
-import type { UnitSnapshot } from "@lens/review-model"
+import type { UnitSnapshot } from "@walkdiff/review-model"
 import { buildRows, numberedLines } from "../lineDiff.ts"
 import type { DiffRow, NumberedLine } from "../lineDiff.ts"
 import type { Tone } from "../unitChange.ts"

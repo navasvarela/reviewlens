@@ -1,8 +1,8 @@
-import { AiReviewStatus, changedUnitsOf, IntentVerdict, isBehaviourChange, RiskSeverity, untouchedReferences } from "@lens/review-model"
-import type { AiReview, Risk, ReviewModel } from "@lens/review-model"
+import { AiReviewStatus, changedUnitsOf, IntentVerdict, isBehaviourChange, RiskSeverity, untouchedReferences } from "@walkdiff/review-model"
+import type { AiReview, Risk, ReviewModel } from "@walkdiff/review-model"
 
 /** Finds this tool's earlier comment so later runs replace it instead of adding another. */
-export const SUMMARY_COMMENT_MARKER = "<!-- reviewlens-report -->"
+export const SUMMARY_COMMENT_MARKER = "<!-- walkdiff-report -->"
 
 const SEVERITY_LABELS: Readonly<Record<RiskSeverity, string>> = {
   [RiskSeverity.High]: "High",
@@ -15,7 +15,7 @@ const MAX_FINDINGS_SHOWN = 5
 export function renderSummaryComment(model: ReviewModel, reportUrl: string): string {
   const lines = [
     SUMMARY_COMMENT_MARKER,
-    `### ReviewLens: security level **${SEVERITY_LABELS[model.risk.securityLevel]}**`,
+    `### Walkdiff: security level **${SEVERITY_LABELS[model.risk.securityLevel]}**`,
     "",
     ...reviewCounts(model),
     ...aiLine(model.ai),

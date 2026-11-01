@@ -1,5 +1,5 @@
-import { isBehaviourChange, UnitKind } from "@lens/review-model"
-import type { ComparedUnit, OutlineEntry, UnitCall } from "@lens/review-model"
+import { isBehaviourChange, UnitKind } from "@walkdiff/review-model"
+import type { ComparedUnit, OutlineEntry, UnitCall } from "@walkdiff/review-model"
 import { containerTypeName, simpleTypeName } from "../impact/traceImpact.ts"
 import type { FileUnits } from "./definitions.ts"
 

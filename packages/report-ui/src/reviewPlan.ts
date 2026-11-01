@@ -1,5 +1,5 @@
-import { changedUnitsOf, DiffLineKind, FileContentKind, FileChangeStatus, isBehaviourChange, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, ReviewModel, Risk } from "@lens/review-model"
+import { changedUnitsOf, DiffLineKind, FileContentKind, FileChangeStatus, isBehaviourChange, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, ReviewModel, Risk } from "@walkdiff/review-model"
 
 /*
  * Turns a review into a guided path. The rules are plain points rather than a model, so every

@@ -1,5 +1,5 @@
 import type { ReactElement } from "react"
-import type { ChangedFile, PullRequest, RiskAssessment } from "@lens/review-model"
+import type { ChangedFile, PullRequest, RiskAssessment } from "@walkdiff/review-model"
 import { SEVERITY_LABELS } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 
@@ -23,7 +23,7 @@ export function PullRequestHeader({ pullRequest, files, risk, feedbackUrl }: Pul
   ]
 
   // Only the local app adds this, so a report opened from a file or CI artifact has no link.
-  const homeUrl = document.querySelector('meta[name="lens-home"]')?.getAttribute("content") ?? null
+  const homeUrl = document.querySelector('meta[name="walkdiff-home"]')?.getAttribute("content") ?? null
 
   return (
     <header className="header">

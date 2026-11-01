@@ -1,10 +1,10 @@
-import { reviewSummarySchema } from "@lens/review-model"
-import type { AddReviewRequest, ReviewSummary } from "@lens/review-model"
+import { reviewSummarySchema } from "@walkdiff/review-model"
+import type { AddReviewRequest, ReviewSummary } from "@walkdiff/review-model"
 
-const API_KEY_HEADER = "X-Lens-Key"
+const API_KEY_HEADER = "X-Walkdiff-Key"
 
 function apiKey(): string {
-  return document.querySelector('meta[name="lens-api-key"]')?.getAttribute("content") ?? ""
+  return document.querySelector('meta[name="walkdiff-api-key"]')?.getAttribute("content") ?? ""
 }
 
 async function call(path: string, method: string, body?: AddReviewRequest): Promise<unknown> {
