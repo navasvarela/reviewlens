@@ -37,7 +37,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
 
   constructor(options: OpenAiCompatibleOptions) {
     this.model = options.model
-    this.#baseUrl = options.baseUrl.replace(/\/+$/, "")
+    this.#baseUrl = withoutTrailingSlashes(options.baseUrl)
     this.#apiKey = options.apiKey
     this.destination = aiDestination({ provider: AiProviderKind.OpenAiCompatible, model: options.model, baseUrl: options.baseUrl, maxInputTokens: 1, enabledByDefault: false })
   }
@@ -85,6 +85,13 @@ export class OpenAiCompatibleProvider implements AiProvider {
     }
     return response
   }
+}
+
+// A loop rather than /\/+$/, whose backtracking gets slow on a long run of slashes mid-string.
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length
+  while (end > 0 && url[end - 1] === "/") end--
+  return url.slice(0, end)
 }
 
 async function readJson(response: Response): Promise<unknown> {

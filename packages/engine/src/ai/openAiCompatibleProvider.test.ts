@@ -7,6 +7,8 @@ import { createAiProvider } from "./createAiProvider.ts"
 import { AiUnavailableError } from "./provider.ts"
 
 const OUTPUT = { chapters: [], intent: [], questions: [] }
+// Far above what the loop needs, and far below what the old regex took on this input.
+const MAX_TRIM_MS = 1000
 
 interface Seen {
   path: string
@@ -78,6 +80,17 @@ describe("OpenAiCompatibleProvider against a local stand-in", () => {
     await provider().checkConnection()
     expect(seen.path).toBe("/v1/models")
     expect(seen.body).toBeUndefined()
+  })
+
+  it("handles any number of trailing slashes, quickly", async () => {
+    reply = { status: 200, body: { data: [] } }
+    await new OpenAiCompatibleProvider({ model: "m", baseUrl: `${baseUrl}////`, apiKey: undefined }).checkConnection()
+    expect(seen.path).toBe("/v1/models")
+    const slashes = "/".repeat(200_000)
+    const started = performance.now()
+    const crafted = new OpenAiCompatibleProvider({ model: "m", baseUrl: `http://127.0.0.1:1/${slashes}x${slashes}`, apiKey: undefined })
+    expect(performance.now() - started).toBeLessThan(MAX_TRIM_MS)
+    expect(crafted.model).toBe("m")
   })
 
   it("reports an unreachable provider", async () => {
