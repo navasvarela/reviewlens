@@ -1,5 +1,5 @@
 import { extname } from "node:path"
-import { CheckId, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import { CheckId, RiskCategory, RiskSeverity, isSecurityFinding, securityFindings } from "@walkdiff/review-model"
 import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@walkdiff/review-model"
 import { scanBreakingChanges } from "./breaking/scanBreakingChanges.ts"
 import { scanDangerousApis } from "./dangerousApis.ts"
@@ -34,20 +34,6 @@ export interface RiskAssessmentRequest {
   readonly runScanner: ScannerProcessRunner
   readonly disabledChecks: ReadonlySet<CheckId>
 }
-
-/**
- * Categories that make up the security level; the others are review signals. Breaking changes
- * stay out: they can take down a deployment, but they expose nothing to an attacker, and a
- * security level raised by a renamed column would teach people to discount it.
- */
-const SECURITY_CATEGORIES: ReadonlySet<RiskCategory> = new Set([
-  RiskCategory.Secret,
-  RiskCategory.DangerousApi,
-  RiskCategory.SensitivePath,
-  RiskCategory.Dependency,
-  RiskCategory.Vulnerability,
-  RiskCategory.CodeScan,
-])
 
 const SEVERITY_RANK: Readonly<Record<RiskSeverity, number>> = {
   [RiskSeverity.High]: 0,
@@ -139,9 +125,9 @@ function withoutRepeatedSecrets(findings: readonly Risk[]): Risk[] {
   })
 }
 
-// Low means "nothing found by the checks that ran", never "safe"; notChecked says what did not run.
+// Kept for sorting and colour. People read securitySummary instead, as a grade would claim too much.
 function securityLevelOf(findings: readonly Risk[]): RiskSeverity {
-  const security = findings.filter((finding) => SECURITY_CATEGORIES.has(finding.category))
+  const security = securityFindings(findings)
   if (security.some((finding) => finding.severity === RiskSeverity.High)) return RiskSeverity.High
   if (security.some((finding) => finding.severity === RiskSeverity.Medium)) return RiskSeverity.Medium
   return RiskSeverity.Low
@@ -164,7 +150,7 @@ function coverageGaps(files: readonly ChangedFile[], ignoredCount: number): Skip
 function byImportance(a: Risk, b: Risk): number {
   return (
     SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
-    Number(SECURITY_CATEGORIES.has(b.category)) - Number(SECURITY_CATEGORIES.has(a.category)) ||
+    Number(isSecurityFinding(b)) - Number(isSecurityFinding(a)) ||
     (a.location?.path ?? "").localeCompare(b.location?.path ?? "") ||
     (a.location?.line ?? 0) - (b.location?.line ?? 0)
   )

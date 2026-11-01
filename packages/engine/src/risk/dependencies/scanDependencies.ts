@@ -1,5 +1,5 @@
 import { basename } from "node:path"
-import { FileChangeStatus, RiskCategory, RiskSeverity, CheckId } from "@walkdiff/review-model"
+import { codeSpan, FileChangeStatus, RiskCategory, RiskSeverity, CheckId } from "@walkdiff/review-model"
 import type { CheckRun, CommitSha, FileDiff, Risk, SkippedCheck } from "@walkdiff/review-model"
 import { readBlobs } from "../../blobs.ts"
 import { findingAt } from "../scannedFile.ts"
@@ -120,7 +120,7 @@ function newlyDeclared(path: string, before: string | undefined, after: string):
   return [...format.parse(after)]
     .filter(([name]) => !previous.has(name))
     .map(([name, requirement]) =>
-      findingAt({ ...NEW_DEPENDENCY, title: `New dependency: ${name}` }, path, lineMentioning(after, name), `${name} ${requirement}`),
+      findingAt({ ...NEW_DEPENDENCY, title: `New dependency: ${codeSpan(name)}` }, path, lineMentioning(after, name), `${name} ${requirement}`),
     )
 }
 
@@ -172,7 +172,7 @@ function vulnerabilityFinding(found: VulnerablePackage, lockfile: string, text: 
     id: `vulnerability.${vulnerability.id}`,
     category: RiskCategory.Vulnerability,
     severity: vulnerability.severity,
-    title: `${entry.name} ${entry.version}: ${vulnerability.id}${aliases}`,
+    title: `${codeSpan(`${entry.name} ${entry.version}`)}: ${vulnerability.id}${aliases}`,
     detail: `${vulnerability.summary ?? "Known vulnerability."} ${fix}`,
   }
   return findingAt(rule, lockfile, lineMentioning(text, entry.name), `${entry.name} ${entry.version}`)

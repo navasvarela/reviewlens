@@ -19,9 +19,9 @@ const STATUS_LABELS: Readonly<Record<ReviewStatus, string>> = {
 }
 
 const LEVEL_LABELS: Readonly<Record<RiskSeverity, string>> = {
-  [RiskSeverity.High]: "High",
-  [RiskSeverity.Medium]: "Medium",
-  [RiskSeverity.Low]: "Low",
+  [RiskSeverity.High]: "High severity finding",
+  [RiskSeverity.Medium]: "Medium severity finding",
+  [RiskSeverity.Low]: "Low severity finding",
 }
 
 const SETTINGS_HASH = "#settings"
@@ -173,7 +173,7 @@ function ReviewRow({ review, onRefresh, onAttachCoverage, onRemove }: ReviewRowP
   return (
     <li className="review">
       <div className="review-main">
-        {review.securityLevel !== null && <span className={`level level-${review.securityLevel}`}>{LEVEL_LABELS[review.securityLevel]}</span>}
+        {review.securityLevel !== null && review.securityLevel !== RiskSeverity.Low && <span className={`level level-${review.securityLevel}`}>{LEVEL_LABELS[review.securityLevel]}</span>}
         {review.hasReport ? (
           <a className="review-title" href={`/reviews/${review.id}/`}>
             {review.title ?? review.displayName}

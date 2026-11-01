@@ -1,4 +1,4 @@
-import { SourceLanguage } from "@walkdiff/review-model"
+import { codeSpan, SourceLanguage } from "@walkdiff/review-model"
 import { ParameterKind } from "../../syntax/languageSpec.ts"
 import type { SignatureParameter, UnitShape } from "../../syntax/shape.ts"
 
@@ -78,15 +78,15 @@ function positionalParameterChanges(language: SourceLanguage, before: readonly S
     const partner = partnerOf(parameter, position)
     if (partner === undefined) {
       // A caller who left out an optional parameter is unaffected by its going.
-      if (!hasKind(after, ParameterKind.Rest)) (parameter.kind === ParameterKind.Required ? certain : possible).push(`no longer takes ${label(parameter, position)}`)
+      if (!hasKind(after, ParameterKind.Rest)) (parameter.kind === ParameterKind.Required ? certain : possible).push(`no longer takes ${codeSpan(label(parameter, position))}`)
       return
     }
     paired.add(partner)
-    if (parameter.kind === ParameterKind.Optional && partner.kind === ParameterKind.Required) certain.push(`now requires ${label(partner, position)}`)
-    if (isIncompatibleArgument(language, parameter.type, partner.type)) possible.push(`changes the type of ${label(partner, position)}${fromTo(parameter.type, partner.type)}`)
+    if (parameter.kind === ParameterKind.Optional && partner.kind === ParameterKind.Required) certain.push(`now requires ${codeSpan(label(partner, position))}`)
+    if (isIncompatibleArgument(language, parameter.type, partner.type)) possible.push(`changes the type of ${codeSpan(label(partner, position))}${fromTo(parameter.type, partner.type)}`)
   })
   newParameters.forEach((parameter, position) => {
-    if (!paired.has(parameter) && parameter.kind === ParameterKind.Required) certain.push(`has a new required parameter ${label(parameter, position)}`)
+    if (!paired.has(parameter) && parameter.kind === ParameterKind.Required) certain.push(`has a new required parameter ${codeSpan(label(parameter, position))}`)
   })
 
   const order = reordered(oldParameters, newParameters)
@@ -99,7 +99,7 @@ function reordered(before: readonly SignatureParameter[], after: readonly Signat
   const oldOrder = inBoth(before, after)
   const newOrder = inBoth(after, before)
   const moved = newOrder.filter((name, index) => oldOrder.at(index) !== name)
-  return moved.length > 0 ? `reorders its parameters ${moved.join(", ")}` : undefined
+  return moved.length > 0 ? `reorders its parameters ${moved.map(codeSpan).join(", ")}` : undefined
 }
 
 function pythonView(signature: readonly SignatureParameter[]): PythonParameter[] {
@@ -131,17 +131,17 @@ function pythonParameterChanges(before: readonly SignatureParameter[], after: re
     if (current === undefined) {
       const newName = [...renamedTo].find(([, old]) => old === parameter.name)?.[0]
       if (newName !== undefined) {
-        if (!parameter.positionalOnly) possible.push(`renames its parameter ${parameter.name} to ${newName}`)
-      } else if (absorbsKeywords) possible.push(`no longer names ${parameter.name}, which now goes to **kwargs`)
-      else (parameter.kind === ParameterKind.Required ? certain : possible).push(`no longer takes ${parameter.name}`)
+        if (!parameter.positionalOnly) possible.push(`renames its parameter ${codeSpan(parameter.name)} to ${codeSpan(newName)}`)
+      } else if (absorbsKeywords) possible.push(`no longer names ${codeSpan(parameter.name)}, which now goes to ${codeSpan("**kwargs")}`)
+      else (parameter.kind === ParameterKind.Required ? certain : possible).push(`no longer takes ${codeSpan(parameter.name)}`)
       continue
     }
-    if (parameter.kind === ParameterKind.Optional && current.kind === ParameterKind.Required) certain.push(`now requires ${parameter.name}`)
-    if (!parameter.keywordOnly && current.keywordOnly) possible.push(`now takes ${parameter.name} only by keyword`)
-    if (!parameter.positionalOnly && current.positionalOnly) possible.push(`now takes ${parameter.name} only by position`)
+    if (parameter.kind === ParameterKind.Optional && current.kind === ParameterKind.Required) certain.push(`now requires ${codeSpan(parameter.name)}`)
+    if (!parameter.keywordOnly && current.keywordOnly) possible.push(`now takes ${codeSpan(parameter.name)} only by keyword`)
+    if (!parameter.positionalOnly && current.positionalOnly) possible.push(`now takes ${codeSpan(parameter.name)} only by position`)
   }
   for (const parameter of newParameters) {
-    if (!oldNames.has(parameter.name) && !renamedTo.has(parameter.name) && parameter.kind === ParameterKind.Required) certain.push(`has a new required parameter ${parameter.name}`)
+    if (!oldNames.has(parameter.name) && !renamedTo.has(parameter.name) && parameter.kind === ParameterKind.Required) certain.push(`has a new required parameter ${codeSpan(parameter.name)}`)
   }
   const positional = (list: readonly PythonParameter[]): PythonParameter[] => list.filter((parameter) => !parameter.keywordOnly)
   const order = reordered(positional(oldParameters), positional(newParameters))
@@ -179,7 +179,7 @@ function objectMembers(type: string): string[] | undefined {
 function fromTo(before: string | null, after: string | null): string {
   const from = shorten(before ?? "")
   const to = shorten(after ?? "")
-  return from === to ? "" : ` from ${from} to ${to}`
+  return from === to ? "" : ` from ${codeSpan(from)} to ${codeSpan(to)}`
 }
 
 function coercesTo(before: string, after: string): boolean {

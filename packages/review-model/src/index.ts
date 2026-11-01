@@ -89,7 +89,9 @@ export type {
   AttachCoverageRequest,
   ReviewModel,
 } from "./schema.ts"
-export { changedUnitsOf, isBehaviourChange, namesOfChecks, untouchedReferences } from "./queries.ts"
+export { CheckOutcome, summarizeChecks, totalsOf } from "./checkSummary.ts"
+export type { CheckRow, CheckTotals } from "./checkSummary.ts"
+export { changedUnitsOf, codeSpan, isBehaviourChange, isSecurityFinding, namesOfChecks, SECURITY_SCAN_LIMITS, securityFindings, securitySummary, untouchedReferences } from "./queries.ts"
 export {
   AiProviderKind,
   aiConnectionResultSchema,

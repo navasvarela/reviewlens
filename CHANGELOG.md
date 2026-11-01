@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Clearer PR comment:** it now has the Walkdiff logo, tables, code font for names, and findings that link straight into the PR's diff.
+- **No more "security level":** "Low" sounded like a verdict, but Walkdiff runs pattern and secret scans on added lines, not a security audit. Comments and reports now say what was found, such as "No security findings", and which checks looked.
 - **Shorter AI review:** it now leads with where the code differs from the description, then questions to answer, one line each, with explanations on demand. Points about a change also appear beside its code on the review path.
 - **See why changes are highlighted:** the brief explains how the path is chosen, what it leaves out and what it can miss. Flagged changes now always stay on the path, whatever its limit, and findings it can't reach are called out.
 - **Results per check:** the Risks tab has a table of every check with its issues, or why it didn't run, and the brief sums it up.

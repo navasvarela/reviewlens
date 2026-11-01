@@ -2,7 +2,7 @@ import { join } from "node:path"
 import { analyzeChangedFiles, coverageFromArchives, coverageInPullRequest, createAiProvider, fetchCommits, readCoverage, readWalkdiffConfig, reviewWithAi } from "@walkdiff/engine"
 import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@walkdiff/providers"
 import type { HostTokens, PullRequestRef } from "@walkdiff/providers"
-import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@walkdiff/review-model"
+import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema, securitySummary } from "@walkdiff/review-model"
 import type { AiReview, CheckId, CommitSha, FileDiff, ReviewModel, TestCoverage } from "@walkdiff/review-model"
 import type { AiOptions, ReviewOptions } from "./args.ts"
 import { detectPullRequestUrl } from "./ciEnvironment.ts"
@@ -50,7 +50,7 @@ export async function runReview(options: ReviewOptions, deps: ReviewDependencies
   const reportDir = options.outDir ?? defaultReportDir(deps.cacheDir, ref)
   await writeReport(model, reportDir)
 
-  deps.log(`${model.files.length} files changed, security level ${model.risk.securityLevel}. Report written to ${reportDir}`)
+  deps.log(`${model.files.length} files changed, ${securitySummary(model.risk.findings).toLowerCase()}. Report written to ${reportDir}`)
   if (!options.serve) {
     return
   }

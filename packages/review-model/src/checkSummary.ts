@@ -1,5 +1,5 @@
-import { RiskCategory } from "@walkdiff/review-model"
-import type { Risk, RiskAssessment } from "@walkdiff/review-model"
+import { RiskCategory } from "./schema.ts"
+import type { Risk, RiskAssessment } from "./schema.ts"
 
 export const CheckOutcome = { Clean: "clean", Issues: "issues", NotRun: "notRun" } as const
 export type CheckOutcome = (typeof CheckOutcome)[keyof typeof CheckOutcome]

@@ -121,7 +121,7 @@ Walkdiff finds references by name and syntax, not by resolving types, so another
 
 Names found in more than 200 files, such as `new` or `get`, aren't traced. Very large PRs may also trace only some of their changes, and the report says so.
 
-### The security level is low, but I expected findings
+### It says "No security findings", but I expected some
 
 Check "Not checked" on the Risks tab first. Also note that:
 

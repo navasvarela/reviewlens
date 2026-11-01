@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { Risk, RiskAssessment } from "@walkdiff/review-model"
+import type { Risk, RiskAssessment } from "./schema.ts"
 import { summarizeChecks, totalsOf } from "./checkSummary.ts"
 
 function finding(ruleId: string, category: Risk["category"] = "codeScan"): Risk {

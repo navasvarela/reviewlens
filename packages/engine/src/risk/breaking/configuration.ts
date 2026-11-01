@@ -1,4 +1,4 @@
-import { DiffLineKind, FileChangeStatus, FileContentKind, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import { codeSpan, DiffLineKind, FileChangeStatus, FileContentKind, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 import type { DiffLine, FileDiff, Hunk, Risk } from "@walkdiff/review-model"
 import { escapeRegExp } from "../../impact/candidateFiles.ts"
 import { languageSpecFor } from "../../syntax/languages.ts"
@@ -206,22 +206,22 @@ export function configChangeFinding(change: ConfigChange, mentions: readonly Cod
     case ConfigChangeKind.RemovedVariable: {
       const required = reads.filter(isRequiredRead)
       if (required.length === 0) return undefined
-      return findingAt(rule("breaking.env-removed", `Environment variable ${change.name} was removed from ${change.path}`, `Code that reads it may fail where it isn't set: ${describeMentions(required)}. Keep it, or give those reads a default.`), change.path, change.line, change.evidence)
+      return findingAt(rule("breaking.env-removed", `Environment variable ${codeSpan(change.name)} was removed from ${codeSpan(change.path)}`, `Code that reads it may fail where it isn't set: ${describeMentions(required)}. Keep it, or give those reads a default.`), change.path, change.line, change.evidence)
     }
     case ConfigChangeKind.RenamedVariable: {
       const required = reads.filter(isRequiredRead)
       const stale = required.length > 0 ? ` Code still reads the old name: ${describeMentions(required)}.` : ""
-      return findingAt(rule("breaking.env-renamed", `Environment variable ${change.name} was renamed to ${change.newName ?? ""}`, `Deployments that set ${change.name} may break until they set ${change.newName ?? ""} too.${stale} Set the new name everywhere before this ships.`), change.path, change.line, change.evidence)
+      return findingAt(rule("breaking.env-renamed", `Environment variable ${codeSpan(change.name)} was renamed to ${codeSpan(change.newName ?? "")}`, `Deployments that set ${change.name} may break until they set ${change.newName ?? ""} too.${stale} Set the new name everywhere before this ships.`), change.path, change.line, change.evidence)
     }
     case ConfigChangeKind.ReplacedRead:
       // Another read of the old name means both are in use, so nothing was replaced.
       if (mentions === undefined || inProject.some((mention) => READS_ENVIRONMENT.test(mention.text))) return undefined
-      return findingAt(rule("breaking.env-renamed", `Environment variable ${change.name} was renamed to ${change.newName ?? ""}`, `The code now reads ${change.newName ?? ""} instead of ${change.name}, so deployments that only set the old name may break. Set the new name everywhere before this ships.`), change.path, change.line, change.evidence)
+      return findingAt(rule("breaking.env-renamed", `Environment variable ${codeSpan(change.name)} was renamed to ${codeSpan(change.newName ?? "")}`, `The code now reads ${change.newName ?? ""} instead of ${change.name}, so deployments that only set the old name may break. Set the new name everywhere before this ships.`), change.path, change.line, change.evidence)
     case ConfigChangeKind.RemovedKey: {
       const used = reads.filter((mention) => looksLikeKeyRead(mention, change.name))
       if (used.length === 0) return undefined
       const renamed = change.newName === undefined ? "was removed" : `was renamed to ${change.newName}`
-      return findingAt(rule("breaking.config-key-removed", `Config key ${change.name} ${renamed} in ${change.path}`, `Code that reads it may get nothing back: ${describeMentions(used)}. Update those reads, or keep the key.`), change.path, change.line, change.evidence)
+      return findingAt(rule("breaking.config-key-removed", `Config key ${codeSpan(change.name)} ${renamed} in ${codeSpan(change.path)}`, `Code that reads it may get nothing back: ${describeMentions(used)}. Update those reads, or keep the key.`), change.path, change.line, change.evidence)
     }
   }
 }

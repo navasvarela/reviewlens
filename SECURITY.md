@@ -70,7 +70,7 @@ Each guarantee describes the latest release and has an automated test or setting
 
 ## What Walkdiff doesn't guarantee
 
-- **A low security level doesn't mean a change is safe.** It means the checks that ran found nothing. The report lists the ones that didn't run.
+- **"No security findings" doesn't mean a change is safe.** Walkdiff runs pattern and secret scans on the lines a PR adds. It doesn't trace data through the code, reason about permissions or run anything, so it isn't a security audit. The report lists the checks that didn't run.
 - **Secret detection isn't complete.** Redaction recognises known formats and common assignments. A secret in an unusual format can still reach an AI prompt, so don't use `--ai` on a PR you know contains secrets.
 - **The Changes tab shows the code as it is.** A secret in a PR is redacted from findings, but still appears in the diff, in the report and in `review.json`.
 - **Prompt injection can mislead the AI review.** Someone writing a PR can try to influence what it says, so treat its output as a hint and not as a verdict.

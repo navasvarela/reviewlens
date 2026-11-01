@@ -1,3 +1,5 @@
+<img src="docs/assets/walkdiff-logo.svg" alt="" width="48" height="48">
+
 # walkdiff
 
 A review companion for GitHub pull requests and GitLab merge requests. `walkdiff review <url>` fetches the
@@ -11,7 +13,7 @@ Status: early release, [v0.2.0](CHANGELOG.md). To run it on your team's PRs, see
 
 The report opens on a brief: what to check, how many changes need attention, and where to start. A review path then takes you through the changes that matter most, one at a time, with why each one is there, its code, callers and tests. You can mark changes as reviewed and leave comments, and everything else stays one link away under **All changes**. In the app, you can then post your review to the PR and join the discussion.
 
-All changes has five tabs, including **Conversation** in the app: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
+All changes has five tabs, including **Conversation** in the app: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (each check's result and every finding) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
 
 - **Changed units, not hunks.** For Rust, TypeScript/JavaScript and Python, each changed function, method,
   type or class appears once, whole, before and after, with edited words marked. A class shows only the
@@ -24,14 +26,14 @@ All changes has five tabs, including **Conversation** in the app: **Changes** (f
 - **Blast radius.** For every function, method or type the PR changes, removes or renames, the report
   lists where the rest of the code still uses it, linked to the host at the head commit, and flags the
   callers this PR did not touch. Removed and renamed units show any references left behind.
-- **Risks and a security level.** Built-in rules flag likely secrets (redacted in the report), risky APIs
+- **Risks and security findings.** Built-in rules flag likely secrets (redacted in the report), risky APIs
   such as `eval`, `shell=True`, raw HTML or `unsafe` (only in code, not comments or strings), sensitive
   areas such as auth, payments, migrations and CI, new dependencies, and known vulnerabilities in
   dependency versions new to `package-lock.json`, `Cargo.lock`, `poetry.lock`, `uv.lock` or pinned
   requirements (via [OSV](https://osv.dev); `--offline` skips it). Review signals add large PRs, missing
-  test changes and removed or renamed units that untouched code still uses. The security level is the
-  highest severity among security findings, and the report lists the checks that ran and those that did
-  not. [Security scanners](#security-scanners) add more when installed.
+  test changes and removed or renamed units that untouched code still uses. The report says what was
+  found rather than grading the change, and lists the checks that ran and those that did not. These are
+  pattern and secret scans of added lines, not a security audit. [Security scanners](#security-scanners) add more when installed.
 - **Breaking changes.** Flags changes that could break other code or a deployment, and puts them on the
   review path saying what could break and who is affected. [More below](#breaking-changes).
 - **AI review (opt-in, `--ai`).** A suggested reading order that groups the changed units into chapters,
@@ -68,7 +70,7 @@ GitHub Enterprise and self-managed GitLab work by URL; tokens go to them only on
 pnpm walkdiff app
 ```
 
-This runs a local page at `http://127.0.0.1:4317/`. Paste a pull request or merge request link to add it; analyses run one at a time, and the list shows each review's status, security level and counts. Refresh re-runs a review after new commits. The list is kept in SQLite under `~/.local/share/walkdiff`, so it survives restarts. If `GITHUB_TOKEN` is not set, the app asks the GitHub CLI for its login on that PR's host.
+This runs a local page at `http://127.0.0.1:4317/`. Paste a pull request or merge request link to add it; analyses run one at a time, and the list shows each review's status and counts, and flags medium or high severity security findings. Refresh re-runs a review after new commits. The list is kept in SQLite under `~/.local/share/walkdiff`, so it survives restarts. If `GITHUB_TOKEN` is not set, the app asks the GitHub CLI for its login on that PR's host.
 
 The server listens only on your machine, refuses requests for any other host name, and its API needs a key that is created each run.
 
@@ -135,7 +137,7 @@ CI runners need the scanners installed in the job before running Walkdiff.
 
 Walkdiff flags changes that could break other code or a deployment, under the "Breaking change" category
 in the Risks tab. Each one is a stop on the review path that says what could break and who is affected,
-ranked above ordinary medium findings and below high ones. These findings never change the security level,
+ranked above ordinary medium findings and below high ones. These findings never count as security findings,
 because they expose nothing to an attacker.
 
 The rules read syntax, not types, so they say "may break" unless a required parameter changed and calls
@@ -179,7 +181,7 @@ without the definition changing, and inputs of a GitHub Action's `action.yml`.
 ## Code quality
 
 Walkdiff flags poor implementations and bad practice in the code a PR adds, under the "Code quality"
-category in the Risks tab. These findings never change the security level.
+category in the Risks tab. These findings never count as security findings.
 
 **Function metrics** are built in and cover Rust, TypeScript and Python. A function is flagged when
 the PR adds it over a limit, pushes it over one, or makes one already over the limit at least 20%

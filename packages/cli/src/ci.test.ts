@@ -1,14 +1,15 @@
+import { createHash } from "node:crypto"
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@walkdiff/review-model"
-import type { ChangedFile, ReviewModel } from "@walkdiff/review-model"
+import type { ChangedFile, ReviewModel, Risk } from "@walkdiff/review-model"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { parseCommand, UsageError } from "./args.ts"
 import { detectPullRequestUrl } from "./ciEnvironment.ts"
 import { runComment } from "./commentCommand.ts"
-import { escapeMarkdown, renderSummaryComment, SUMMARY_COMMENT_MARKER } from "./summaryComment.ts"
+import { diffLink, escapeMarkdown, renderSummaryComment, SUMMARY_COMMENT_MARKER } from "./summaryComment.ts"
 
 const SHA = commitShaSchema.parse("a".repeat(40))
 
@@ -83,12 +84,14 @@ describe("renderSummaryComment", () => {
 
   it("summarizes level, counts, grouped findings, the link and how to give feedback", () => {
     expect(body.startsWith(SUMMARY_COMMENT_MARKER)).toBe(true)
-    expect(body).toContain("security level **Medium**")
-    expect(body).toContain("**1** code unit to review")
-    expect(body).toContain("**1** place this PR did not touch use code it changed")
-    expect(body).toContain("- Medium: unsafe code (×2)\n")
+    expect(body).toContain("3 security findings")
+    expect(body).toContain("isn't a security audit")
+    expect(body).not.toContain("security level")
+    expect(body).toContain("| **Changes** | **1** code unit to review |")
+    expect(body).toContain("| **Used elsewhere** | **1** place this PR did not touch use code it changed |")
+    expect(body).toMatch(/\| 🟠 Medium \| unsafe code \| \[`a\.rs:\d+`\]\(\S+\) and 1 more \|/)
     expect(body).toContain("[Open the full report](https://example.com/report)")
-    expect(body).toContain("1 check did not run")
+    expect(body).toContain("⚠️ **1 did not run**")
     expect(body).toContain("[leave feedback](https://forms.example.com/walkdiff)")
   })
 
@@ -96,6 +99,66 @@ describe("renderSummaryComment", () => {
     expect(body).not.toContain("[x](http://bad)")
     expect(body).not.toContain("@evil")
     expect(escapeMarkdown("a\n# b `c` <img>")).toBe("a #​ b \\`c\\` \\<img\\>")
+  })
+})
+
+describe("the comment's wording and links", () => {
+  const finding = (title: string, category: Risk["category"], severity: Risk["severity"] = "low"): Risk => ({ ruleId: "r", category, severity, title, detail: "d", location: { path: "src/a|b.ts", line: 3 }, evidence: null })
+  const model = (findings: readonly Risk[], host: "github" | "gitlab" = "github"): ReviewModel => {
+    const base = modelWith("https://github.com/acme/app/pull/7")
+    return { ...base, pullRequest: { ...base.pullRequest, host }, risk: { ...base.risk, findings: [...findings], checksRun: [{ name: "Semgrep", detail: "d" }, { name: "oxlint", detail: "d" }], notChecked: [] } }
+  }
+  const URL = "https://example.com/r"
+
+  it.each([
+    ["nothing found", [], "> [!NOTE]", "**No security findings** from `Semgrep`."],
+    ["a medium finding", [finding("x", "codeScan", "medium")], "> [!WARNING]", "**1 security finding**"],
+    ["a high finding", [finding("x", "secret", "high")], "> [!CAUTION]", "**1 security finding**"],
+    ["only non-security findings", [finding("x", "codeQuality", "high")], "> [!NOTE]", "**No security findings**"],
+  ] as const)("calls out %s without grading the change", (_name, findings, alert, summary) => {
+    const body = renderSummaryComment(model(findings), URL)
+    expect(body).toContain(alert)
+    expect(body).toContain(summary)
+    expect(body).not.toMatch(/security level/i)
+  })
+
+  it("leaves out the alert marker on GitLab, where older versions show it as text", () => {
+    expect(renderSummaryComment(model([], "gitlab"), URL)).not.toContain("[!")
+  })
+
+  it("shows marked names in code font, and keeps a table together despite a pipe", () => {
+    const body = renderSummaryComment(model([finding("`run|all` was removed but `x` remains", "brokenReference")]), URL)
+    expect(body).toContain("`run\\|all` was removed but `x` remains")
+    expect(body).toContain("[`src/a\\|b.ts:3`]")
+  })
+
+  it("orders the table most severe first", () => {
+    const body = renderSummaryComment(model([finding("low one", "codeQuality", "low"), finding("high one", "secret", "high")]), URL)
+    expect(body.indexOf("high one")).toBeLessThan(body.indexOf("low one"))
+  })
+
+  it("can't be made to link, ping or break out by a crafted name in or out of code", () => {
+    const crafted = finding("`[x](http://bad)` @evil [y](http://bad) ![z](http://bad) <img src=x> | cell", "dependency")
+    const body = renderSummaryComment(model([crafted]), URL)
+    expect(body).not.toContain("[y](http://bad)")
+    expect(body).not.toContain("![z]")
+    expect(body).not.toContain("<img src=x>")
+    expect(body).not.toContain("@evil")
+    expect(body).toContain("`[x](http://bad)`")
+  })
+
+  it.each([
+    ["github", "src/a.ts", 3, "https://h/o/r/pull/1/files#diff-96e3ba9b4f9a2c5d06ed42f1ca0dc4b90bad3f4aa2d4d2ccd8ad71a39f4e0f48R3"],
+    ["github", "src/a.ts", null, "https://h/o/r/pull/1/files#diff-96e3ba9b4f9a2c5d06ed42f1ca0dc4b90bad3f4aa2d4d2ccd8ad71a39f4e0f48"],
+  ] as const)("links %s findings into the PR's diff (%s:%s)", (host, path, line, expected) => {
+    const pullRequest = { ...modelWith("https://h/o/r/pull/1").pullRequest, host }
+    const hash = createHash("sha256").update(path).digest("hex")
+    expect(diffLink(pullRequest, path, line)).toBe(expected.replace(/diff-[0-9a-f]+/, `diff-${hash}`))
+  })
+
+  it("links GitLab findings to the file, which is as close as a new line number can reach", () => {
+    const pullRequest = { ...modelWith("https://gl/o/r/-/merge_requests/1").pullRequest, host: "gitlab" as const }
+    expect(diffLink(pullRequest, "src/a.ts", 3)).toBe(`https://gl/o/r/-/merge_requests/1/diffs#${createHash("sha1").update("src/a.ts").digest("hex")}`)
   })
 })
 
