@@ -89,7 +89,6 @@ describe("assessRisk", () => {
       "Ruff Python lint",
       "jscpd duplicate detection",
       "Risk rules on 1 file",
-      "Change history (frequently changed or bug-prone files)",
     ])
   })
 })
