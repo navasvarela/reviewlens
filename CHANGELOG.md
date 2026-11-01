@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **The app opens your browser:** `pnpm walkdiff app` now opens the review list. Use `--no-open` to turn this off.
 - **Coverage for each PR, with no setup:** Walkdiff now looks for a report in CI artifacts of the PR's latest commit and in files the PR adds to a folder, in the app too. Or choose **Attach coverage** on a review: the report updates at once, with no restart.
 - **oxlint and jscpd now install with Walkdiff,** so they work with no extra setup, including in CI, at versions pinned in the lockfile. Earlier global installs are no longer used.
 - **Post your review:** in the app, post comments and Comment, Approve or Request changes from the finish screen, to GitHub or GitLab. Nothing is posted until you press the button, and Walkdiff refuses if the PR has new commits since the report was made.
