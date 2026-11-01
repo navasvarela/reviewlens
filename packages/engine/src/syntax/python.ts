@@ -62,5 +62,8 @@ export const pythonSpec: LanguageSpec = {
     errorCalls: new Set(),
     errorTypes: ["raise_statement"],
     branchTypes: ["if_statement", "elif_clause", "for_statement", "while_statement", "except_clause", "conditional_expression", "case_clause"],
+    nestingTypes: ["if_statement", "for_statement", "while_statement", "try_statement", "with_statement"],
+    logicalTypes: ["boolean_operator"],
+    logicalOperators: new Set(["and", "or"]),
   },
 }

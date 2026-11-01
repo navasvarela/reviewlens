@@ -86,8 +86,51 @@ describe("assessRisk", () => {
       "Semgrep code scan",
       "gitleaks secret scan",
       "Known vulnerabilities in new dependency versions",
+      "Ruff Python lint",
+      "jscpd duplicate detection",
       "Risk rules on 1 file",
       "Change history (frequently changed or bug-prone files)",
     ])
+  })
+})
+
+describe("code quality in the risk assessment", () => {
+  const COMPLEX_FUNCTION = `def tangled(a):\n${Array.from({ length: 16 }, (_, index) => `    if a == ${index}:\n        return ${index}\n`).join("")}    return a\n`
+  let repoDir = ""
+
+  const assess = async (baseConfig: object, headConfig: object): Promise<RiskAssessment> => {
+    const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: COMMITTER_ENV })
+    const commit = async (config: object, app: string): Promise<CommitSha> => {
+      await writeFile(join(repoDir, ".lens.json"), JSON.stringify(config))
+      await writeFile(join(repoDir, "app.py"), app)
+      await git("add", "--all")
+      await git("commit", "--quiet", "--allow-empty", "--message", "change")
+      return commitShaSchema.parse((await git("rev-parse", "HEAD")).trim())
+    }
+    const base = await commit(baseConfig, "x = 1\n")
+    const head = await commit(headConfig, COMPLEX_FUNCTION)
+    return (await analyzeChangedFiles(repoDir, base, head, { network: false, runScanner: async () => undefined })).risk
+  }
+
+  beforeAll(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), "lens-quality-risk-"))
+    await runGit(["init", "--quiet"], { cwd: repoDir, env: COMMITTER_ENV })
+  })
+  afterAll(() => rm(repoDir, { recursive: true, force: true }))
+
+  it("reports a quality finding without raising the security level", async () => {
+    const risk = await assess({}, {})
+    expect(risk.findings.map((finding) => finding.ruleId)).toContain("quality.complexity")
+    expect(risk.securityLevel).toBe("low")
+    expect(risk.checksRun.map((check) => check.name)).toContain("Function metrics")
+  })
+
+  it("is turned off by the merge base's config, not by the PR's", async () => {
+    const off = { quality: { enabled: false } }
+    const turnedOff = await assess(off, off)
+    expect(turnedOff.findings.map((finding) => finding.ruleId)).not.toContain("quality.complexity")
+    expect(turnedOff.notChecked.map((skipped) => skipped.check)).toContain("Code quality checks")
+    const prTried = await assess({}, off)
+    expect(prTried.findings.map((finding) => finding.ruleId)).toContain("quality.complexity")
   })
 })

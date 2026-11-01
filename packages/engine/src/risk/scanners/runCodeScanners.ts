@@ -1,12 +1,12 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join, resolve, sep } from "node:path"
+import { join } from "node:path"
 import type { CheckRun, Risk, SkippedCheck } from "@lens/review-model"
-import { addedLines, findingAt, isThirdParty } from "../scannedFile.ts"
+import { isThirdParty } from "../scannedFile.ts"
 import type { ScannedFile } from "../scannedFile.ts"
-import { redactSecrets } from "../secrets.ts"
 import { GITLEAKS_BINARY, gitleaksArgs, parseGitleaksReport } from "./gitleaks.ts"
-import type { ScannerFinding } from "./scannerFinding.ts"
+import { notRun, toRisks, writeScanFiles } from "./scanWorkspace.ts"
+import type { ScanOutcome } from "./scanWorkspace.ts"
 import { firstErrorLine } from "./scannerProcess.ts"
 import type { ScannerProcessRunner } from "./scannerProcess.ts"
 import { parseSemgrepOutput, SEMGREP_BINARY, semgrepArgs } from "./semgrep.ts"
@@ -57,6 +57,7 @@ export async function runCodeScanners(request: CodeScanRequest): Promise<CodeSca
   const workspace = await mkdtemp(join(tmpdir(), "lens-scan-"))
   try {
     const root = join(workspace, SCAN_ROOT_DIR)
+    await mkdir(root, { recursive: true })
     await copyFiles(root, candidates)
     await writeFile(join(root, EMPTY_IGNORE_FILE), "")
     const outcomes = await Promise.all([runSemgrep(request, root), runGitleaks(request, root, workspace)])
@@ -76,24 +77,8 @@ function isScannerControlPath(path: string): boolean {
   return path.split("/").some((segment) => SCANNER_CONTROL_FILES.has(segment))
 }
 
-interface ScanOutcome {
-  readonly findings: ScannerFinding[]
-  readonly checksRun: CheckRun[]
-  readonly notChecked: SkippedCheck[]
-}
-
 async function copyFiles(root: string, files: readonly ScannedFile[]): Promise<void> {
-  const resolvedRoot = resolve(root)
-  for (const file of files) {
-    const target = resolve(root, file.diff.path)
-    if (!target.startsWith(resolvedRoot + sep) || file.after === undefined) continue
-    await mkdir(dirname(target), { recursive: true })
-    await writeFile(target, file.after)
-  }
-}
-
-function notRun(check: string, reason: string): ScanOutcome {
-  return { findings: [], checksRun: [], notChecked: [{ check, reason }] }
+  await writeScanFiles(root, files.flatMap((file) => (file.after === undefined ? [] : [{ path: file.diff.path, text: file.after }])))
 }
 
 async function runSemgrep(request: CodeScanRequest, root: string): Promise<ScanOutcome> {
@@ -120,31 +105,4 @@ async function runGitleaks(request: CodeScanRequest, root: string, workspace: st
   } catch (error: unknown) {
     return notRun(GITLEAKS_CHECK, `its report could not be read: ${error instanceof Error ? error.message : String(error)}`)
   }
-}
-
-/** Keeps findings touching an added line, and turns them into report findings. */
-function toRisks(findings: readonly ScannerFinding[], files: readonly ScannedFile[]): Risk[] {
-  const added = new Map(files.map((file) => [file.diff.path, new Set(addedLines(file.diff).map((line) => line.line))]))
-  const texts = new Map(files.map((file) => [file.diff.path, file.after?.split("\n") ?? []]))
-  return findings.flatMap((finding) => {
-    const lines = added.get(finding.path)
-    if (lines === undefined || !touchesAddedLine(finding, lines)) return []
-    const line = texts.get(finding.path)?.at(finding.line - 1)
-    const evidence = finding.showLine && line !== undefined ? redactSecrets(line) : null
-    return [
-      findingAt(
-        { id: finding.ruleId, category: finding.category, severity: finding.severity, title: finding.title, detail: finding.detail },
-        finding.path,
-        finding.line,
-        evidence,
-      ),
-    ]
-  })
-}
-
-function touchesAddedLine(finding: ScannerFinding, added: ReadonlySet<number>): boolean {
-  for (let line = finding.line; line <= finding.endLine; line++) {
-    if (added.has(line)) return true
-  }
-  return false
 }

@@ -2,21 +2,12 @@ import { changedUnitsOf, isBehaviourChange, ReferenceConfidence, RiskCategory, R
 import type { ChangedFile, Risk } from "@lens/review-model"
 import { findingAt, pullRequestFinding } from "./scannedFile.ts"
 import type { RuleDescription } from "./scannedFile.ts"
+import { isTestPath, isTestUnit } from "./testCode.ts"
 
 // Defect detection drops sharply past about 400 lines per review, per the SmartBear/Cisco
 // study of 2,500 code reviews. The upper threshold is a judgement call.
 const LARGE_CHANGE_LINES = 400
 const VERY_LARGE_CHANGE_LINES = 1000
-
-const TEST_PATHS: readonly RegExp[] = [
-  /(^|\/)(tests?|__tests__|spec|specs)\//,
-  /\.(test|spec)\.[cm]?[jt]sx?$/,
-  /(^|\/)test_[^/]*\.py$/,
-  /_test\.(py|rs)$/,
-  /(^|\/)tests?\.rs$/,
-]
-// Rust keeps tests inline in `mod tests`; Python and JS name them test_* or put them in Test classes.
-const TEST_UNIT = /(^|::|\.)tests?(::|\.)|(^|::|\.)test_|^Test/
 
 /** Signals about the PR as a whole that tell reviewers where to look harder. */
 export function reviewSignals(files: readonly ChangedFile[]): Risk[] {
@@ -40,11 +31,11 @@ function sizeSignal(files: readonly ChangedFile[]): Risk[] {
 
 function missingTestsSignal(files: readonly ChangedFile[]): Risk[] {
   const reviewable = files.filter((file) => file.noise === null)
-  const testsChanged = reviewable.some((file) => isTestPath(file.diff.path) || changedUnitsOf(file).some((unit) => TEST_UNIT.test(unit.qualifiedName)))
+  const testsChanged = reviewable.some((file) => isTestPath(file.diff.path) || changedUnitsOf(file).some((unit) => isTestUnit(unit.qualifiedName)))
   const codeChanges = reviewable
     .filter((file) => !isTestPath(file.diff.path))
     .flatMap(changedUnitsOf)
-    .filter((unit) => isBehaviourChange(unit.change) && !TEST_UNIT.test(unit.qualifiedName))
+    .filter((unit) => isBehaviourChange(unit.change) && !isTestUnit(unit.qualifiedName))
   if (testsChanged || codeChanges.length === 0) return []
   const rule: RuleDescription = {
     id: "tests.none",
@@ -77,8 +68,4 @@ function brokenReferenceSignals(files: readonly ChangedFile[]): Risk[] {
       return [findingAt(rule, first.path, first.line, first.snippet)]
     }),
   )
-}
-
-function isTestPath(path: string): boolean {
-  return TEST_PATHS.some((pattern) => pattern.test(path))
 }

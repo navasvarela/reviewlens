@@ -13,6 +13,7 @@ import type { ScannerProcessRunner } from "./risk/scanners/scannerProcess.ts"
 import { compareUnits } from "./syntax/compareUnits.ts"
 import type { FileVersions } from "./syntax/compareUnits.ts"
 import { extractUnits } from "./syntax/definitions.ts"
+import { functionQualities } from "./syntax/functionQuality.ts"
 import { orderUnits, outlineOf, unitCalls } from "./syntax/fileStructure.ts"
 import type { FileUnits } from "./syntax/definitions.ts"
 import type { LanguageSpec } from "./syntax/languageSpec.ts"
@@ -72,6 +73,7 @@ export async function analyzeChangedFiles(
     head: to,
     files,
     headTexts: texts.map((text) => text.after),
+    functions: functionQualities(versions.filter((version): version is FileVersions => version !== undefined)),
     network: options.network,
     runScanner: options.runScanner ?? runScannerProcess,
   })

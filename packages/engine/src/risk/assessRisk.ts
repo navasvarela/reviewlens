@@ -3,11 +3,16 @@ import { RiskCategory, RiskSeverity } from "@lens/review-model"
 import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@lens/review-model"
 import { scanDangerousApis } from "./dangerousApis.ts"
 import { scanDependencies } from "./dependencies/scanDependencies.ts"
+import { scanFunctionMetrics } from "./functionMetrics.ts"
 import { reviewSignals } from "./reviewSignals.ts"
 import { isIgnored, readLensConfig, LENS_CONFIG_PATH } from "../config/lensConfig.ts"
+import type { LensConfig } from "../config/lensConfig.ts"
+import type { FunctionQuality } from "../syntax/functionQuality.ts"
 import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
 import { runCodeScanners } from "./scanners/runCodeScanners.ts"
+import { runQualityScanners } from "./scanners/runQualityScanners.ts"
+import type { ScanOutcome } from "./scanners/scanWorkspace.ts"
 import type { ScannerProcessRunner } from "./scanners/scannerProcess.ts"
 import { scanSensitivePaths } from "./sensitivePaths.ts"
 
@@ -18,6 +23,8 @@ export interface RiskAssessmentRequest {
   readonly files: readonly ChangedFile[]
   /** Head text of each file in `files`, aligned by index; undefined where not read. */
   readonly headTexts: readonly (string | undefined)[]
+  /** Every function at the head, measured against its previous version. */
+  readonly functions: readonly FunctionQuality[]
   readonly network: boolean
   readonly runScanner: ScannerProcessRunner
 }
@@ -51,6 +58,8 @@ const ALWAYS_SKIPPED: readonly SkippedCheck[] = [
 ]
 
 const BUILT_IN_CHECK: CheckRun = { name: "Built-in rules", detail: "secrets, risky APIs and sensitive paths" }
+const FUNCTION_METRICS_CHECK: CheckRun = { name: "Function metrics", detail: "complexity, nesting, length and parameters" }
+const QUALITY_TURNED_OFF: SkippedCheck = { check: "Code quality checks", reason: `turned off in ${LENS_CONFIG_PATH}` }
 
 /** Runs every risk check over the change and rates its security level. */
 export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAssessment> {
@@ -68,6 +77,7 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
     runScanner: request.runScanner,
   })
   const codeScan = await runCodeScanners({ files: scanned, semgrepRules: config.scanners.semgrep.rules, network: request.network, run: request.runScanner })
+  const quality = config.quality.enabled ? await assessQuality(request, scanned, config) : { findings: [], checksRun: [], notChecked: [QUALITY_TURNED_OFF] }
   const findings = withoutRepeatedSecrets([
     ...scanSecrets(scanned),
     ...(await scanDangerousApis(scanned)),
@@ -75,14 +85,27 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
     ...codeScan.findings,
     ...dependencies.findings,
     ...reviewSignals(request.files),
+    ...quality.findings,
   ]).sort(byImportance)
 
   return {
     securityLevel: securityLevelOf(findings),
     findings,
-    checksRun: [BUILT_IN_CHECK, ...codeScan.checksRun, ...dependencies.checksRun],
-    notChecked: [...codeScan.notChecked, ...dependencies.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length), ...ALWAYS_SKIPPED],
+    checksRun: [BUILT_IN_CHECK, ...codeScan.checksRun, ...dependencies.checksRun, ...quality.checksRun],
+    notChecked: [...codeScan.notChecked, ...dependencies.notChecked, ...quality.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length), ...ALWAYS_SKIPPED],
   }
+}
+
+async function assessQuality(request: RiskAssessmentRequest, scanned: readonly ScannedFile[], config: LensConfig): Promise<ScanOutcome<Risk>> {
+  const scanners = await runQualityScanners({
+    repoDir: request.repoDir,
+    head: request.head,
+    files: scanned,
+    isIgnored: (path) => isIgnored(config, path),
+    run: request.runScanner,
+  })
+  const functions = request.functions.filter((fn) => !isIgnored(config, fn.path))
+  return { ...scanners, findings: [...scanFunctionMetrics(functions), ...scanners.findings], checksRun: [FUNCTION_METRICS_CHECK, ...scanners.checksRun] }
 }
 
 // Our rules, gitleaks and Semgrep can all flag one secret; one finding per line is enough.

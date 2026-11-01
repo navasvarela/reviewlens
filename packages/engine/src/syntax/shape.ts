@@ -10,24 +10,68 @@ export interface UnitShape {
   readonly calls: ReadonlySet<string>
   readonly errorPaths: number
   readonly branches: number
+  readonly metrics: FunctionMetrics
+}
+
+/** How hard a function is to read, for spotting when a change makes one worse. */
+export interface FunctionMetrics {
+  /** Cyclomatic complexity: one path through the function, plus one per decision point. */
+  readonly complexity: number
+  /** The deepest level of nested control flow. */
+  readonly nesting: number
+  readonly lines: number
+  /** Declared parameters, not counting a `self` or `cls` receiver. */
+  readonly parameters: number
 }
 
 // Longer callee text is usually a chained expression; its last segment says more.
 const MAX_CALLEE_TEXT = 40
 const LAST_SEGMENT = /[\p{L}\p{N}_$]+$/u
+// `self`, `&self`, `&mut self` and `cls` are how a method is called, not something a caller passes.
+const RECEIVER_PARAMETER = /\b(self|cls)$/
 
 export function extractShape(grammar: ShapeGrammar, definition: Node): UnitShape {
   const fn = grammar.functionNode(definition)
   const calls = callNames(grammar, fn)
   const bailOuts = calls.list.filter((name) => grammar.errorCalls.has(name)).length
+  const parameters = parametersOf(fn)
+  const branches = fn.descendantsOfType([...grammar.branchTypes]).length
   return {
-    parameters: parametersOf(fn),
+    parameters,
     // TypeScript's return type node includes its leading colon.
     returnType: squeeze(fn.childForFieldName("return_type")?.text ?? "").replace(/^:\s*/, "") || null,
     calls: new Set(calls.list),
     errorPaths: fn.descendantsOfType([...grammar.errorTypes]).length + bailOuts,
-    branches: fn.descendantsOfType([...grammar.branchTypes]).length,
+    branches,
+    metrics: {
+      complexity: 1 + branches + logicalOperatorCount(grammar, fn),
+      nesting: deepestNesting(grammar, fn),
+      lines: fn.endPosition.row - fn.startPosition.row + 1,
+      parameters: [...parameters.keys()].filter((name) => !RECEIVER_PARAMETER.test(name)).length,
+    },
   }
+}
+
+function logicalOperatorCount(grammar: ShapeGrammar, fn: Node): number {
+  return fn.descendantsOfType([...grammar.logicalTypes]).filter((node) => {
+    const operator = node?.childForFieldName("operator")?.text
+    return operator !== undefined && grammar.logicalOperators.has(operator)
+  }).length
+}
+
+function deepestNesting(grammar: ShapeGrammar, fn: Node): number {
+  const nestingTypes = new Set(grammar.nestingTypes)
+  const depths = fn.descendantsOfType(grammar.nestingTypes.slice()).map((node) => (node === null ? 0 : nestingDepth(node, fn, nestingTypes)))
+  return Math.max(0, ...depths)
+}
+
+function nestingDepth(node: Node, fn: Node, nestingTypes: ReadonlySet<string>): number {
+  let depth = 0
+  for (let current: Node | null = node; current !== null && current.id !== fn.id; current = current.parent) {
+    // `else if` reads as a sibling of its `if`, though the syntax tree nests it inside the `else`.
+    if (nestingTypes.has(current.type) && current.parent?.type !== "else_clause") depth++
+  }
+  return depth
 }
 
 /** The facts between two versions, or null when an edit changes none of them. */
@@ -41,10 +85,12 @@ export function factsBetween(before: UnitShape, after: UnitShape): UnitFacts | n
     callsRemoved: [...before.calls].filter((call) => !after.calls.has(call)),
     errorPathsDelta: after.errorPaths - before.errorPaths,
     branchesDelta: after.branches - before.branches,
+    complexity: before.metrics.complexity === after.metrics.complexity ? null : { before: before.metrics.complexity, after: after.metrics.complexity },
   }
   const hasAny =
     facts.parametersAdded.length + facts.parametersRemoved.length + facts.parametersChanged.length + facts.callsAdded.length + facts.callsRemoved.length > 0 ||
     facts.returnType !== null ||
+    facts.complexity !== null ||
     facts.errorPathsDelta !== 0 ||
     facts.branchesDelta !== 0
   return hasAny ? facts : null

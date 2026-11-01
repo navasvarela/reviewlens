@@ -80,5 +80,6 @@ Split every metric by AI-generated and hand-written PRs. These are measured by h
 - Try it on a few merged PRs and check that nothing surprising appears in the comment. Comments are visible to everyone who can see the PR.
 - Decide on AI review per repository. It sends changed code, plus the PR's title and description, to Anthropic. `"ai": { "allowed": false }` in `.lens.json` forbids it, whatever the job is configured to do.
 - Install the security scanners in the CI job if you want them there; a runner without them lists them under "Not checked" in the report. See [Security scanners](../README.md#security-scanners).
+- Do the same for the code quality scanners. See [Code quality](../README.md#code-quality). Its findings do not affect the security level, and `"quality": { "enabled": false }` in `.lens.json` turns them off.
 - `.lens.json` rules apply once merged: a PR is always judged by the rules on its merge base, and a change to the file is itself a finding.
 - The checks that did not run are listed in every report. Tell volunteers that a low security level is not an approval.

@@ -4,7 +4,7 @@ import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
 
 const LEVEL_EXPLANATION =
-  "The highest severity among security findings: secrets, risky APIs, code scans, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe."
+  "The highest severity among security findings: secrets, risky APIs, code scans, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe. Code quality findings do not affect it."
 
 interface RiskViewProps {
   readonly risk: RiskAssessment

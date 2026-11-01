@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Code quality:** Lens flags complexity, long functions and lint problems in the code a PR adds, using built-in measures and optional Ruff, oxlint and jscpd. Findings appear as reasons on the review path and never change the security level.
+
 ## 0.1.0
 
 The first release. Lens is early software, so expect changes, and it hasn't had an independent security audit.

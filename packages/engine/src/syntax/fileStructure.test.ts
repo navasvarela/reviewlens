@@ -40,6 +40,7 @@ describe("change facts", () => {
       callsRemoved: ["get"],
       errorPathsDelta: 1,
       branchesDelta: 1,
+      complexity: { before: 1, after: 2 },
     })
   })
 
