@@ -7,7 +7,7 @@ import type { ReviewModel } from "@walkdiff/review-model"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { HostApiError, parsePullRequestUrl } from "@walkdiff/providers"
 import type { GitHost, PullRequestRef } from "@walkdiff/providers"
-import { REPORT_FILE_POLICY_TAG, writeReport } from "../report.ts"
+import { REPORT_FILE_POLICY_TAG } from "../report.ts"
 import type { AttachedCoverage } from "../reviewCommand.ts"
 import { hostTokensFor, readHostTokens } from "../environment.ts"
 import { API_KEY_HEADER, startAppServer, withMeta } from "./appServer.ts"
@@ -229,13 +229,15 @@ describe("the app server", () => {
     let attachId = 0
     let attachedSeen: AttachedCoverage | undefined
 
+    const saveModel = async (model: ReviewModel, target: string): Promise<void> => writeFile(join(target, "review.json"), JSON.stringify(model))
+
     const attach = (reports: unknown): Promise<Response> => fetch(`${attachServer.url}api/reviews/${attachId}/coverage`, { method: "POST", headers, body: JSON.stringify({ reports }) })
     const savedModel = async (): Promise<ReviewModel> => reviewModelSchema.parse(JSON.parse(await readFile(join(reportDir, "review.json"), "utf8")))
 
     beforeAll(async () => {
       reportDir = await mkdtemp(join(tmpdir(), "walkdiff-attach-"))
       const model = reviewModelSchema.parse({ ...fakeModel("x"), files: [changedFile] })
-      await writeReport(model, reportDir)
+      await saveModel(model, reportDir)
       const service = new ReviewService(
         store,
         async (_ref, _ai, attached) => {
@@ -244,7 +246,7 @@ describe("the app server", () => {
         },
         () => undefined,
       )
-      attachServer = await startAppServer(store, service, { port: 0, apiKey: KEY, log: () => undefined })
+      attachServer = await startAppServer(store, service, { port: 0, apiKey: KEY, log: () => undefined, writeReport: saveModel })
       attachId = service.add({ url: "https://github.com/acme/app/pull/88", ai: false }).id
       await service.idle()
     })
@@ -270,7 +272,6 @@ describe("the app server", () => {
       expect(response.status).toBe(201)
       expect(await response.json()).toMatchObject({ coverageSource: "lcov.info, attached by you" })
       expect((await savedModel()).testCoverage?.files).toEqual([{ path: "src/a.ts", coveredLines: [1], uncoveredLines: [] }])
-      expect(await readFile(join(reportDir, "index.html"), "utf8")).toContain("lcov.info, attached by you")
       expect(store.attachedCoverageOf(attachId)).toMatchObject({ headSha: SHA })
     })
 

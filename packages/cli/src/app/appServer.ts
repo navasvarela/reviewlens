@@ -9,9 +9,10 @@ import { AI_API_KEY_VARIABLE, AiUnavailableError, CoverageFileError, createAiPro
 import { addReviewRequestSchema, appSettingsSchema, attachCoverageRequestSchema, replySchema, resolveThreadSchema, submitReviewSchema } from "@walkdiff/review-model"
 import type { AiConnectionResult, SettingsView } from "@walkdiff/review-model"
 import { readHostTokens } from "../environment.ts"
-import { REPORT_FILE_POLICY_TAG, REPORT_PAGE_FILE } from "../report.ts"
+import { REPORT_FILE_POLICY_TAG, REPORT_PAGE_FILE, writeReport } from "../report.ts"
 import { addressOf, BASE_POLICY, listen, LOOPBACK_HOST, REPORT_PAGE_POLICY, respond, SECURITY_HEADERS } from "../server.ts"
 import { attachCoverage } from "./attachCoverage.ts"
+import type { ReportWriter } from "./attachCoverage.ts"
 import type { ReviewService } from "./reviewService.ts"
 import type { ReviewStore } from "./reviewStore.ts"
 
@@ -47,6 +48,7 @@ interface AppContext {
   readonly env: Readonly<Record<string, string | undefined>>
   readonly offline: boolean
   readonly hostFor: HostResolver
+  readonly writeReport: ReportWriter
 }
 
 export class AppPortInUseError extends Error {
@@ -69,6 +71,8 @@ export interface AppServerOptions {
   readonly offline?: boolean
   /** How to reach a PR's host, with its token. Tests replace it. */
   readonly hostFor?: HostResolver
+  /** How to rewrite a report. Tests replace it, since the real one needs the built UI. */
+  readonly writeReport?: ReportWriter
 }
 
 /** Serves the review list, the reports and their API, on the loopback interface only. */
@@ -76,7 +80,7 @@ export async function startAppServer(store: ReviewStore, service: ReviewService,
   const { port, log, apiKey = newApiKey(), env = {}, offline = false } = options
   const hostFor = options.hostFor ?? ((ref: PullRequestRef): Promise<GitHost> => Promise.resolve(gitHostFor(ref, readHostTokens(env))))
   const allowedHosts = new Set<string>()
-  const context: AppContext = { store, service, apiKey, allowedHosts, env, offline, hostFor }
+  const context: AppContext = { store, service, apiKey, allowedHosts, env, offline, hostFor, writeReport: options.writeReport ?? writeReport }
   const server = createServer((request, response) => {
     handle(request, response, context).catch((error: unknown) => {
       // Details such as file paths go to the terminal, not to whatever made the request.
@@ -238,7 +242,7 @@ async function attachCoverageReports(request: IncomingMessage, response: ServerR
     return
   }
   try {
-    const review = await attachCoverage(context.store, id, parsed.data.reports)
+    const review = await attachCoverage(context.store, id, parsed.data.reports, context.writeReport)
     sendJson(response, review === undefined ? 404 : 201, review ?? { error: "This review has no report yet" })
   } catch (error: unknown) {
     if (!(error instanceof CoverageFileError)) throw error
