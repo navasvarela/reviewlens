@@ -1,7 +1,8 @@
 import { DatabaseSync } from "node:sqlite"
-import { appSettingsSchema, DEFAULT_APP_SETTINGS, GitHostKind, ReviewStatus, reviewSummarySchema } from "@walkdiff/review-model"
+import { appSettingsSchema, DEFAULT_APP_SETTINGS, GitHostKind, ReviewStatus, reviewSummarySchema, testCoverageSchema } from "@walkdiff/review-model"
 import type { AppSettings, ReviewSummary } from "@walkdiff/review-model"
 import { z } from "zod"
+import type { AttachedCoverage } from "../reviewCommand.ts"
 
 /** Each entry moves the database one version forward; `PRAGMA user_version` records how far. */
 const MIGRATIONS: readonly string[] = [
@@ -24,7 +25,11 @@ const MIGRATIONS: readonly string[] = [
      updated_at TEXT NOT NULL
    )`,
   `CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL)`,
+  `ALTER TABLE reviews ADD COLUMN coverage_source TEXT`,
+  `ALTER TABLE reviews ADD COLUMN attached_coverage TEXT`,
 ]
+
+const attachedCoverageSchema = z.object({ headSha: z.string(), coverage: testCoverageSchema })
 
 const settingsRowSchema = z.object({ json: z.string() })
 
@@ -45,6 +50,8 @@ const reviewRowSchema = z.object({
   units_to_review: z.number().nullable(),
   untouched_references: z.number().nullable(),
   findings: z.number().nullable(),
+  coverage_source: z.string().nullable(),
+  attached_coverage: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 })
@@ -64,6 +71,7 @@ export interface CompletedAnalysis {
   readonly unitsToReview: number
   readonly untouchedReferences: number
   readonly findings: number
+  readonly coverageSource: string | null
 }
 
 /**
@@ -121,7 +129,7 @@ export class ReviewStore {
     this.#db
       .prepare(
         `UPDATE reviews SET status = ?, error = NULL, report_dir = ?, title = ?, author = ?, security_level = ?,
-           units_to_review = ?, untouched_references = ?, findings = ?, updated_at = ? WHERE id = ?`,
+           units_to_review = ?, untouched_references = ?, findings = ?, coverage_source = ?, updated_at = ? WHERE id = ?`,
       )
       .run(
         ReviewStatus.Ready,
@@ -132,9 +140,22 @@ export class ReviewStore {
         analysis.unitsToReview,
         analysis.untouchedReferences,
         analysis.findings,
+        analysis.coverageSource,
         this.#timestamp(),
         id,
       )
+  }
+
+  /** Undefined when nothing is attached. */
+  attachedCoverageOf(id: number): AttachedCoverage | undefined {
+    const json = this.#parsedRow(id)?.attached_coverage ?? null
+    return json === null ? undefined : attachedCoverageSchema.parse(JSON.parse(json))
+  }
+
+  saveAttachedCoverage(id: number, attached: AttachedCoverage): void {
+    this.#db
+      .prepare("UPDATE reviews SET attached_coverage = ?, coverage_source = ?, updated_at = ? WHERE id = ?")
+      .run(JSON.stringify(attached), attached.coverage.source, this.#timestamp(), id)
   }
 
   markFailed(id: number, error: string): void {
@@ -208,6 +229,7 @@ function toSummary(row: unknown): ReviewSummary {
     unitsToReview: parsed.units_to_review,
     untouchedReferences: parsed.untouched_references,
     findings: parsed.findings,
+    coverageSource: parsed.coverage_source,
     createdAt: parsed.created_at,
     updatedAt: parsed.updated_at,
   })

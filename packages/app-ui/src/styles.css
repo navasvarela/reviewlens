@@ -160,7 +160,8 @@ button:disabled {
   margin-top: 8px;
 }
 
-.review-actions button {
+.review-actions button,
+.review-actions .file-button {
   padding: 2px 8px;
   font-size: 12px;
 }
@@ -358,4 +359,27 @@ button:disabled {
     grid-template-columns: minmax(0, 1fr);
     gap: 4px;
   }
+}
+
+.file-button {
+  position: relative;
+  display: inline-block;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-subtle);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.file-button:focus-within {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }

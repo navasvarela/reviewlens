@@ -50,6 +50,54 @@ export function writeJson<T>(request: JsonWrite<T>): Promise<T> {
   })
 }
 
+export interface DownloadRequest {
+  readonly url: string
+  readonly headers: Readonly<Record<string, string>>
+  readonly maxBytes: number
+  readonly authHint: string
+}
+
+/**
+ * Downloads a file, or resolves to undefined if it is larger than `maxBytes`. Unlike API calls this
+ * may leave the host's origin, because artifact downloads redirect to signed storage URLs. The
+ * credentials are not sent there: the signature is the permission, and that host isn't trusted
+ * with the token.
+ */
+export async function downloadFile(request: DownloadRequest): Promise<Buffer | undefined> {
+  let current = new URL(request.url)
+  let headers = request.headers
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const response = await fetch(current, { headers, redirect: "manual" })
+    const location = response.headers.get("location")
+    if (response.status < FIRST_REDIRECT_STATUS || response.status > LAST_REDIRECT_STATUS || location === null) {
+      if (!response.ok) throw new HostApiError(response.status, request.url, request.authHint)
+      return readLimited(response, request.maxBytes)
+    }
+    const target = new URL(location, current)
+    if (target.origin !== current.origin) {
+      if (target.protocol !== "https:") throw new HostApiError(response.status, request.url, "refused a download redirect that isn't https")
+      headers = {}
+    }
+    current = target
+  }
+  throw new HostApiError(LAST_REDIRECT_STATUS, request.url, "too many redirects")
+}
+
+async function readLimited(response: Response, maxBytes: number): Promise<Buffer | undefined> {
+  const chunks: Uint8Array[] = []
+  let size = 0
+  if (response.body === null) return Buffer.alloc(0)
+  for await (const chunk of response.body) {
+    size += chunk.length
+    if (size > maxBytes) {
+      await response.body.cancel().catch(() => undefined)
+      return undefined
+    }
+    chunks.push(chunk)
+  }
+  return Buffer.concat(chunks)
+}
+
 async function send<T>(request: JsonRequest<T>, init: RequestInit): Promise<T> {
   const response = await fetchWithinOrigin(request.url, init)
   if (!response.ok) {

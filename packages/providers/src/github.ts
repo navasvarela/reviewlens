@@ -1,8 +1,9 @@
 import { commitShaSchema, GitHostKind, ReviewerState, ReviewEvent } from "@walkdiff/review-model"
 import type { CommitSha, Conversation, ReviewComment, SubmitResult, SubmitReview } from "@walkdiff/review-model"
 import { z } from "zod"
-import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
-import { getJson, HostApiError, writeJson } from "./http.ts"
+import { COVERAGE_ARCHIVE_NAME, MAX_COVERAGE_ARCHIVE_BYTES, MAX_COVERAGE_ARCHIVES } from "./gitHost.ts"
+import type { GitHost, GitHttpAuth, PullRequestSnapshot, CiArchive } from "./gitHost.ts"
+import { downloadFile, getJson, HostApiError, writeJson } from "./http.ts"
 import type { WriteMethod } from "./http.ts"
 import { COMMENTS_PER_PAGE, upsertMarkedComment } from "./markedComment.ts"
 import type { MarkedComment } from "./markedComment.ts"
@@ -92,6 +93,14 @@ const REVIEWER_STATES: ReadonlyMap<string, ReviewerState> = new Map([
   ["CHANGES_REQUESTED", ReviewerState.ChangesRequested],
   ["COMMENTED", ReviewerState.Commented],
 ])
+
+// A commit rarely has more; reruns and unrelated workflows make up most of these.
+const MAX_WORKFLOW_RUNS = 20
+
+const workflowRunsSchema = z.object({ workflow_runs: z.array(z.object({ id: z.number() })) })
+const runArtifactsSchema = z.object({
+  artifacts: z.array(z.object({ id: z.number(), name: z.string(), expired: z.boolean(), size_in_bytes: z.number() })),
+})
 
 export class GitHubHost implements GitHost {
   readonly #ref: GitHubPullRequestRef
@@ -186,6 +195,23 @@ export class GitHubHost implements GitHost {
 
   async setThreadResolved(threadId: string, resolved: boolean): Promise<void> {
     await this.#graphql(resolved ? RESOLVE_MUTATION : UNRESOLVE_MUTATION, { id: threadId }, z.unknown())
+  }
+
+  async fetchCoverageArchives(headSha: string): Promise<readonly CiArchive[]> {
+    const repoApi = this.#repoApi()
+    const { workflow_runs: runs } = await this.#get(`${repoApi}/actions/runs?head_sha=${encodeURIComponent(headSha)}&per_page=${MAX_WORKFLOW_RUNS}`, workflowRunsSchema)
+    const listed = await Promise.all(runs.map((run) => this.#get(`${repoApi}/actions/runs/${run.id}/artifacts?per_page=100`, runArtifactsSchema)))
+    const wanted = listed
+      .flatMap((list) => list.artifacts)
+      .filter((artifact) => !artifact.expired && COVERAGE_ARCHIVE_NAME.test(artifact.name) && artifact.size_in_bytes <= MAX_COVERAGE_ARCHIVE_BYTES)
+      .slice(0, MAX_COVERAGE_ARCHIVES)
+    const downloaded = await Promise.all(
+      wanted.map(async (artifact) => ({
+        name: artifact.name,
+        zip: await downloadFile({ url: `${repoApi}/actions/artifacts/${artifact.id}/zip`, headers: this.#headers(), maxBytes: MAX_COVERAGE_ARCHIVE_BYTES, authHint: this.#authHint }),
+      })),
+    )
+    return downloaded.flatMap(({ name, zip }) => (zip === undefined ? [] : [{ name, zip }]))
   }
 
   async #graphql<T>(query: string, variables: Readonly<Record<string, string | number>>, schema: z.ZodType<T>): Promise<T> {

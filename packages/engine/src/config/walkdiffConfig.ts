@@ -37,12 +37,14 @@ export const walkdiffConfigSchema = z.object({
     .default({ semgrep: { rules: DEFAULT_SEMGREP_RULES } }),
   /** `enabled: false` turns off function metrics, linters and duplicate detection. */
   quality: z.object({ enabled: z.boolean().default(true) }).default({ enabled: true }),
+  /** Globs for coverage reports with names Walkdiff doesn't recognize, in CI artifacts or the PR. */
+  coverage: z.object({ paths: z.array(z.string().min(1)).default([]) }).default({ paths: [] }),
   /** Where pilot users send feedback; shown in the report and the PR comment. */
   feedback: z.object({ url: z.url({ protocol: /^https?$/ }).nullable().default(null) }).default({ url: null }),
 })
 export type WalkdiffConfig = z.infer<typeof walkdiffConfigSchema>
 
-export const DEFAULT_WALKDIFF_CONFIG: WalkdiffConfig = { riskPaths: [], ignore: [], ai: { allowed: true, providers: null }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, feedback: { url: null } }
+export const DEFAULT_WALKDIFF_CONFIG: WalkdiffConfig = { riskPaths: [], ignore: [], ai: { allowed: true, providers: null }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, coverage: { paths: [] }, feedback: { url: null } }
 
 export class WalkdiffConfigError extends Error {
   override readonly name = "WalkdiffConfigError"
