@@ -3,11 +3,13 @@ import { readFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import type { IncomingMessage, Server, ServerResponse } from "node:http"
 import { join, resolve } from "node:path"
-import { InvalidPullRequestUrlError } from "@walkdiff/providers"
+import { gitHostFor, HostApiError, InvalidPullRequestUrlError, parsePullRequestUrl } from "@walkdiff/providers"
+import type { GitHost, PullRequestRef } from "@walkdiff/providers"
 import { AI_API_KEY_VARIABLE, AiUnavailableError, createAiProvider, describeChecks } from "@walkdiff/engine"
-import { addReviewRequestSchema, appSettingsSchema } from "@walkdiff/review-model"
+import { addReviewRequestSchema, appSettingsSchema, replySchema, resolveThreadSchema, submitReviewSchema } from "@walkdiff/review-model"
 import type { AiConnectionResult, SettingsView } from "@walkdiff/review-model"
-import { REPORT_PAGE_FILE } from "../report.ts"
+import { readHostTokens } from "../environment.ts"
+import { REPORT_FILE_POLICY_TAG, REPORT_PAGE_FILE } from "../report.ts"
 import { addressOf, BASE_POLICY, listen, LOOPBACK_HOST, REPORT_PAGE_POLICY, respond, SECURITY_HEADERS } from "../server.ts"
 import type { ReviewService } from "./reviewService.ts"
 import type { ReviewStore } from "./reviewStore.ts"
@@ -15,8 +17,10 @@ import type { ReviewStore } from "./reviewStore.ts"
 export const API_KEY_HEADER = "x-walkdiff-key"
 const API_KEY_META = "walkdiff-api-key"
 const HOME_META = "walkdiff-home"
+const REVIEW_ID_META = "walkdiff-review-id"
 const HOME_PATH = "/"
-const MAX_REQUEST_BODY_BYTES = 64 * 1024
+// Large enough for a review with many comments.
+const MAX_REQUEST_BODY_BYTES = 1024 * 1024
 const API_KEY_BYTES = 32
 
 // The UI's build sits at a fixed place in the workspace, as the CLI runs from source.
@@ -39,6 +43,7 @@ interface AppContext {
   readonly allowedHosts: ReadonlySet<string>
   readonly env: Readonly<Record<string, string | undefined>>
   readonly offline: boolean
+  readonly hostFor: HostResolver
 }
 
 export class AppPortInUseError extends Error {
@@ -49,6 +54,8 @@ export class AppPortInUseError extends Error {
   }
 }
 
+export type HostResolver = (ref: PullRequestRef) => Promise<GitHost>
+
 export interface AppServerOptions {
   readonly port: number
   readonly log: (message: string) => void
@@ -57,13 +64,16 @@ export interface AppServerOptions {
   /** For the settings page: whether API keys are available. Keys never leave the server. */
   readonly env?: Readonly<Record<string, string | undefined>>
   readonly offline?: boolean
+  /** How to reach a PR's host, with its token. Tests replace it. */
+  readonly hostFor?: HostResolver
 }
 
 /** Serves the review list, the reports and their API, on the loopback interface only. */
 export async function startAppServer(store: ReviewStore, service: ReviewService, options: AppServerOptions): Promise<AppServer> {
   const { port, log, apiKey = newApiKey(), env = {}, offline = false } = options
+  const hostFor = options.hostFor ?? ((ref: PullRequestRef): Promise<GitHost> => Promise.resolve(gitHostFor(ref, readHostTokens(env))))
   const allowedHosts = new Set<string>()
-  const context: AppContext = { store, service, apiKey, allowedHosts, env, offline }
+  const context: AppContext = { store, service, apiKey, allowedHosts, env, offline, hostFor }
   const server = createServer((request, response) => {
     handle(request, response, context).catch((error: unknown) => {
       // Details such as file paths go to the terminal, not to whatever made the request.
@@ -152,6 +162,16 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
     sendJson(response, 200, await testAiConnection(context))
     return
   }
+  const action = /^\/api\/reviews\/(\d+)\/(conversation|submit)$/.exec(pathname)
+  if (action !== null) {
+    await handleReviewAction(request, response, Number(action[1]), action[2] ?? "", context)
+    return
+  }
+  const thread = /^\/api\/reviews\/(\d+)\/threads\/([^/]+)\/(reply|resolve)$/.exec(pathname)
+  if (thread !== null && method === "POST") {
+    await handleThreadAction(request, response, Number(thread[1]), decodeURIComponent(thread[2] ?? ""), thread[3] ?? "", context)
+    return
+  }
   const match = /^\/api\/reviews\/(\d+)(\/refresh)?$/.exec(pathname)
   const id = Number(match?.[1])
   if (match !== null && method === "POST" && match[2] !== undefined) {
@@ -202,6 +222,75 @@ async function testAiConnection(context: AppContext): Promise<AiConnectionResult
   }
 }
 
+/** The host comes from the saved review, never the request, so a page can't aim a token elsewhere. */
+async function hostOf(id: number, context: AppContext): Promise<GitHost | undefined> {
+  const review = context.store.get(id)
+  return review === undefined ? undefined : context.hostFor(parsePullRequestUrl(review.url))
+}
+
+async function handleReviewAction(request: IncomingMessage, response: ServerResponse, id: number, action: string, context: AppContext): Promise<void> {
+  const host = await hostOf(id, context)
+  if (host === undefined) {
+    sendJson(response, 404, { error: "No such review" })
+    return
+  }
+  await answeringHostFailures(response, async () => {
+    if (action === "conversation" && request.method === "GET") {
+      sendJson(response, 200, await host.fetchConversation())
+    } else if (action === "submit" && request.method === "POST") {
+      await submitReview(request, response, host)
+    } else {
+      sendJson(response, 404, { error: "Not found" })
+    }
+  })
+}
+
+async function submitReview(request: IncomingMessage, response: ServerResponse, host: GitHost): Promise<void> {
+  const parsed = submitReviewSchema.safeParse(await readJsonBody(request))
+  if (!parsed.success) {
+    sendJson(response, 400, { error: parsed.error.issues.at(0)?.message ?? "This review isn't valid" })
+    return
+  }
+  // A review only speaks for the code that was read, so approving must not reach newer commits.
+  const { pullRequest } = await host.fetchPullRequest()
+  if (pullRequest.headSha !== parsed.data.headSha) {
+    sendJson(response, 409, { error: "This PR has new commits since this report was made. Nothing was posted. Refresh the review, and your comments will still be here." })
+    return
+  }
+  sendJson(response, 201, await host.submitReview(parsed.data))
+}
+
+async function handleThreadAction(request: IncomingMessage, response: ServerResponse, id: number, threadId: string, action: string, context: AppContext): Promise<void> {
+  const host = await hostOf(id, context)
+  if (host === undefined) {
+    sendJson(response, 404, { error: "No such review" })
+    return
+  }
+  const body = await readJsonBody(request)
+  await answeringHostFailures(response, async () => {
+    if (action === "reply") {
+      const reply = replySchema.safeParse(body)
+      if (!reply.success) return sendJson(response, 400, { error: "Write a reply first" })
+      await host.replyToThread(threadId, reply.data.body)
+    } else {
+      const resolve = resolveThreadSchema.safeParse(body)
+      if (!resolve.success) return sendJson(response, 400, { error: "Expected whether to resolve the thread" })
+      await host.setThreadResolved(threadId, resolve.data.resolved)
+    }
+    sendJson(response, 200, {})
+  })
+}
+
+/** A refusal from the host is news for the reviewer, such as GitHub not letting you approve your own PR. */
+async function answeringHostFailures(response: ServerResponse, act: () => Promise<void>): Promise<void> {
+  try {
+    await act()
+  } catch (error: unknown) {
+    if (!(error instanceof HostApiError)) throw error
+    sendJson(response, 502, { error: error.message })
+  }
+}
+
 async function addReview(request: IncomingMessage, response: ServerResponse, context: AppContext): Promise<void> {
   const body = await readJsonBody(request)
   const parsed = addReviewRequestSchema.safeParse(body)
@@ -244,7 +333,7 @@ async function sendReportPage(response: ServerResponse, id: number, context: App
     sendText(response, 404, "This report is no longer on disk. Refresh the review to create it again.")
     return
   }
-  sendHtml(response, withMeta(page, context.apiKey), REPORT_PAGE_POLICY)
+  sendHtml(response, withReviewId(withMeta(page.replace(REPORT_FILE_POLICY_TAG, ""), context.apiKey), id), REPORT_PAGE_POLICY)
 }
 
 /** Undefined when the file is gone, which happens after the cache folder is cleared. */
@@ -278,6 +367,10 @@ async function sendAppFile(response: ServerResponse, pathname: string, context: 
 export function withMeta(page: string, apiKey: string): string {
   const meta = `<meta name="${API_KEY_META}" content="${apiKey}"><meta name="${HOME_META}" content="${HOME_PATH}">`
   return page.replace("</head>", () => `${meta}</head>`)
+}
+
+function withReviewId(page: string, id: number): string {
+  return page.replace("</head>", () => `<meta name="${REVIEW_ID_META}" content="${id}"></head>`)
 }
 
 function sendHtml(response: ServerResponse, html: string, policy: string): void {

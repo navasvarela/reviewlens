@@ -131,6 +131,28 @@ Check "Not checked" on the Risks tab first. Also note that:
 
 A low level never means the change is safe.
 
+## Posting reviews
+
+### `This PR has new commits since this report was made`
+
+Nothing was posted, so a review can't reach code you haven't read. Refresh the review in the app. Your comments and ticks are kept, and anything that changed comes first.
+
+### `Resource not accessible`, or a 403 or 404 when posting
+
+Your token can read the PR but not write to it. It needs `pull-requests: write` on GitHub, or the `api` scope on GitLab.
+
+### `Can not approve your own pull request`
+
+GitHub doesn't allow this. Post a comment instead.
+
+### A comment appears in the review's text, not on a line
+
+Hosts only accept comments on lines in the diff. A comment on something with no added lines, such as a removed function, goes in the review's text with its name.
+
+### There's no way to post from my report
+
+Posting only works in the app, opened with `pnpm walkdiff app`. A report opened from a file or CI can't post, so copy your comments from the finish screen.
+
 ## Test evidence
 
 ### `isn't a coverage format Walkdiff can read`

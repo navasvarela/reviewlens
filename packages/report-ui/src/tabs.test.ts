@@ -14,8 +14,8 @@ describe("tabFromHash", () => {
 
 describe("neighbourTab", () => {
   it("wraps at both ends", () => {
-    expect(neighbourTab(ReportTab.AiReview, 1)).toBe(ReportTab.Changes)
-    expect(neighbourTab(ReportTab.Changes, -1)).toBe(ReportTab.AiReview)
+    expect(neighbourTab(ReportTab.Conversation, 1)).toBe(ReportTab.Changes)
+    expect(neighbourTab(ReportTab.Changes, -1)).toBe(ReportTab.Conversation)
     expect(neighbourTab(ReportTab.Impact, 1)).toBe(ReportTab.Risks)
   })
 })

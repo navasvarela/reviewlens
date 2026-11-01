@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import { ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind, UnitKind } from "@walkdiff/review-model"
 import type { ChangedFile, ChangedUnit } from "@walkdiff/review-model"
 import type { ReviewPlan, ReviewStop } from "./reviewPlan.ts"
-import { changedSinceReview, commentsAsMarkdown, commentsOnItems, EMPTY_REVIEW_STATE, fileProgress, isReviewed, ItemKind, itemsOfFile, nextUnreviewedStop, overallProgress, parseSavedState, pathProgress, remainingOffPath, serializeState, stopItems, unitItem, unitItemId, withChangedFirst, withComment, withReviewed } from "./reviewProgress.ts"
+import { changedSinceReview, commentsAsMarkdown, commentsOnItems, EMPTY_REVIEW_STATE, fileProgress, isReviewed, ItemKind, itemsOfFile, nextUnreviewedStop, overallProgress, parseSavedState, pathProgress, remainingOffPath, serializeState, reviewCommentsFrom, stopItems, unitItem, unitItemId, withChangedFirst, withComment, withReviewed } from "./reviewProgress.ts"
 
 const SNAPSHOT = { startLine: 1, endLine: 5, text: "body", elidesNestedUnits: false }
 
@@ -161,5 +161,31 @@ describe("after a new push", () => {
 
   it("ignores state saved in the older format", () => {
     expect(parseSavedState('{"reviewed":["a","b"],"comments":[]}').reviewed.size).toBe(0)
+  })
+})
+
+describe("turning comments into review comments", () => {
+  const withLines = (path: string, lines: readonly number[], status: "modified" | "renamed" = "modified"): ChangedFile => ({
+    ...file(path, [unit("run")]),
+    diff: {
+      ...(status === "renamed" ? { status, previousPath: "old.ts", similarity: 90 } : { status }),
+      path,
+      additions: lines.length,
+      deletions: 0,
+      content: { kind: "text", hunks: [{ oldStart: 1, oldLines: 0, newStart: 1, newLines: 9, section: "", lines: lines.map((newLine) => ({ kind: "added", content: "x", newLine })) }] },
+    },
+  })
+  const commentOn = (target: ChangedFile): ReturnType<typeof reviewCommentsFrom> => reviewCommentsFrom(itemsOfFile(target).map((item) => ({ item, text: "Look" })))
+
+  it("places a comment on the first line the PR added within the function", () => {
+    expect(commentOn(withLines("a.ts", [3, 4, 90])).at(0)).toMatchObject({ path: "a.ts", previousPath: "a.ts", line: 3, label: "run", body: "Look" })
+  })
+
+  it("has no line when the PR added none inside the function, as a host would refuse it", () => {
+    expect(commentOn(withLines("a.ts", [90])).at(0)?.line).toBeNull()
+  })
+
+  it("keeps a renamed file's previous path", () => {
+    expect(commentOn(withLines("new.ts", [3], "renamed")).at(0)?.previousPath).toBe("old.ts")
   })
 })

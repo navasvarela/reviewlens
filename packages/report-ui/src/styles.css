@@ -1581,3 +1581,149 @@ button.guide-button-primary:hover {
   font-family: var(--mono);
   font-size: 12px;
 }
+
+.guide-submit textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.guide-submit-events {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+}
+
+.guide-submit-events label {
+  display: flex;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.guide-submit-hint {
+  display: block;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.guide-submit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.guide-submit-posted {
+  color: var(--added-text);
+  font-weight: 600;
+}
+
+.guide-error {
+  margin: 8px 0 0;
+  color: var(--high-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reviewer-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -16px 0 20px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.reviewer-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--low-bg);
+  color: var(--low-text);
+}
+
+.reviewer-badge-approved {
+  background: var(--added-bg);
+  color: var(--added-text);
+}
+
+.reviewer-badge-changesRequested {
+  background: var(--high-bg);
+  color: var(--high-text);
+}
+
+.conversation {
+  max-width: 900px;
+}
+
+.thread {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.thread-resolved {
+  background: var(--bg-subtle);
+}
+
+.thread-place {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.thread-comment {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.thread-comment p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+
+.thread-author {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.thread-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.thread-actions textarea {
+  box-sizing: border-box;
+  flex: 1 1 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

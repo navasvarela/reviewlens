@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ReactElement } from "react"
 import type { ReviewModel, UnitRef } from "@walkdiff/review-model"
 import { AiReviewView } from "./components/AiReviewView.tsx"
+import { ConversationView } from "./components/ConversationView.tsx"
 import { FileList } from "./components/FileList.tsx"
 import { FileView } from "./components/FileView.tsx"
 import { ImpactView } from "./components/ImpactView.tsx"
@@ -12,6 +13,7 @@ import { RiskView } from "./components/RiskView.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
 import { findingsInFile } from "./risks.ts"
+import { ConversationProvider, useConversation } from "./conversationState.tsx"
 import { guideRouteFromHash, REVIEW_HASH } from "./reviewPlan.ts"
 import { overallProgress, pathProgress, reviewPlanFor } from "./reviewProgress.ts"
 import { ReviewStateProvider, useReviewState } from "./reviewState.tsx"
@@ -43,7 +45,11 @@ function Routed({ review }: ReportProps): ReactElement {
     return () => window.removeEventListener("hashchange", followHash)
   }, [])
   const route = guideRouteFromHash(hash)
-  return <ReviewStateProvider review={review}>{route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />}</ReviewStateProvider>
+  return (
+    <ReviewStateProvider review={review}>
+      <ConversationProvider>{route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />}</ConversationProvider>
+    </ReviewStateProvider>
+  )
 }
 
 interface ReportProps {
@@ -95,6 +101,9 @@ function Report({ review }: ReportProps): ReactElement {
     if (tab === ReportTab.Changes && contentRef.current !== null) changesScrollTop.current = contentRef.current.scrollTop
   }
 
+  const conversation = useConversation()
+  const openThreads = conversation.status === "loaded" ? conversation.conversation.threads.filter((thread) => !thread.isResolved).length : undefined
+
   const showTab = (next: ReportTab): void => {
     setTab(next)
     window.location.hash = next
@@ -112,7 +121,7 @@ function Report({ review }: ReportProps): ReactElement {
     <div className="layout">
       <ReviewBar review={review} />
       <PullRequestHeader pullRequest={review.pullRequest} files={review.files} risk={review.risk} feedbackUrl={review.feedbackUrl} />
-      <ReportTabs tabs={summarizeTabs(review)} selected={tab} onSelect={showTab} />
+      <ReportTabs tabs={summarizeTabs(review, openThreads)} selected={tab} onSelect={showTab} />
       {/* Stays mounted while hidden, so expanded cards and the scroll position survive a tab switch. */}
       <div id={tabPanelId(ReportTab.Changes)} role="tabpanel" aria-labelledby={tabButtonId(ReportTab.Changes)} className="changes-panel" hidden={tab !== ReportTab.Changes}>
         <FileList files={review.files} findings={review.risk.findings} selectedPath={selectedPath} onSelect={setSelectedPath} />
@@ -134,6 +143,7 @@ function Report({ review }: ReportProps): ReactElement {
         <div id={tabPanelId(tab)} role="tabpanel" aria-labelledby={tabButtonId(tab)} className="content tab-panel">
           {tab === ReportTab.Impact && <ImpactView files={review.files} focus={impactFocus} pullRequest={review.pullRequest} onOpenFile={openFile} />}
           {tab === ReportTab.Risks && <RiskView risk={review.risk} pullRequest={review.pullRequest} onOpenFile={openFile} />}
+          {tab === ReportTab.Conversation && <ConversationView />}
           {tab === ReportTab.AiReview && <AiReviewView ai={review.ai} pullRequest={review.pullRequest} onOpenFile={openFile} />}
         </div>
       )}
