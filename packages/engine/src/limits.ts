@@ -4,3 +4,9 @@
  * dominate the run time.
  */
 export const MAX_SOURCE_FILE_BYTES = 1_000_000
+
+/** Throwaway change for testing posted reviews; this PR is never merged. */
+export function postingCheck(value: number): number {
+  const doubled = value * 2
+  return doubled + 1
+}
