@@ -32,6 +32,32 @@ export async function readCoverage(path: string, diffs: readonly FileDiff[]): Pr
   return coverageOfAddedLines(parseCoverage(text, path), diffs, basename(path))
 }
 
+export interface CoverageReport {
+  readonly name: string
+  readonly text: string
+}
+
+/**
+ * Combines reports, as a monorepo or test shards produce several, keeping the lines this PR added.
+ * Files that aren't coverage reports are skipped, since a folder also holds other XML. Undefined
+ * when nothing mentions a changed file, which says nothing about whether the code ran.
+ */
+export function coverageFromReports(reports: readonly CoverageReport[], diffs: readonly FileDiff[], source: string): TestCoverage | undefined {
+  const merged: LineHits = new Map()
+  for (const report of reports) {
+    if (!isCoverageText(report.text)) continue
+    for (const [path, lines] of parseCoverage(report.text, report.name)) {
+      for (const [line, count] of lines) record(merged, path, line, count)
+    }
+  }
+  const coverage = coverageOfAddedLines(merged, diffs, source)
+  return coverage.files.length === 0 ? undefined : coverage
+}
+
+function isCoverageText(text: string): boolean {
+  return COBERTURA_ROOT.test(text) || LCOV_RECORD.test(text)
+}
+
 export function parseCoverage(text: string, path: string): LineHits {
   if (COBERTURA_ROOT.test(text)) return parseCobertura(text)
   if (LCOV_RECORD.test(text)) return parseLcov(text)

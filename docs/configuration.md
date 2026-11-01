@@ -14,7 +14,7 @@
 | `--ai-base-url <url>` | `review` | With `openai-compatible`, the provider's address |
 | `--ai-model <id>` | `review` | Sets the model (default `claude-opus-5-5`; required with `openai-compatible`) |
 | `--ai-max-input-tokens <n>` | `review` | Caps the prompt (default 40,000); larger PRs are summarized |
-| `--coverage <file>` | `review` | Reads an LCOV or Cobertura report, to show whether changed lines ran in tests |
+| `--coverage <file>` | `review` | Reads this LCOV or Cobertura report, instead of looking in CI and the PR for one |
 | `--cache-dir <dir>` | `review`, `app` | Sets where repositories and reports are cached |
 | `--data-dir <dir>` | `app` | Sets where the review list is stored |
 | `--report <dir>` | `comment` | The folder `review` wrote with `--out` |
@@ -78,6 +78,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
   "ignore": ["tests/fixtures/**"],
   "ai": { "allowed": true },
   "scanners": { "semgrep": { "rules": ["p/default"] } },
+  "coverage": { "paths": ["reports/**/*.txt"] },
   "feedback": { "url": "https://forms.example.com/walkdiff" }
 }
 ```
@@ -89,6 +90,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | `ai.allowed` | Set to `false` to block AI review for the repository |
 | `ai.providers` | Limits where code can go: `"anthropic"`, `"local"` for a model on the reviewer's machine, or a host such as `"api.openai.com"` |
 | `scanners.semgrep.rules` | Sets Semgrep registry rule packs (`p/…` or `r/…`). Use an empty list to turn Semgrep off |
+| `coverage.paths` | Globs for coverage reports whose names Walkdiff doesn't recognize, in CI artifacts or the PR. |
 | `feedback.url` | Adds a feedback link to the report and the PR comment |
 
 **A PR can't change its own rules.** Walkdiff reads this file from the PR's merge base, so an edit takes effect only after it's merged. The edit itself is reported as a finding. AI review is blocked if either version of the file forbids it.
