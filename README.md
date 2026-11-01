@@ -32,6 +32,8 @@ All changes has five tabs, including **Conversation** in the app: **Changes** (f
   test changes and removed or renamed units that untouched code still uses. The security level is the
   highest severity among security findings, and the report lists the checks that ran and those that did
   not. [Security scanners](#security-scanners) add more when installed.
+- **Breaking changes.** Flags changes that could break other code or a deployment, and puts them on the
+  review path saying what could break and who is affected. [More below](#breaking-changes).
 - **AI review (opt-in, `--ai`).** A suggested reading order that groups the changed units into chapters,
   a check of the PR description against the code (matches, contradicts, not in the description, not found),
   and specific questions to answer before approving. Every statement must cite lines of the change; the
@@ -104,13 +106,11 @@ sent. A repository can forbid AI review entirely with `"ai": { "allowed": false 
 
 ## Security scanners
 
-Walkdiff runs [Semgrep](https://semgrep.dev), [gitleaks](https://github.com/gitleaks/gitleaks) and
-[osv-scanner](https://github.com/google/osv-scanner) when they are installed. All three are optional:
-the Risks tab lists each one under "Checks that ran" or under "Not checked", with how to install it.
-
-```bash
-brew install semgrep gitleaks osv-scanner
-```
+`pnpm install` also installs pinned versions of [Semgrep](https://semgrep.dev),
+[gitleaks](https://github.com/gitleaks/gitleaks) and [osv-scanner](https://github.com/google/osv-scanner),
+checked against hashes in this repository, on macOS and Linux. Semgrep needs Python 3.10 or later. If one
+can't be installed, the install still finishes, and the Risks tab lists it under "Not checked". Copies on
+your `PATH` are used only when Walkdiff has none of its own.
 
 | Scanner | Finds | Network |
 | --- | --- | --- |
@@ -131,6 +131,51 @@ Choose Semgrep's rules in `.walkdiff.json`; an empty list turns Semgrep off:
 
 CI runners need the scanners installed in the job before running Walkdiff.
 
+## Breaking changes
+
+Walkdiff flags changes that could break other code or a deployment, under the "Breaking change" category
+in the Risks tab. Each one is a stop on the review path that says what could break and who is affected,
+ranked above ordinary medium findings and below high ones. These findings never change the security level,
+because they expose nothing to an attacker.
+
+The rules read syntax, not types, so they say "may break" unless a required parameter changed and calls
+to the function are left behind. They would rather stay quiet than raise a false alarm.
+
+**Public APIs**, for Rust, TypeScript, JavaScript and Python: a removed or renamed function or type, an
+item that stops being public, removed or newly required parameters, and changed parameter or return types.
+Other changes aren't flagged, such as a renamed parameter in Rust or TypeScript, a new optional parameter,
+or a wider parameter type. Being marked public isn't enough, since apps mark their own modules that way too.
+A change also needs someone it can affect:
+
+| Language | Public | Other projects can reach it when |
+| --- | --- | --- |
+| Rust | A bare `pub` (not `pub(crate)`) | The crate has `src/lib.rs`, isn't `publish = false`, and every module up to the root is `pub mod` or re-exports it |
+| TypeScript, JavaScript | `export` | The package isn't `private` and its entry point exports it, directly or through `export ... from` |
+| Python | No leading underscore | The project has a build backend, no part of the module path starts with an underscore, and `__all__`, if any, lists it |
+
+Otherwise it's flagged only if calls this PR didn't touch remain in the repository. Python and TypeScript
+functions under a framework's decorator are skipped, as the decorator can change how they're called. So is a
+name that's still available after its definition went, through an alias, a `__getattr__` shim or a move to
+another file. A removal that untouched code still uses shows up as a broken reference instead.
+
+**Database migrations:** dropped or renamed tables and columns and changed column types, in raw SQL (including
+Prisma, Goose, dbmate and Flyway files), Alembic, Django, Rails, Knex, Sequelize and TypeORM. Only the added lines
+that run on the way up count, so rollbacks aren't flagged. Neither are temporary tables, or names the
+same PR creates, such as a table rebuilt or a column replaced under its old name. It's high only when code still
+mentions an unusual name. Django's `AlterField` isn't checked, since it mostly changes options.
+
+**Config and environment:**
+
+- A variable renamed in a `.env.example`-style file, or code that now reads a new variable instead of an old
+  one. Deployments set the old name, so these are always flagged.
+- A variable removed from an env file, CI config or Compose file while code still needs it. A read with a fallback
+  doesn't count, and in `apps/`, `packages/`, `services/` or `libs/` only the same project counts.
+- A key removed from a config file (`config/*.yml`, `settings.toml`, `appsettings.json`, `*.example.json` and
+  similar) while code still reads it. Ordinary words like `name` are left out, as matches on them mean little.
+
+Not covered yet: public struct fields and interface members, new required trait methods, re-exports removed from an entry point
+without the definition changing, and inputs of a GitHub Action's `action.yml`.
+
 ## Code quality
 
 Walkdiff flags poor implementations and bad practice in the code a PR adds, under the "Code quality"
@@ -147,11 +192,10 @@ worse. The Changes tab also shows each modified function's complexity change. Te
 | Lines | 80 |
 | Parameters | 6 |
 
-**Three optional scanners** run when installed. None of them use the network:
+**Three scanners** add to this. None of them use the network. oxlint and jscpd install with Walkdiff, at versions pinned in its lockfile, and Ruff is optional:
 
 ```bash
 brew install ruff
-npm install -g oxlint jscpd
 ```
 
 | Scanner | Finds | Reads |

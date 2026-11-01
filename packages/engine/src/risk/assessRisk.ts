@@ -1,12 +1,14 @@
 import { extname } from "node:path"
 import { CheckId, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@walkdiff/review-model"
+import { scanBreakingChanges } from "./breaking/scanBreakingChanges.ts"
 import { scanDangerousApis } from "./dangerousApis.ts"
 import { scanDependencies } from "./dependencies/scanDependencies.ts"
 import { scanFunctionMetrics } from "./functionMetrics.ts"
 import { reviewSignals } from "./reviewSignals.ts"
 import { isIgnored, readWalkdiffConfig, WALKDIFF_CONFIG_PATH } from "../config/walkdiffConfig.ts"
 import type { WalkdiffConfig } from "../config/walkdiffConfig.ts"
+import type { FileVersions } from "../syntax/compareUnits.ts"
 import type { FunctionQuality } from "../syntax/functionQuality.ts"
 import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
@@ -26,12 +28,18 @@ export interface RiskAssessmentRequest {
   readonly headTexts: readonly (string | undefined)[]
   /** Every function at the head, measured against its previous version. */
   readonly functions: readonly FunctionQuality[]
+  /** Both parsed versions of each analyzed file, for what the compared units don't keep. */
+  readonly versions: readonly FileVersions[]
   readonly network: boolean
   readonly runScanner: ScannerProcessRunner
   readonly disabledChecks: ReadonlySet<CheckId>
 }
 
-/** Categories that make up the security level; the others are review signals. */
+/**
+ * Categories that make up the security level; the others are review signals. Breaking changes
+ * stay out: they can take down a deployment, but they expose nothing to an attacker, and a
+ * security level raised by a renamed column would teach people to discount it.
+ */
 const SECURITY_CATEGORIES: ReadonlySet<RiskCategory> = new Set([
   RiskCategory.Secret,
   RiskCategory.DangerousApi,
@@ -53,6 +61,7 @@ const UNCOVERED_CODE_EXTENSIONS: ReadonlySet<string> = new Set([
 ])
 
 const BUILT_IN_CHECK: CheckRun = { name: "Built-in rules", detail: "secrets, risky APIs and sensitive paths" }
+const BREAKING_CHANGE_CHECK: CheckRun = { name: "Breaking changes", detail: "public APIs, database migrations, environment variables and config keys" }
 const FUNCTION_METRICS_CHECK: CheckRun = { name: "Function metrics", detail: "complexity, nesting, length and parameters" }
 const QUALITY_TURNED_OFF: SkippedCheck = { check: "Code quality checks", reason: `turned off in ${WALKDIFF_CONFIG_PATH}` }
 
@@ -74,6 +83,14 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
   })
   const codeScan = await runCodeScanners({ files: scanned, semgrepRules: config.scanners.semgrep.rules, network: request.network, run: request.runScanner, disabled: request.disabledChecks })
   const quality = config.quality.enabled ? await assessQuality(request, scanned, config) : { findings: [], checksRun: [], notChecked: [QUALITY_TURNED_OFF] }
+  const breaking = await scanBreakingChanges({
+    repoDir: request.repoDir,
+    base: request.base,
+    head: request.head,
+    files: request.files.filter((file) => !isIgnored(config, file.diff.path)),
+    scanned,
+    versions: request.versions,
+  })
   const findings = withoutRepeatedSecrets([
     ...scanSecrets(scanned),
     ...(await scanDangerousApis(scanned)),
@@ -81,13 +98,14 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
     ...codeScan.findings,
     ...dependencies.findings,
     ...reviewSignals(request.files),
+    ...breaking,
     ...quality.findings,
   ]).sort(byImportance)
 
   return {
     securityLevel: securityLevelOf(findings),
     findings,
-    checksRun: [BUILT_IN_CHECK, ...codeScan.checksRun, ...dependencies.checksRun, ...quality.checksRun],
+    checksRun: [BUILT_IN_CHECK, BREAKING_CHANGE_CHECK, ...codeScan.checksRun, ...dependencies.checksRun, ...quality.checksRun],
     notChecked: [...codeScan.notChecked, ...dependencies.notChecked, ...quality.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length)],
   }
 }
@@ -137,6 +155,7 @@ function coverageGaps(files: readonly ChangedFile[], ignoredCount: number): Skip
   const uncovered = [...new Set(files.map((file) => extname(file.diff.path)).filter((extension) => UNCOVERED_CODE_EXTENSIONS.has(extension)))]
   if (uncovered.length > 0) {
     gaps.push({ check: `Dangerous-API rules for ${uncovered.join(", ")} files`, reason: "rules exist only for Rust, TypeScript/JavaScript and Python" })
+    gaps.push({ check: `Public API checks for ${uncovered.join(", ")} files`, reason: "they read syntax, which the engine parses only for Rust, TypeScript/JavaScript and Python" })
   }
   return gaps
 }

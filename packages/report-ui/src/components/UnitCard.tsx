@@ -9,6 +9,7 @@ import { SideBySide, SinglePane } from "./CodeViews.tsx"
 import { ReviewControls } from "./ReviewControls.tsx"
 
 interface UnitCardProps {
+  readonly path: string
   readonly unit: ChangedUnit
   /** Identifies this change in the review record, shared with the guided path. */
   readonly item: ReviewItem
@@ -17,7 +18,7 @@ interface UnitCardProps {
   readonly onShowImpact: () => void
 }
 
-export function UnitCard({ unit, item, index, onShowImpact }: UnitCardProps): ReactElement {
+export function UnitCard({ path, unit, item, index, onShowImpact }: UnitCardProps): ReactElement {
   const { state } = useReviewState()
   const label = changeLabel(unit.change)
   const untouchedCallers = untouchedReferences(unit).length
@@ -42,7 +43,7 @@ export function UnitCard({ unit, item, index, onShowImpact }: UnitCardProps): Re
           ))}
         </ul>
       )}
-      <UnitBody unit={unit} />
+      <UnitBody path={path} unit={unit} />
       {unit.impact !== null && <ImpactLine unit={unit} impact={unit.impact} onShow={onShowImpact} />}
       {!isQuiet(unit) && (
         <div className="unit-review">
@@ -88,18 +89,19 @@ function ImpactLine({ unit, impact, onShow }: ImpactLineProps): ReactElement | n
 }
 
 interface UnitBodyProps {
+  readonly path: string
   readonly unit: ChangedUnit
 }
 
-export function UnitBody({ unit }: UnitBodyProps): ReactElement {
+export function UnitBody({ path, unit }: UnitBodyProps): ReactElement {
   const { change } = unit
   // Collapsed nested units break the link between row and file line number.
   const numbered = !snapshotsOf(change).some((snapshot) => snapshot.elidesNestedUnits)
   switch (change.kind) {
     case UnitChangeKind.Added:
-      return <SinglePane snapshot={change.after} tone={Tone.Added} numbered={numbered} />
+      return <SinglePane path={path} snapshot={change.after} tone={Tone.Added} numbered={numbered} />
     case UnitChangeKind.Removed:
-      return <SinglePane snapshot={change.before} tone={Tone.Removed} numbered={numbered} />
+      return <SinglePane path={path} snapshot={change.before} tone={Tone.Removed} numbered={numbered} />
     case UnitChangeKind.MovedOut:
       return (
         <p className="unit-note">
@@ -109,7 +111,7 @@ export function UnitBody({ unit }: UnitBodyProps): ReactElement {
     case UnitChangeKind.Modified:
     case UnitChangeKind.Renamed:
     case UnitChangeKind.MovedIn:
-      return <SideBySide before={change.before} after={change.after} numbered={numbered} />
+      return <SideBySide path={path} before={change.before} after={change.after} numbered={numbered} />
   }
 }
 

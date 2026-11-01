@@ -3,9 +3,16 @@
 ## Unreleased
 
 - **Easier to read Impact tab:** each change now starts collapsed under a headline saying what depends on it, most exposed first, with a warning colour when removed or renamed code is still in use.
+- **The app opens your browser:** `pnpm walkdiff app` now opens the review list. Use `--no-open` to turn this off.
+- **Coverage for each PR, with no setup:** Walkdiff now looks for a report in CI artifacts of the PR's latest commit and in files the PR adds to a folder, in the app too. Or choose **Attach coverage** on a review: the report updates at once, with no restart.
+- **Clearer all-clear:** the brief and the PR comment now say what was found absent and name the checks used, instead of saying "the checks that ran".
+- **Semgrep, gitleaks and osv-scanner now install with Walkdiff,** so reports stop saying they didn't run, in CI too. `pnpm install` fetches pinned versions and checks them against hashes in this repository, on macOS and Linux. Semgrep needs Python 3.10 or later.
+- **oxlint and jscpd now install with Walkdiff,** so they work with no extra setup, including in CI, at versions pinned in the lockfile. Earlier global installs are no longer used.
 - **Post your review:** in the app, post comments and Comment, Approve or Request changes from the finish screen, to GitHub or GitLab. Nothing is posted until you press the button, and Walkdiff refuses if the PR has new commits since the report was made.
 - **Conversation:** the app shows existing threads in a new tab and beside each change, where you can reply and resolve them, plus who has reviewed so far.
 - **Fewer false warnings:** reports no longer list "Change history" under checks that didn't run on every PR. It was never built, so it wasn't a gap you could do anything about. It's still planned.
+- **Syntax highlighting:** code in the report is now coloured for Rust, TypeScript, JavaScript and Python, in light and dark mode, alongside the added and removed colours and edited-word marks. Other files stay plain, and so do very long lines and very large files, to keep the page fast.
+- **Breaking changes:** Walkdiff flags public APIs, database migrations, environment variables and config keys that could break other code or a deployment. Each one is a stop on the review path that says what could break and which callers are affected. These findings never change the security level. See [Breaking changes](README.md#breaking-changes). The review model schema is now version 11.
 - **Settings page:** the app now has a page to turn optional checks on or off, choose the AI provider and model, test the connection, and see what leaves your machine.
 - **More AI providers:** besides Anthropic, Walkdiff can use any OpenAI-compatible service or a local model such as Ollama, with `--ai-provider openai-compatible --ai-base-url <address> --ai-model <name>`. Keys come from `WALKDIFF_AI_API_KEY`, and only https addresses are accepted unless the model is on your machine.
 - **Team limits on AI:** `"ai": { "providers": ["local"] }` in `.walkdiff.json` limits where a repository's code can be sent.

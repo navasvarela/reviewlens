@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
-import { UnitImpactStatus } from "@walkdiff/review-model"
-import type { ChangedUnit, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
+import { namesOfChecks, UnitImpactStatus } from "@walkdiff/review-model"
+import type { ChangedUnit, CheckRun, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
 import { isConnectedToApp } from "../appApi.ts"
 import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, REVIEW_HASH } from "../reviewPlan.ts"
 import type { GuideRoute, LineCoverage, ReviewPlan, ReviewStop } from "../reviewPlan.ts"
@@ -57,6 +57,14 @@ export function ReviewGuide({ review, route }: ReviewGuideProps): ReactElement {
   )
 }
 
+function AllClear({ checks }: { readonly checks: readonly CheckRun[] }): ReactElement {
+  return (
+    <p className="guide-all-clear">
+      <strong>No security warnings or breaking changes.</strong> Checked with {namesOfChecks(checks)}. They can miss real problems, so this doesn't mean the change is safe.
+    </p>
+  )
+}
+
 function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly plan: ReviewPlan; readonly state: ReviewState }): ReactElement {
   const { changedAtOpen } = useReviewState()
   const { pullRequest, files } = review
@@ -83,7 +91,7 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
       )}
 
       {plan.checks.length === 0 ? (
-        <p className="guide-all-clear">No warnings from the checks that ran. That doesn't mean the change is safe.</p>
+        <AllClear checks={review.risk.checksRun} />
       ) : (
         <section aria-labelledby="guide-checks">
           <h2 id="guide-checks" className="guide-heading">
@@ -298,14 +306,14 @@ function StopCode({ stop }: { readonly stop: ReviewStop }): ReactElement {
   const item = stopItems(stop).at(0)
   const earlier = item === undefined ? undefined : stateAtOpen.reviewed.get(item.id)
   const isOutdated = item !== undefined && earlier !== undefined && earlier.fingerprint !== item.fingerprint
-  if (!isOutdated || earlier.snapshot === null || item.snapshot === null) return <UnitBody unit={stop.unit} />
+  if (!isOutdated || earlier.snapshot === null || item.snapshot === null) return <UnitBody path={stop.file.diff.path} unit={stop.unit} />
   return (
     <>
       <p className="guide-since">Since you reviewed it</p>
-      <SideBySide before={earlier.snapshot} after={item.snapshot} numbered={!earlier.snapshot.elidesNestedUnits && !item.snapshot.elidesNestedUnits} />
+      <SideBySide path={stop.file.diff.path} before={earlier.snapshot} after={item.snapshot} numbered={!earlier.snapshot.elidesNestedUnits && !item.snapshot.elidesNestedUnits} />
       <details className="guide-section guide-details">
         <summary>The whole change in this PR</summary>
-        <UnitBody unit={stop.unit} />
+        <UnitBody path={stop.file.diff.path} unit={stop.unit} />
       </details>
     </>
   )

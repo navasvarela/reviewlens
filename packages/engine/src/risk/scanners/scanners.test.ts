@@ -6,6 +6,7 @@ import { parseOsvScannerOutput } from "../dependencies/osvScanner.ts"
 import type { ScannedFile } from "../scannedFile.ts"
 import { gitleaksArgs, parseGitleaksReport } from "./gitleaks.ts"
 import { runCodeScanners } from "./runCodeScanners.ts"
+import { scannerExecutable } from "./scannerProcess.ts"
 import type { ProcessResult, ScannerProcessRunner } from "./scannerProcess.ts"
 import { parseSemgrepOutput, semgrepArgs } from "./semgrep.ts"
 
@@ -166,5 +167,24 @@ describe("scanner output parsing", () => {
       { package: { ecosystem: "npm", name: "lodash", version: "4.17.15" }, vulnerability: { id: "GHSA-1", aliases: ["CVE-1"], summary: "bad", severity: "medium", fixedIn: "4.17.21" } },
     ])
     expect(parseOsvScannerOutput("{}")).toEqual([])
+  })
+})
+
+describe("scannerExecutable", () => {
+  it("prefers the first directory holding the binary", () => {
+    expect(scannerExecutable("semgrep", (path) => path.startsWith("/second"), ["/first", "/second"])).toBe("/second/semgrep")
+  })
+
+  it("uses the bundled copy when there is one", () => {
+    expect(scannerExecutable("jscpd", () => true, ["/bin-dir"])).toBe("/bin-dir/jscpd")
+  })
+
+  it("looks anything else up on the PATH", () => {
+    expect(scannerExecutable("semgrep", () => false, ["/bin-dir"])).toBe("semgrep")
+  })
+
+  it("finds the scanners that ship with Walkdiff", () => {
+    expect(scannerExecutable("oxlint")).toContain("node_modules")
+    expect(scannerExecutable("jscpd")).toContain("node_modules")
   })
 })

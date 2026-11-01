@@ -15,6 +15,9 @@ const POINTS_FOR_FINDING: Readonly<Record<RiskSeverity, number>> = {
   [RiskSeverity.Low]: 10,
 }
 const POINTS_FOR_CODE_QUALITY = 10
+// On top of the severity: a "may break" outranks an ordinary medium finding, since other people's code
+// or a deployment depends on it, but it stays below any high finding.
+const POINTS_FOR_BREAKING_CHANGE = 15
 // Several small findings in one place are one decision, so they must not outrank a serious one.
 const POINTS_PER_EXTRA_FINDING = 5
 const MAX_EXTRA_FINDINGS_COUNTED = 2
@@ -131,8 +134,10 @@ export function isTestUnit(unit: ChangedUnit): boolean {
   return TEST_UNIT.test(unit.qualifiedName)
 }
 
-function isOnThePathKind(unit: ChangedUnit): boolean {
-  return isBehaviourChange(unit.change) && !isTestUnit(unit)
+function isOnThePathKind(unit: ChangedUnit, findings: readonly Risk[]): boolean {
+  if (isTestUnit(unit)) return false
+  // A rename changes no behaviour, but it can still break whoever calls the old name.
+  return isBehaviourChange(unit.change) || findings.some((finding) => finding.category === RiskCategory.BreakingChange && finding.unit === unit.qualifiedName)
 }
 
 /** A stop for one change, on request: used for work that belongs on the path whatever its rank. */
@@ -144,7 +149,7 @@ export function stopFor(review: ReviewModel, file: ChangedFile, unit: ChangedUni
 
 function stopsForFile(file: ChangedFile, findings: readonly Risk[], testFiles: readonly ChangedFile[], coverage: TestCoverage | null): ReviewStop[] {
   const inFile = findings.filter((finding) => finding.location?.path === file.diff.path && finding.category !== RiskCategory.Size)
-  const units = changedUnitsOf(file).filter(isOnThePathKind)
+  const units = changedUnitsOf(file).filter((unit) => isOnThePathKind(unit, inFile))
   if (units.length > 0) return units.flatMap((unit) => stopForUnit(unit, file, inFile, testFiles, coverage))
   return inFile.length === 0 ? [] : [stopForWholeFile(file, inFile)]
 }
@@ -178,6 +183,7 @@ function coverageOfUnit(unit: ChangedUnit, file: ChangedFile, coverage: TestCove
 }
 
 function findingIsInUnit(finding: Risk, unit: ChangedUnit): boolean {
+  if (finding.unit !== undefined) return finding.unit === unit.qualifiedName
   const line = finding.location?.line
   if (line === null || line === undefined || !("after" in unit.change)) return false
   return line >= unit.change.after.startLine && line <= unit.change.after.endLine
@@ -236,7 +242,8 @@ function pointsForFindings(findings: readonly Risk[]): number {
 
 // Messy code deserves a look, but must never outrank something that could be a security problem.
 function pointsForFinding(finding: Risk): number {
-  return finding.category === RiskCategory.CodeQuality ? POINTS_FOR_CODE_QUALITY : POINTS_FOR_FINDING[finding.severity]
+  if (finding.category === RiskCategory.CodeQuality) return POINTS_FOR_CODE_QUALITY
+  return POINTS_FOR_FINDING[finding.severity] + (finding.category === RiskCategory.BreakingChange ? POINTS_FOR_BREAKING_CHANGE : 0)
 }
 
 function reasonsFromFindings(findings: readonly Risk[]): string[] {
@@ -250,7 +257,9 @@ function reasonsFromFindings(findings: readonly Risk[]): string[] {
 // A finding about a whole file has no line to show, so its explanation is the reason itself.
 function reasonFromFinding(finding: Risk): string {
   const firstSentence = FIRST_SENTENCE.exec(finding.detail)?.[0]
-  return finding.location?.line === null && firstSentence !== undefined ? `${finding.title}: ${firstSentence}` : `Flagged: ${finding.title}`
+  if (firstSentence === undefined) return `Flagged: ${finding.title}`
+  // A breaking change's reason is what could break, which the first sentence says wherever it points.
+  return finding.location?.line === null || finding.category === RiskCategory.BreakingChange ? `${finding.title}: ${firstSentence}` : `Flagged: ${finding.title}`
 }
 
 function testFilesMentioning(unit: ChangedUnit, file: ChangedFile, testFiles: readonly ChangedFile[]): string[] {
@@ -323,6 +332,8 @@ function checkMessage(finding: Risk, count: number): string {
       return `${finding.title}. Ask whether this needs tests.`
     case RiskCategory.BrokenReference:
       return `${finding.title}${where}. Check that nothing still depends on it.`
+    case RiskCategory.BreakingChange:
+      return `${finding.title}${times}${where}. This may break callers or a deployment, so check who depends on it.`
     case RiskCategory.Size:
     case RiskCategory.CodeQuality:
       return finding.title

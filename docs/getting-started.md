@@ -30,7 +30,7 @@ Everything else is under **All changes**:
 
 - **Changes:** each changed function or type, whole, before and after.
 - **Impact:** where other code uses what changed, and which of those callers the PR did not touch.
-- **Risks:** the security level, the findings, the checks that ran and the checks that did not.
+- **Risks:** the security level, the findings, the checks that ran and the checks that did not. Findings include [breaking changes](../README.md#breaking-changes), which never change the security level.
 - **AI review:** a reading order and questions, only if you ask for it with `--ai`.
 
 A low security level means the checks that ran found nothing. It doesn't mean the change is safe, so look at "Not checked" too.
@@ -55,7 +55,7 @@ GITLAB_TOKEN=<token> pnpm walkdiff review https://gitlab.com/group/project/-/mer
 pnpm walkdiff app
 ```
 
-This runs a list at `http://127.0.0.1:4317/`, which you open in your browser. Paste a link to add a review. If you're signed in with the GitHub CLI, the app uses that login for GitHub. For GitLab, set `GITLAB_TOKEN` before starting it.
+This opens a list at `http://127.0.0.1:4317/` in your browser. Use `--no-open` to leave your browser alone. Paste a link to add a review. If you're signed in with the GitHub CLI, the app uses that login for GitHub. For GitLab, set `GITLAB_TOKEN` before starting it.
 
 ## Post your review
 
@@ -65,21 +65,27 @@ Your token needs write access: `pull-requests: write` on GitHub, or the `api` sc
 
 ## Show test evidence
 
-Give Walkdiff a coverage report from your tests, in LCOV or Cobertura format, and each change shows whether its changed lines ran. Changes whose lines didn't run rank higher.
+Walkdiff shows whether each change's lines ran in tests when it has a coverage report for the PR's latest commit, in LCOV or Cobertura format. You don't have to set anything up per PR. It looks in this order:
+
+1. **A report you attach.** In the app, choose **Attach coverage** on a review. Pick several files if your repository has one per package. The report updates at once, with no restart and no new analysis, and applies only to that PR. It's dropped when the PR gets new commits.
+2. **CI artifacts.** Walkdiff checks the runs for the PR's latest commit: GitHub Actions artifacts or GitLab job artifacts whose name contains `cov`, `lcov` or `cobertura`. A GitHub fine-grained token needs **Actions: read**.
+3. **A report the PR adds or updates**, such as one CI commits to a folder. Reports that the PR didn't change are ignored, because they describe an older commit.
+
+Named `lcov.info`, `*.lcov`, `cobertura*.xml` or `coverage*.xml`, reports are found on their own. For other names, add globs to `coverage.paths` in `.walkdiff.json`. On the command line, `--coverage` names a file directly.
+
+A report from CI or the PR is produced by the PR's own code, so treat it as evidence, not proof. Changes whose lines didn't run rank higher.
 
 ```bash
 pnpm walkdiff review https://github.com/owner/repo/pull/123 --coverage coverage/lcov.info
 ```
 
-Generate the report from the PR's latest commit, or the line numbers won't match. In CI, use the Action's `coverage-file` input or the GitLab template's `WALKDIFF_COVERAGE` variable. The local app can't read reports yet.
+A report you attach or name has to come from the PR's latest commit, or the line numbers won't match. In CI, use the Action's `coverage-file` input or the GitLab template's `WALKDIFF_COVERAGE` variable.
 
-## Add more checks
+## Security scanners
 
-These are optional. Without them, Walkdiff still runs its built-in rules and lists what it skipped.
+`pnpm install` also installs Semgrep, gitleaks and osv-scanner, at pinned versions and just for Walkdiff, on macOS and Linux. Semgrep needs Python 3.10 or later. If one can't be installed, the install still finishes, and reports list it as not run.
 
-```bash
-brew install semgrep gitleaks osv-scanner
-```
+On other systems, install them yourself and Walkdiff finds them on your `PATH`.
 
 ## Next steps
 

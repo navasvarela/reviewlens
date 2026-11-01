@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 10
+export const REVIEW_MODEL_SCHEMA_VERSION = 11
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -336,6 +336,8 @@ export const RiskCategory = {
   Tests: "tests",
   Size: "size",
   BrokenReference: "brokenReference",
+  /** Could break other code or a deployment: a public API, a migration or a config key. */
+  BreakingChange: "breakingChange",
 } as const
 export type RiskCategory = (typeof RiskCategory)[keyof typeof RiskCategory]
 
@@ -355,6 +357,8 @@ export const riskSchema = z.object({
   location: riskLocationSchema.nullable(),
   /** The triggering line, with any secret redacted. */
   evidence: z.string().nullable(),
+  /** The changed unit this is about, for when no line can say: a removed function has none at head. */
+  unit: z.string().optional(),
 })
 export type Risk = z.infer<typeof riskSchema>
 
@@ -460,12 +464,12 @@ export const aiReviewSchema = z.discriminatedUnion("status", [
 export type AiReview = z.infer<typeof aiReviewSchema>
 
 /**
- * Which lines the PR added ran in tests, from a report the user supplied. Lines that can't run,
- * such as comments, are in neither list. In CI the PR's own code produces the report, so it can
- * show that code ran, but is not proof against someone trying to deceive.
+ * Which lines the PR added ran in tests. Lines that can't run, such as comments, are in neither
+ * list. A report from CI or from the PR is produced by the PR's own code, so it can show that
+ * code ran, but is not proof against someone trying to deceive.
  */
 export const testCoverageSchema = z.object({
-  /** The report's file name, so a reader knows where this came from. */
+  /** Where the report came from, in words, so a reader can judge it. */
   source: z.string(),
   files: z
     .array(z.object({ path: z.string().min(1), coveredLines: z.array(lineNumberSchema).readonly(), uncoveredLines: z.array(lineNumberSchema).readonly() }))
@@ -491,6 +495,12 @@ export const ReviewStatus = { Queued: "queued", Analyzing: "analyzing", Ready: "
 export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus]
 
 /** One row of the local app's review list; the JSON its API and page share. */
+/** Coverage reports a reviewer picked for one PR, as text from their browser. */
+export const attachCoverageRequestSchema = z.object({
+  reports: z.array(z.object({ name: z.string().min(1), text: z.string() })).min(1),
+})
+export type AttachCoverageRequest = z.infer<typeof attachCoverageRequestSchema>
+
 export const reviewSummarySchema = z.object({
   id: z.number().int().positive(),
   url: z.url(),
@@ -509,6 +519,8 @@ export const reviewSummarySchema = z.object({
   unitsToReview: z.number().int().nonnegative().nullable(),
   untouchedReferences: z.number().int().nonnegative().nullable(),
   findings: z.number().int().nonnegative().nullable(),
+  /** Where the report's test coverage came from; null when none was found. */
+  coverageSource: z.string().nullable(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
 })

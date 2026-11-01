@@ -49,6 +49,7 @@ export {
   ReviewStatus,
   reviewSummarySchema,
   addReviewRequestSchema,
+  attachCoverageRequestSchema,
   reviewModelSchema,
 } from "./schema.ts"
 export type {
@@ -85,9 +86,10 @@ export type {
   AiReview,
   ReviewSummary,
   AddReviewRequest,
+  AttachCoverageRequest,
   ReviewModel,
 } from "./schema.ts"
-export { changedUnitsOf, isBehaviourChange, untouchedReferences } from "./queries.ts"
+export { changedUnitsOf, isBehaviourChange, namesOfChecks, untouchedReferences } from "./queries.ts"
 export {
   AiProviderKind,
   aiConnectionResultSchema,

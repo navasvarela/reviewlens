@@ -75,7 +75,7 @@ export function FileView({ file, findings, pullRequest, onShowImpact }: FileView
           )}
           {units.map((unit, index) => (
             // Overloads and cfg variants can repeat a name and change, so the index disambiguates.
-            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} item={unitItem(file, unit)} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
+            <UnitCard key={`${index}:${unit.qualifiedName}`} path={diff.path} unit={unit} item={unitItem(file, unit)} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
           ))}
         </>
       ) : (

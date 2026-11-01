@@ -7,13 +7,14 @@
 | `--out <dir>` | `review` | Writes the report here instead of the cache folder |
 | `--port <number>` | `review`, `app` | Sets the local port. `review` uses 4318, or any free port if that is taken; `app` uses 4317 |
 | `--no-serve` | `review` | Writes the report and exits |
+| `--no-open` | `app` | Doesn't open your browser. It also stays closed in CI and over SSH |
 | `--offline` | `review`, `app` | Skips OSV lookups, Semgrep and osv-scanner |
 | `--ai` | `review` | Adds an AI review, which sends the changed code to your AI provider |
 | `--ai-provider <p>` | `review` | `anthropic` (default) or `openai-compatible` |
 | `--ai-base-url <url>` | `review` | With `openai-compatible`, the provider's address |
 | `--ai-model <id>` | `review` | Sets the model (default `claude-opus-5-5`; required with `openai-compatible`) |
 | `--ai-max-input-tokens <n>` | `review` | Caps the prompt (default 40,000); larger PRs are summarized |
-| `--coverage <file>` | `review` | Reads an LCOV or Cobertura report, to show whether changed lines ran in tests |
+| `--coverage <file>` | `review` | Reads this LCOV or Cobertura report, instead of looking in CI and the PR for one |
 | `--cache-dir <dir>` | `review`, `app` | Sets where repositories and reports are cached |
 | `--data-dir <dir>` | `app` | Sets where the review list is stored |
 | `--report <dir>` | `comment` | The folder `review` wrote with `--out` |
@@ -77,6 +78,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
   "ignore": ["tests/fixtures/**"],
   "ai": { "allowed": true },
   "scanners": { "semgrep": { "rules": ["p/default"] } },
+  "coverage": { "paths": ["reports/**/*.txt"] },
   "feedback": { "url": "https://forms.example.com/walkdiff" }
 }
 ```
@@ -88,6 +90,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | `ai.allowed` | Set to `false` to block AI review for the repository |
 | `ai.providers` | Limits where code can go: `"anthropic"`, `"local"` for a model on the reviewer's machine, or a host such as `"api.openai.com"` |
 | `scanners.semgrep.rules` | Sets Semgrep registry rule packs (`p/…` or `r/…`). Use an empty list to turn Semgrep off |
+| `coverage.paths` | Globs for coverage reports whose names Walkdiff doesn't recognize, in CI artifacts or the PR. |
 | `feedback.url` | Adds a feedback link to the report and the PR comment |
 
 **A PR can't change its own rules.** Walkdiff reads this file from the PR's merge base, so an edit takes effect only after it's merged. The edit itself is reported as a finding. AI review is blocked if either version of the file forbids it.
@@ -98,7 +101,8 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | --- | --- | --- |
 | The PR's host | Your token, if the host is trusted, to read the PR and its code | Always |
 | OSV | Names and versions of dependencies | Unless `--offline` |
-| Semgrep registry | A rule download; your code isn't uploaded | When Semgrep is installed, unless `--offline` |
+| GitHub and PyPI | Downloads of the pinned scanners, checked against their hashes; nothing of yours is sent | On `pnpm install`, when a version isn't there yet |
+| Semgrep registry | A rule download; your code isn't uploaded | During a review, unless `--offline` |
 | Your AI provider | The changed code, and the PR's title and description, with known credential formats redacted and credential files left out | Only with `--ai` or the app's AI option. Nothing leaves your machine with a local model |
 
 ## Where Walkdiff keeps files

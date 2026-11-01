@@ -22,14 +22,14 @@ interface CheckDescription {
 const OSV_DESTINATION = "Names and versions of changed dependencies, including private package names, to OSV"
 
 const CHECKS: readonly CheckDescription[] = [
-  { id: CheckId.Gitleaks, name: "gitleaks", purpose: "Finds secrets in added code", binary: GITLEAKS_BINARY, install: "brew install gitleaks", sends: null },
-  { id: CheckId.Semgrep, name: "Semgrep", purpose: "Finds risky code patterns", binary: SEMGREP_BINARY, install: "brew install semgrep", sends: "Downloads rules from the Semgrep registry; your code isn't uploaded" },
+  { id: CheckId.Gitleaks, name: "gitleaks", purpose: "Finds secrets in added code", binary: GITLEAKS_BINARY, install: "pnpm install", sends: null },
+  { id: CheckId.Semgrep, name: "Semgrep", purpose: "Finds risky code patterns", binary: SEMGREP_BINARY, install: "pnpm install, with Python 3.10 or later", sends: "Downloads rules from the Semgrep registry; your code isn't uploaded" },
   { id: CheckId.OsvDatabase, name: "OSV database", purpose: "Finds known vulnerabilities in new dependency versions", binary: null, install: null, sends: OSV_DESTINATION },
-  { id: CheckId.OsvScanner, name: "osv-scanner", purpose: "Finds known vulnerabilities in pnpm, yarn and bun lockfiles", binary: OSV_SCANNER_BINARY, install: "brew install osv-scanner", sends: OSV_DESTINATION },
+  { id: CheckId.OsvScanner, name: "osv-scanner", purpose: "Finds known vulnerabilities in pnpm, yarn and bun lockfiles", binary: OSV_SCANNER_BINARY, install: "pnpm install", sends: OSV_DESTINATION },
   { id: CheckId.FunctionMetrics, name: "Function measures", purpose: "Flags complex, long or deeply nested functions", binary: null, install: null, sends: null },
   { id: CheckId.Ruff, name: "Ruff", purpose: "Finds likely bugs in Python", binary: RUFF_BINARY, install: "brew install ruff", sends: null },
-  { id: CheckId.Oxlint, name: "oxlint", purpose: "Finds likely bugs in TypeScript and JavaScript", binary: OXLINT_BINARY, install: "npm install -g oxlint", sends: null },
-  { id: CheckId.Jscpd, name: "jscpd", purpose: "Finds new code copied from elsewhere in the repository", binary: JSCPD_BINARY, install: "npm install -g jscpd", sends: null },
+  { id: CheckId.Oxlint, name: "oxlint", purpose: "Finds likely bugs in TypeScript and JavaScript", binary: OXLINT_BINARY, install: "pnpm install", sends: null },
+  { id: CheckId.Jscpd, name: "jscpd", purpose: "Finds new code copied from elsewhere in the repository", binary: JSCPD_BINARY, install: "pnpm install", sends: null },
 ]
 
 /** Every optional check, and whether this machine can run it right now. */

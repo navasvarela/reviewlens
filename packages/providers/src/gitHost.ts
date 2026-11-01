@@ -14,6 +14,18 @@ export interface PullRequestSnapshot {
   readonly gitAuth: GitHttpAuth | undefined
 }
 
+/** An archive from CI's runs of one commit, which may hold a coverage report. */
+export interface CiArchive {
+  readonly name: string
+  readonly zip: Buffer
+}
+
+// Matches what teams usually call these. Downloads are capped since each can be large, and a
+// commit's CI can produce many unrelated archives.
+export const COVERAGE_ARCHIVE_NAME = /cov|lcov|cobertura/i
+export const MAX_COVERAGE_ARCHIVES = 5
+export const MAX_COVERAGE_ARCHIVE_BYTES = 200 * 1024 * 1024
+
 export interface GitHost {
   fetchPullRequest(): Promise<PullRequestSnapshot>
   /** Posts the comment, or replaces the earlier one carrying the same marker. */
@@ -24,6 +36,8 @@ export interface GitHost {
   submitReview(review: SubmitReview): Promise<SubmitResult>
   replyToThread(threadId: string, body: string): Promise<void>
   setThreadResolved(threadId: string, resolved: boolean): Promise<void>
+  /** Archives CI kept for this commit whose names suggest coverage, newest first. */
+  fetchCoverageArchives(headSha: string): Promise<readonly CiArchive[]>
 }
 
 export interface HostTokens {

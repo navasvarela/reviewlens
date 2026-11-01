@@ -315,7 +315,7 @@ code {
 @media (prefers-color-scheme: dark) {
   :root {
     --quiet-text: #7d8590;
-    --word-added-bg: #1f6f3f;
+    --word-added-bg: #1a5c34;
     --word-removed-bg: #8e2a2f;
   }
 }
@@ -486,6 +486,66 @@ code {
 .word-removed {
   background: var(--word-removed-bg);
   border-radius: 2px;
+}
+
+:root {
+  --syntax-comment: #59636e;
+  --syntax-string: #0a3069;
+  --syntax-constant: #0550ae;
+  --syntax-keyword: #a40e26;
+  --syntax-type: #953800;
+  --syntax-function: #6639ba;
+  --syntax-meta: #116329;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --syntax-comment: #9198a1;
+    --syntax-string: #a5d6ff;
+    --syntax-constant: #79c0ff;
+    --syntax-keyword: #ff7b72;
+    --syntax-type: #ffa657;
+    --syntax-function: #d2a8ff;
+    --syntax-meta: #7ee787;
+  }
+}
+
+.syntax {
+  color: var(--syntax-color);
+}
+
+.syntax-comment {
+  --syntax-color: var(--syntax-comment);
+}
+
+.syntax-string {
+  --syntax-color: var(--syntax-string);
+}
+
+.syntax-constant {
+  --syntax-color: var(--syntax-constant);
+}
+
+.syntax-keyword {
+  --syntax-color: var(--syntax-keyword);
+}
+
+.syntax-type {
+  --syntax-color: var(--syntax-type);
+}
+
+.syntax-function {
+  --syntax-color: var(--syntax-function);
+}
+
+.syntax-meta {
+  --syntax-color: var(--syntax-meta);
+}
+
+/* Edited-word backgrounds are stronger than line backgrounds, so tokens move towards the text colour to stay legible. */
+.syntax.word-added,
+.syntax.word-removed {
+  color: color-mix(in srgb, var(--syntax-color) 40%, var(--text));
 }
 
 .elided td {

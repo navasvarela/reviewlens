@@ -1,4 +1,4 @@
-import { AiReviewStatus, changedUnitsOf, IntentVerdict, isBehaviourChange, RiskSeverity, untouchedReferences } from "@walkdiff/review-model"
+import { AiReviewStatus, changedUnitsOf, IntentVerdict, isBehaviourChange, namesOfChecks, RiskSeverity, untouchedReferences } from "@walkdiff/review-model"
 import type { AiReview, Risk, ReviewModel } from "@walkdiff/review-model"
 
 /** Finds this tool's earlier comment so later runs replace it instead of adding another. */
@@ -23,7 +23,7 @@ export function renderSummaryComment(model: ReviewModel, reportUrl: string): str
     ...topFindings(model.risk.findings),
     `**[Open the full report](${reportUrl})**. It is a single HTML file; if it downloads, open it in a browser.`,
     "",
-    `Low means the checks that ran found nothing, not that the change is safe. ${notCheckedSentence(model.risk.notChecked.length)}`,
+    `Low means no security problems turned up with ${namesOfChecks(model.risk.checksRun)}, not that the change is safe. ${notCheckedSentence(model.risk.notChecked.length)}`,
     "",
     feedbackLine(model.feedbackUrl),
   ]

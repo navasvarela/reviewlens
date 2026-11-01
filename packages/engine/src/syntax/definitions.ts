@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { UnitKind } from "@walkdiff/review-model"
 import type { UnitSnapshot } from "@walkdiff/review-model"
 import type { Node, Tree } from "web-tree-sitter"
-import type { ContainerContext, DefinitionHeader, LanguageSpec } from "./languageSpec.ts"
+import type { ContainerContext, DefinitionHeader, LanguageSpec, PublicDefinitionTest } from "./languageSpec.ts"
 import { extractShape } from "./shape.ts"
 import type { UnitShape } from "./shape.ts"
 
@@ -30,6 +30,8 @@ export interface Definition {
   readonly key: string
   readonly parentKey: string | undefined
   readonly hasChildren: boolean
+  /** By the language's own rules and its container's; a library may still not expose its file. */
+  readonly isPublic: boolean
   readonly snapshot: UnitSnapshot
   readonly codeTokenCount: number
   readonly fingerprints: Fingerprints
@@ -81,12 +83,13 @@ interface RawDefinition {
   readonly qualifiedName: string
   readonly key: string
   readonly parentKey: string | undefined
+  readonly isPublic: boolean
   readonly children: RawDefinition[]
 }
 
 /** Extracts the file's units. Must run inside `withSyntaxTree`: it reads nodes of a live tree. */
 export function extractUnits(spec: LanguageSpec, tree: Tree, source: string): FileUnits {
-  const walker = new DefinitionWalker(spec)
+  const walker = new DefinitionWalker(spec, spec.publicDefinitions(tree.rootNode))
   const topLevel: RawDefinition[] = []
   walker.walk(tree.rootNode, undefined, undefined, topLevel)
 
@@ -103,10 +106,12 @@ export function extractUnits(spec: LanguageSpec, tree: Tree, source: string): Fi
 
 class DefinitionWalker {
   readonly #spec: LanguageSpec
+  readonly #isPublic: PublicDefinitionTest
   readonly #keyCounts = new Map<string, number>()
 
-  constructor(spec: LanguageSpec) {
+  constructor(spec: LanguageSpec, isPublic: PublicDefinitionTest) {
     this.#spec = spec
+    this.#isPublic = isPublic
   }
 
   walk(node: Node, container: ContainerContext | undefined, parentKey: string | undefined, out: RawDefinition[]): void {
@@ -118,7 +123,7 @@ class DefinitionWalker {
         out.push(definition)
         if (this.#spec.isContainer(header.kind)) {
           const childPrefix = this.#spec.childPrefix(header, child, definition.qualifiedName)
-          this.walk(child, { kind: header.kind, childPrefix }, definition.key, definition.children)
+          this.walk(child, { kind: header.kind, childPrefix, isPublic: definition.isPublic }, definition.key, definition.children)
         }
       } else if (!this.#spec.isOpaque(child)) {
         this.walk(child, container, parentKey, out)
@@ -145,6 +150,7 @@ class DefinitionWalker {
       qualifiedName,
       key: this.#uniqueKey(`${qualifiedName}|${header.kind}`),
       parentKey,
+      isPublic: container?.isPublic !== false && this.#isPublic(node, header.name, container),
       children: [],
     }
   }
@@ -192,6 +198,7 @@ function toDefinition(spec: LanguageSpec, raw: RawDefinition, lines: readonly st
     key: raw.key,
     parentKey: raw.parentKey,
     hasChildren: raw.children.length > 0,
+    isPublic: raw.isPublic,
     snapshot: {
       startLine,
       endLine,
