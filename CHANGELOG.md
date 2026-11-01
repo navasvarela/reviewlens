@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Easier to read Impact tab:** each change now starts collapsed under a headline saying what depends on it, most exposed first, with a warning colour when removed or renamed code is still in use.
 - **Shorter AI review:** it now leads with where the code differs from the description, then questions to answer, one line each, with explanations on demand. Points about a change also appear beside its code on the review path.
 - **See why changes are highlighted:** the brief explains how the path is chosen, what it leaves out and what it can miss. Flagged changes now always stay on the path, whatever its limit, and findings it can't reach are called out.
 - **Results per check:** the Risks tab has a table of every check with its issues, or why it didn't run, and the brief sums it up.
