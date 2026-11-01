@@ -55,7 +55,7 @@ GITLAB_TOKEN=<token> pnpm walkdiff review https://gitlab.com/group/project/-/mer
 pnpm walkdiff app
 ```
 
-This runs a list at `http://127.0.0.1:4317/`, which you open in your browser. Paste a link to add a review. If you're signed in with the GitHub CLI, the app uses that login for GitHub. For GitLab, set `GITLAB_TOKEN` before starting it.
+This opens a list at `http://127.0.0.1:4317/` in your browser. Use `--no-open` to leave your browser alone. Paste a link to add a review. If you're signed in with the GitHub CLI, the app uses that login for GitHub. For GitLab, set `GITLAB_TOKEN` before starting it.
 
 ## Post your review
 
