@@ -1,10 +1,12 @@
 import type { ReactElement } from "react"
 import type { PullRequest, Risk, RiskAssessment } from "@walkdiff/review-model"
+import { CheckOutcome, summarizeChecks } from "../checkSummary.ts"
+import type { CheckRow } from "../checkSummary.ts"
 import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
 
 const LEVEL_EXPLANATION =
-  "The highest severity among security findings: secrets, risky APIs, code scans, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found nothing, not that the change is safe. Code quality findings do not affect it."
+  "The highest severity among security findings: secrets, risky APIs, code scans, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found no security problems, not that the change is safe. Code quality findings do not affect it."
 
 interface RiskViewProps {
   readonly risk: RiskAssessment
@@ -12,7 +14,7 @@ interface RiskViewProps {
   readonly onOpenFile: (path: string) => void
 }
 
-/** The security level, every finding grouped by rule, and what was not checked. */
+/** The security level, what each check found or why it did not run, and every finding by rule. */
 export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): ReactElement {
   return (
     <section className="risk-view">
@@ -23,6 +25,9 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
         <p className="level-explanation">{LEVEL_EXPLANATION}</p>
       </div>
 
+      <h2 className="section-title">Checks</h2>
+      <CheckTable risk={risk} />
+
       <h2 className="section-title">Risk findings ({risk.findings.length})</h2>
       {risk.findings.length === 0 ? (
         <p className="notice">No findings from the checks that ran.</p>
@@ -30,25 +35,42 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
         <RiskList findings={risk.findings} pullRequest={pullRequest} onOpenFile={onOpenFile} />
       )}
 
-      <h2 className="section-title">Checks that ran</h2>
-      <ul className="not-checked">
-        {risk.checksRun.map((check) => (
-          <li key={check.name}>
-            <strong>{check.name}</strong>: {check.detail}.
-          </li>
-        ))}
-      </ul>
-
-      <h2 className="section-title">Not checked</h2>
-      <ul className="not-checked">
-        {risk.notChecked.map((skipped) => (
-          <li key={skipped.check}>
-            <strong>{skipped.check}</strong>: {skipped.reason}.
-          </li>
-        ))}
-      </ul>
     </section>
   )
+}
+
+function CheckTable({ risk }: { readonly risk: RiskAssessment }): ReactElement {
+  return (
+    <table className="check-table">
+      <thead>
+        <tr>
+          <th scope="col">Check</th>
+          <th scope="col">Result</th>
+          <th scope="col">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {summarizeChecks(risk).map((row) => (
+          <tr key={row.name} className={`check-${row.outcome}`}>
+            <th scope="row">{row.name}</th>
+            <td className="check-result">{resultLabel(row)}</td>
+            <td>{row.detail}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function resultLabel(row: CheckRow): string {
+  switch (row.outcome) {
+    case CheckOutcome.Clean:
+      return "✓ No issues"
+    case CheckOutcome.Issues:
+      return `${row.issues} ${row.issues === 1 ? "issue" : "issues"}`
+    case CheckOutcome.NotRun:
+      return "⚠ Didn't run"
+  }
 }
 
 interface RiskListProps {
