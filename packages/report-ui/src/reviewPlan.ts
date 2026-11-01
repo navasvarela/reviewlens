@@ -56,7 +56,6 @@ const CATEGORIES_NOT_IN_CHECKS: ReadonlySet<RiskCategory> = new Set([RiskCategor
 const FIRST_SENTENCE = /^.+?[.!?](?=\s|$)/
 const TEST_PATH = /(^|\/)(tests?|__tests__|spec|testing)\/|[._-](test|spec)\.[a-z]+$|(^|\/)test_[^/]+\.py$/i
 const TEST_UNIT = /(^|::|\.)tests?(::|\.)|(^|::|\.)test_/
-const DOCS_PATH = /\.(md|mdx|rst|txt)$|(^|\/)docs\//i
 
 export interface ReviewStop {
   /** Null for a file without functions to show, such as a CI pipeline. */

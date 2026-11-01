@@ -209,8 +209,10 @@ take effect only after merge, and are reported as a finding:
 ## Development
 
 ```sh
+pnpm lint
 pnpm typecheck
 pnpm test
+pnpm build:ui
 pnpm --filter @walkdiff/report-ui dev   # needs a review.json in packages/report-ui/public
 ```
 
