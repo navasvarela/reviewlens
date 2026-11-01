@@ -153,6 +153,47 @@ describe("buildReviewPlan", () => {
   })
 })
 
+describe("breaking changes on the path", () => {
+  const removed: ChangedUnit = { kind: UnitKind.Function, name: "parse", qualifiedName: "parse", change: { kind: UnitChangeKind.Removed, before: SNAPSHOT }, facts: null, impact: null }
+  const renamed: ChangedUnit = { kind: UnitKind.Function, name: "decode", qualifiedName: "decode", change: { kind: UnitChangeKind.Renamed, previousName: "parse", before: SNAPSHOT, after: SNAPSHOT }, facts: null, impact: null }
+  const breaking = (title: string, path: string, line: number | null, unitName: string | undefined): Risk => ({
+    ...finding(RiskCategory.BreakingChange, RiskSeverity.Medium, title, path, line),
+    detail: "Code outside this repository may break. Keep an alias.",
+    unit: unitName,
+  })
+
+  it("gives a removed unit its finding, though it has no line at head, and says what could break", () => {
+    const plan = buildReviewPlan(review([file("a.ts", [removed])], [breaking("Public function parse was removed", "a.ts", null, "parse")]))
+    expect(plan.stops.at(0)?.findings.map((item) => item.title)).toEqual(["Public function parse was removed"])
+    expect(plan.stops.at(0)?.reasons).toEqual(["Public function parse was removed: Code outside this repository may break."])
+    expect(plan.checks.at(0)).toMatchObject({ stopIndex: 0, message: "Public function parse was removed in a.ts. This may break callers or a deployment, so check who depends on it." })
+  })
+
+  it("keeps a rename off the path unless it could break someone", () => {
+    expect(titles(review([file("a.ts", [renamed])]))).toEqual([])
+    expect(titles(review([file("a.ts", [renamed])], [breaking("Public function parse was renamed to decode", "a.ts", 1, "decode")]))).toEqual(["decode"])
+  })
+
+  it("says what could break on a change with a line too", () => {
+    const plan = buildReviewPlan(review([file("a.ts", [unit({ name: "parse" })])], [breaking("parse no longer takes a", "a.ts", 1, "parse")]))
+    expect(plan.stops.at(0)?.reasons.at(0)).toBe("parse no longer takes a: Code outside this repository may break.")
+  })
+
+  it("stops on a migration or config file with no functions in it", () => {
+    const plan = buildReviewPlan(review([file("migrations/1.sql")], [breaking("Migration drops table users", "migrations/1.sql", 1, undefined)]))
+    expect(plan.stops.map((stop) => stop.title)).toEqual(["migrations/1.sql"])
+    expect(plan.checks.at(0)?.stopIndex).toBe(0)
+  })
+
+  it("ranks above an ordinary medium finding and below any high one", () => {
+    const model = review(
+      [file("a.ts", [unit({ name: "ordinary" })]), file("b.ts", [unit({ name: "breaks" })]), file("c.ts", [unit({ name: "dangerous" })])],
+      [finding(RiskCategory.DangerousApi, RiskSeverity.Medium, "exec", "a.ts", 1), breaking("breaks no longer takes a", "b.ts", 1, "breaks"), finding(RiskCategory.DangerousApi, RiskSeverity.High, "eval", "c.ts", 1)],
+    )
+    expect(titles(model)).toEqual(["dangerous", "breaks", "ordinary"])
+  })
+})
+
 describe("guideRouteFromHash", () => {
   it.each([
     ["", { kind: GuideRouteKind.Brief }],
