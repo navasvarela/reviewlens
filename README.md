@@ -147,11 +147,10 @@ worse. The Changes tab also shows each modified function's complexity change. Te
 | Lines | 80 |
 | Parameters | 6 |
 
-**Three optional scanners** run when installed. None of them use the network:
+**Three scanners** add to this. None of them use the network. oxlint and jscpd install with Walkdiff, at versions pinned in its lockfile, and Ruff is optional:
 
 ```bash
 brew install ruff
-npm install -g oxlint jscpd
 ```
 
 | Scanner | Finds | Reads |
