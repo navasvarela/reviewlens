@@ -1,7 +1,7 @@
 import { SourceLanguage, UnitKind } from "@walkdiff/review-model"
 import type { Node } from "web-tree-sitter"
-import { classifyWithGrammar, isBindingWithGrammar, namedDefinition } from "./languageSpec.ts"
-import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec } from "./languageSpec.ts"
+import { classifyWithGrammar, isBindingWithGrammar, namedDefinition, ParameterKind } from "./languageSpec.ts"
+import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec, PublicDefinitionTest } from "./languageSpec.ts"
 
 const KIND_BY_NODE_TYPE: ReadonlyMap<string, UnitKind> = new Map([
   ["function_declaration", UnitKind.Function],
@@ -97,6 +97,51 @@ function declaresOnlyOneName(declaration: Node): boolean {
   return declaration.namedChildren.filter((child) => child?.type === "variable_declarator").length === 1
 }
 
+// Protected members count as private: only subclasses see them, and those are rarely outside the repository.
+const NON_PUBLIC_MODIFIERS: ReadonlySet<string> = new Set(["private", "protected"])
+const EXPORT_BOUNDARIES: ReadonlySet<string> = new Set(["program", "statement_block"])
+
+function publicDefinitions(root: Node): PublicDefinitionTest {
+  const exported = locallyExportedNames(root)
+  return (node, name, container) => {
+    if (container?.kind === UnitKind.Class) return isPublicMember(node)
+    return isInsideExportStatement(node) || (container === undefined && exported.has(name))
+  }
+}
+
+function isPublicMember(node: Node): boolean {
+  const name = node.childForFieldName("name")
+  const modifier = node.children.find((child) => child?.type === "accessibility_modifier")
+  return name?.type !== "private_property_identifier" && !NON_PUBLIC_MODIFIERS.has(modifier?.text ?? "")
+}
+
+function isInsideExportStatement(node: Node): boolean {
+  for (let current = node.parent; current !== null && !EXPORT_BOUNDARIES.has(current.type); current = current.parent) {
+    if (current.type === "export_statement") return true
+  }
+  return false
+}
+
+/** `export { a, b as c }` and `export default a` export definitions declared elsewhere in the file. */
+function locallyExportedNames(root: Node): Set<string> {
+  const names = new Set<string>()
+  for (const statement of root.namedChildren) {
+    if (statement?.type !== "export_statement" || statement.childForFieldName("source") !== null) continue
+    const defaultValue = statement.childForFieldName("value")
+    if (defaultValue?.type === "identifier") names.add(defaultValue.text)
+    for (const specifier of statement.descendantsOfType("export_specifier")) {
+      const local = specifier?.childForFieldName("name")?.text
+      if (local !== undefined) names.add(local)
+    }
+  }
+  return names
+}
+
+function parameterKind(parameter: Node): ParameterKind {
+  if (parameter.type === "optional_parameter" || parameter.childForFieldName("value") !== null) return ParameterKind.Optional
+  return parameter.childForFieldName("pattern")?.type === "rest_pattern" || parameter.type === "rest_pattern" ? ParameterKind.Rest : ParameterKind.Required
+}
+
 function makeSpec(language: SourceLanguage, grammar: string): LanguageSpec {
   return {
     language,
@@ -111,6 +156,7 @@ function makeSpec(language: SourceLanguage, grammar: string): LanguageSpec {
     childPrefix: (_header, _node, qualifiedName) => qualifiedName,
     // Prettier and linters flip quote styles wholesale; 'a' and "a" are the same string.
     normalizeLeaf: (leaf) => (STRING_DELIMITERS.has(leaf.type) && leaf.parent?.type === "string" ? '"' : leaf.text),
+    publicDefinitions,
     identifierTypes: new Set(["identifier", "property_identifier", "type_identifier", "shorthand_property_identifier"]),
     classifyIdentifier: (leaf) => classifyWithGrammar(leaf, IDENTIFIER_GRAMMAR),
     selfReceivers: new Set(["this"]),
@@ -120,6 +166,7 @@ function makeSpec(language: SourceLanguage, grammar: string): LanguageSpec {
     shape: {
       // `const f = () => {}` and class fields keep their parameters on the assigned function.
       functionNode: (definition) => definition.childForFieldName("value") ?? definition,
+      parameterKind,
       calls: new Map([
         ["call_expression", { calleeField: "function", suffix: "" }],
         ["new_expression", { calleeField: "constructor", suffix: "" }],

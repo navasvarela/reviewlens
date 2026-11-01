@@ -60,7 +60,8 @@ export async function analyzeChangedFiles(
   const versions = await Promise.all(
     diffs.map((diff, index) => extractVersions(diff, textAt(texts, index), plans.at(index))),
   )
-  const unitsByPath = compareUnits(versions.filter((version): version is FileVersions => version !== undefined))
+  const analyzed = versions.filter((version): version is FileVersions => version !== undefined)
+  const unitsByPath = compareUnits(analyzed)
   const impacts = await traceImpact(repoDir, to, analyzedFiles(diffs, plans, unitsByPath))
   const withImpact = (unit: ComparedUnit): ChangedUnit => ({ ...unit, impact: impacts.get(unit) ?? null })
 
@@ -75,7 +76,8 @@ export async function analyzeChangedFiles(
     head: to,
     files,
     headTexts: texts.map((text) => text.after),
-    functions: functionQualities(versions.filter((version): version is FileVersions => version !== undefined)),
+    functions: functionQualities(analyzed),
+    versions: analyzed,
     network: options.network,
     runScanner: options.runScanner ?? runScannerProcess,
     disabledChecks: new Set(options.disabledChecks),
