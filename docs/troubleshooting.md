@@ -193,6 +193,18 @@ Set `ANTHROPIC_API_KEY`, or run `ant auth login`.
 
 Either version of `.walkdiff.json` (the merge base or the PR) has `"ai": { "allowed": false }`. Someone with access to the target branch has to change it.
 
+### `could not reach` or `answered` from another provider
+
+Use "Save and test connection" on the Settings page, which sends no code. Check that the address includes the API path, such as `/v1`, and that a local server is running. Some servers don't offer the model list that test uses, so a real review may still work.
+
+### `the response did not match the expected review format`
+
+The model didn't return structured output. Try a model that supports it, or a different provider.
+
+### `only allows AI review with`
+
+The repository's `.walkdiff.json` limits where its code can go. Choose one of the providers it lists on the Settings page.
+
 ### `rate limited by the Anthropic API`
 
 Wait a little and run it again.

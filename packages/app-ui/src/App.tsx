@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react"
 import type { FormEvent, ReactElement } from "react"
-import { ReviewStatus, RiskSeverity } from "@walkdiff/review-model"
-import type { ReviewSummary } from "@walkdiff/review-model"
-import { addReview, listReviews, refreshReview, removeReview } from "./api.ts"
+import { aiDestination, ReviewStatus, RiskSeverity } from "@walkdiff/review-model"
+import type { AiDestination, ReviewSummary } from "@walkdiff/review-model"
+import { addReview, listReviews, loadCurrentSettings, refreshReview, removeReview } from "./api.ts"
+import { Settings } from "./Settings.tsx"
 
 const DOCS_URL = "https://github.com/navasvarela/walkdiff/blob/main/docs/README.md"
 const TROUBLESHOOTING_URL = "https://github.com/navasvarela/walkdiff/blob/main/docs/troubleshooting.md"
@@ -23,7 +24,20 @@ const LEVEL_LABELS: Readonly<Record<RiskSeverity, string>> = {
   [RiskSeverity.Low]: "Low",
 }
 
+const SETTINGS_HASH = "#settings"
+
+/** The page named by the URL, so the back button and links work. */
 export function App(): ReactElement {
+  const [hash, setHash] = useState(window.location.hash)
+  useEffect(() => {
+    const followHash = (): void => setHash(window.location.hash)
+    window.addEventListener("hashchange", followHash)
+    return () => window.removeEventListener("hashchange", followHash)
+  }, [])
+  return hash === SETTINGS_HASH ? <Settings /> : <ReviewList />
+}
+
+function ReviewList(): ReactElement {
   const [reviews, setReviews] = useState<readonly ReviewSummary[]>()
   const [problem, setProblem] = useState<string>()
 
@@ -55,7 +69,10 @@ export function App(): ReactElement {
 
   return (
     <main className="page">
-      <h1>Reviews</h1>
+      <div className="page-title">
+        <h1>Reviews</h1>
+        <a href={SETTINGS_HASH}>Settings</a>
+      </div>
       <AddReviewForm onAdded={reload} />
       {problem !== undefined && <p className="problem">{problem}</p>}
       {reviews === undefined ? null : reviews.length === 0 ? (
@@ -91,7 +108,17 @@ interface AddReviewFormProps {
 function AddReviewForm({ onAdded }: AddReviewFormProps): ReactElement {
   const [url, setUrl] = useState("")
   const [ai, setAi] = useState(false)
+  const [destination, setDestination] = useState<AiDestination>()
   const [problem, setProblem] = useState<string>()
+
+  useEffect(() => {
+    loadCurrentSettings()
+      .then((settings) => {
+        setAi(settings.ai.enabledByDefault)
+        setDestination(aiDestination(settings.ai))
+      })
+      .catch((error: unknown) => setProblem(error instanceof Error ? error.message : String(error)))
+  }, [])
 
   const submit = (event: FormEvent): void => {
     event.preventDefault()
@@ -120,11 +147,17 @@ function AddReviewForm({ onAdded }: AddReviewFormProps): ReactElement {
       </div>
       <label className="add-option">
         <input type="checkbox" checked={ai} onChange={(event) => setAi(event.target.checked)} />
-        Include AI review (sends the changed code to Anthropic; uses your credentials and costs money)
+        {aiOptionLabel(destination)} <a href={SETTINGS_HASH}>Change</a>
       </label>
       {problem !== undefined && <p className="problem">{problem}</p>}
     </form>
   )
+}
+
+function aiOptionLabel(destination: AiDestination | undefined): string {
+  if (destination === undefined) return "Include AI review"
+  if (destination.isLocal) return "Include AI review (uses a model on this machine; your code stays here)"
+  return `Include AI review (sends the changed code to ${destination.label}, and may cost money)`
 }
 
 interface ReviewRowProps {

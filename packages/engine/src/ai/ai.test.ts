@@ -143,12 +143,15 @@ describe("validateOutput", () => {
 
 class FakeProvider implements AiProvider {
   readonly model = "claude-opus-5-5"
+  readonly destination = { label: "Anthropic", isLocal: false, ids: ["anthropic"] }
   calls = 0
   readonly #result: AiCompletion | AiUnavailableError
 
   constructor(result: AiCompletion | AiUnavailableError) {
     this.#result = result
   }
+
+  async checkConnection(): Promise<void> {}
 
   async complete(): Promise<AiCompletion> {
     this.calls++
@@ -202,6 +205,37 @@ describe("reviewWithAi", () => {
       status: "unavailable",
       reason: "rate limited by the Anthropic API; try again shortly",
     })
+  })
+})
+
+describe("reviewWithAi in a repository that limits providers", () => {
+  let repoDir = ""
+  let commit: CommitSha
+
+  beforeAll(async () => {
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-ai-limit-"))
+    const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: { GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.com" } })
+    await git("init", "--quiet")
+    await writeFile(join(repoDir, ".walkdiff.json"), JSON.stringify({ ai: { providers: ["local"] } }))
+    await git("add", "--all")
+    await git("commit", "--quiet", "--message", "rules")
+    commit = commitShaSchema.parse((await git("rev-parse", "HEAD")).trim())
+  })
+  afterAll(() => rm(repoDir, { recursive: true, force: true }))
+
+  it("sends nothing to a provider the team hasn't allowed, and says why", async () => {
+    const provider = new FakeProvider(COMPLETION)
+    const review = await reviewWithAi({ repoDir, base: commit, head: commit, context: CONTEXT, provider, cacheDir: repoDir, maxInputTokens: 40_000 })
+    expect(review).toMatchObject({ status: "unavailable", reason: expect.stringContaining("only allows AI review with: local") })
+    expect(provider.calls).toBe(0)
+  })
+
+  it("allows the provider the team named", async () => {
+    const provider = new FakeProvider(COMPLETION)
+    Object.defineProperty(provider, "destination", { value: { label: "a model on this machine", isLocal: true, ids: ["localhost:11434", "local"] } })
+    const review = await reviewWithAi({ repoDir, base: commit, head: commit, context: CONTEXT, provider, cacheDir: repoDir, maxInputTokens: 40_000 })
+    expect(provider.calls).toBe(1)
+    expect(review.status).toBe("completed")
   })
 })
 

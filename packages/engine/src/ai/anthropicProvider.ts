@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod"
+import { aiDestination, AiProviderKind } from "@walkdiff/review-model"
 import { rawAiOutputSchema } from "./output.ts"
 import { AiUnavailableError } from "./provider.ts"
 import type { AiCompletion, AiProvider } from "./provider.ts"
@@ -22,11 +23,22 @@ const SERVER_SIDE_FALLBACK_BETA = "server-side-fallback-2026-07-01"
  */
 export class AnthropicProvider implements AiProvider {
   readonly model: string
+  readonly destination = aiDestination({ provider: AiProviderKind.Anthropic, model: DEFAULT_ANTHROPIC_MODEL, baseUrl: null, maxInputTokens: 1, enabledByDefault: false })
   #client: Anthropic | undefined
 
   constructor(model: string = DEFAULT_ANTHROPIC_MODEL, client?: Anthropic) {
     this.model = model
     this.#client = client
+  }
+
+  /** Lists models, which sends no code and costs nothing. */
+  async checkConnection(): Promise<void> {
+    try {
+      this.#client ??= new Anthropic()
+      await this.#client.models.list()
+    } catch (error: unknown) {
+      throw unavailableFrom(error)
+    }
   }
 
   async complete(system: string, prompt: string): Promise<AiCompletion> {

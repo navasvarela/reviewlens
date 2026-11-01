@@ -1,6 +1,7 @@
 import { AiReviewStatus } from "@walkdiff/review-model"
-import type { AiReview, CommitSha } from "@walkdiff/review-model"
+import type { AiDestination, AiReview, CommitSha } from "@walkdiff/review-model"
 import { WALKDIFF_CONFIG_PATH, WalkdiffConfigError, readWalkdiffConfig } from "../config/walkdiffConfig.ts"
+import type { WalkdiffConfig } from "../config/walkdiffConfig.ts"
 import { completionCacheKey, readCachedCompletion, writeCachedCompletion } from "./cache.ts"
 import { SYSTEM_PROMPT } from "./instructions.ts"
 import { validateOutput } from "./output.ts"
@@ -40,9 +41,8 @@ const TOKENS_PER_MILLION = 1_000_000
  * config forbids sending its code to a model.
  */
 export async function reviewWithAi(request: AiReviewRequest): Promise<AiReview> {
-  if (!(await isAiAllowed(request.repoDir, request.base, request.head))) {
-    return { status: AiReviewStatus.Unavailable, reason: `${WALKDIFF_CONFIG_PATH} forbids sending this repository's code to a model` }
-  }
+  const refusal = await aiRefusal(request)
+  if (refusal !== undefined) return { status: AiReviewStatus.Unavailable, reason: refusal }
 
   const plan = buildPrompt(request.context, request.maxInputTokens)
   const key = completionCacheKey(request.provider.model, plan.text)
@@ -73,15 +73,23 @@ export async function reviewWithAi(request: AiReviewRequest): Promise<AiReview> 
  * Sending code is the one step that cannot be undone, so either version forbidding it is
  * enough, and a head config that cannot be read counts as forbidding.
  */
-async function isAiAllowed(repoDir: string, base: CommitSha, head: CommitSha): Promise<boolean> {
-  const baseConfig = await readWalkdiffConfig(repoDir, base)
+async function aiRefusal(request: AiReviewRequest): Promise<string | undefined> {
+  const forbidden = `${WALKDIFF_CONFIG_PATH} forbids sending this repository's code to a model`
+  const base = await readWalkdiffConfig(request.repoDir, request.base)
+  let head: WalkdiffConfig
   try {
-    const headConfig = await readWalkdiffConfig(repoDir, head)
-    return baseConfig.ai.allowed && headConfig.ai.allowed
+    head = await readWalkdiffConfig(request.repoDir, request.head)
   } catch (error: unknown) {
-    if (error instanceof WalkdiffConfigError) return false
+    if (error instanceof WalkdiffConfigError) return forbidden
     throw error
   }
+  if (!base.ai.allowed || !head.ai.allowed) return forbidden
+  const limit = [base, head].find((config) => !allowsDestination(config, request.provider.destination))
+  return limit === undefined ? undefined : `${WALKDIFF_CONFIG_PATH} only allows AI review with: ${(limit.ai.providers ?? []).join(", ")}. This repository's code wasn't sent to ${request.provider.destination.label}`
+}
+
+function allowsDestination(config: WalkdiffConfig, destination: AiDestination): boolean {
+  return config.ai.providers === null || config.ai.providers.some((allowed) => destination.ids.includes(allowed))
 }
 
 function estimateCost(model: string, usage: TokenUsage): number | null {

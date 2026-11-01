@@ -9,10 +9,22 @@ inputs:
     description: Token that can read the repository and comment on pull requests
     default: ${{ github.token }}
   ai:
-    description: Set to "true" to send the changed code to Claude for an AI review
+    description: Set to "true" to send the changed code to the AI provider for a review
     default: "false"
   anthropic-api-key:
-    description: Anthropic API key, required when ai is "true"
+    description: Anthropic API key, for AI review with Anthropic
+    default: ""
+  ai-provider:
+    description: anthropic, or openai-compatible for OpenAI and other services
+    default: "anthropic"
+  ai-model:
+    description: The model to use; required with openai-compatible
+    default: ""
+  ai-base-url:
+    description: With openai-compatible, the provider's address
+    default: ""
+  ai-api-key:
+    description: With openai-compatible, the provider's API key
     default: ""
   coverage-file:
     description: Path to an LCOV or Cobertura report from an earlier step, to show whether changed lines ran in tests
@@ -52,9 +64,15 @@ runs:
         WALKDIFF_AI: ${{ inputs.ai }}
         WALKDIFF_COVERAGE: ${{ inputs.coverage-file }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        WALKDIFF_AI_PROVIDER: ${{ inputs.ai-provider }}
+        WALKDIFF_AI_MODEL: ${{ inputs.ai-model }}
+        WALKDIFF_AI_BASE_URL: ${{ inputs.ai-base-url }}
+        WALKDIFF_AI_API_KEY: ${{ inputs.ai-api-key }}
       run: |
         args=(review --no-serve --out "$RUNNER_TEMP/walkdiff")
-        if [ "$WALKDIFF_AI" = "true" ]; then args+=(--ai); fi
+        if [ "$WALKDIFF_AI" = "true" ]; then args+=(--ai --ai-provider "$WALKDIFF_AI_PROVIDER"); fi
+        if [ "$WALKDIFF_AI" = "true" ] && [ -n "$WALKDIFF_AI_MODEL" ]; then args+=(--ai-model "$WALKDIFF_AI_MODEL"); fi
+        if [ "$WALKDIFF_AI" = "true" ] && [ -n "$WALKDIFF_AI_BASE_URL" ]; then args+=(--ai-base-url "$WALKDIFF_AI_BASE_URL"); fi
         if [ -n "$WALKDIFF_COVERAGE" ]; then args+=(--coverage "$WALKDIFF_COVERAGE"); fi
         node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" "${args[@]}"
         cp "$RUNNER_TEMP/walkdiff/index.html" "$RUNNER_TEMP/walkdiff/walkdiff-report.html"

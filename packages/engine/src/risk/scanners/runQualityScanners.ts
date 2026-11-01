@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, extname, join } from "node:path"
-import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import { CheckId, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 import type { CommitSha, Risk } from "@walkdiff/review-model"
 import { readBlobs } from "../../blobs.ts"
 import { listSourceFiles, SCAN_BATCH_FILES } from "../../impact/candidateFiles.ts"
@@ -13,7 +13,7 @@ import { JSCPD_BINARY, jscpdArgs, JSCPD_REPORT_FILE, parseJscpdReport } from "./
 import type { Clone, CloneSide } from "./jscpd.ts"
 import { OXLINT_BINARY, oxlintArgs, parseOxlintOutput } from "./oxlint.ts"
 import { parseRuffOutput, RUFF_BINARY, ruffArgs } from "./ruff.ts"
-import { notRun, pathInScanRoot, toRisks, writeScanFiles } from "./scanWorkspace.ts"
+import { notRun, pathInScanRoot, toRisks, TURNED_OFF_IN_SETTINGS, writeScanFiles } from "./scanWorkspace.ts"
 import type { ScanOutcome } from "./scanWorkspace.ts"
 import type { ScannerFinding } from "./scannerFinding.ts"
 import { firstErrorLine } from "./scannerProcess.ts"
@@ -25,6 +25,8 @@ export interface QualityScanRequest {
   readonly files: readonly ScannedFile[]
   readonly isIgnored: (path: string) => boolean
   readonly run: ScannerProcessRunner
+  /** Checks the person turned off. */
+  readonly disabled?: ReadonlySet<CheckId>
 }
 
 /**
@@ -43,15 +45,16 @@ const MAX_DUPLICATION_SOURCE_FILES = 20_000
 const MIN_ADDED_SHARE_OF_CLONE = 0.5
 
 interface ScannerIdentity {
+  readonly id: CheckId
   readonly check: string
   readonly name: string
   readonly detail: string
   readonly install: string
 }
 
-const RUFF: ScannerIdentity = { check: "Ruff Python lint", name: "Ruff", detail: "likely bugs and bad practice in Python", install: "not installed; install with `brew install ruff`" }
-const OXLINT: ScannerIdentity = { check: "oxlint TypeScript lint", name: "oxlint", detail: "likely bugs in TypeScript and JavaScript", install: "not installed; install with `npm install -g oxlint`" }
-const JSCPD: ScannerIdentity = { check: "jscpd duplicate detection", name: "jscpd", detail: "new code copied from elsewhere in the repository", install: "not installed; install with `npm install -g jscpd`" }
+const RUFF: ScannerIdentity = { id: CheckId.Ruff, check: "Ruff Python lint", name: "Ruff", detail: "likely bugs and bad practice in Python", install: "not installed; install with `brew install ruff`" }
+const OXLINT: ScannerIdentity = { id: CheckId.Oxlint, check: "oxlint TypeScript lint", name: "oxlint", detail: "likely bugs in TypeScript and JavaScript", install: "not installed; install with `npm install -g oxlint`" }
+const JSCPD: ScannerIdentity = { id: CheckId.Jscpd, check: "jscpd duplicate detection", name: "jscpd", detail: "new code copied from elsewhere in the repository", install: "not installed; install with `npm install -g jscpd`" }
 
 /** Runs the installed linters and duplicate detection; none of them use the network. */
 export async function runQualityScanners(request: QualityScanRequest): Promise<ScanOutcome<Risk>> {
@@ -87,6 +90,7 @@ interface LinterResult {
 }
 
 async function runLinter(request: QualityScanRequest, candidates: readonly ScannedFile[], workspace: string, scanner: ScannerIdentity, extensions: ReadonlySet<string>, lint: LinterRun): Promise<ScanOutcome<Risk>> {
+  if (request.disabled?.has(scanner.id)) return notRun(scanner.check, TURNED_OFF_IN_SETTINGS)
   const files = candidates.filter((file) => extensions.has(extname(file.diff.path)))
   // A PR with no files for this linter has nothing it could have checked.
   if (files.length === 0) return { findings: [], checksRun: [], notChecked: [] }
@@ -129,6 +133,7 @@ function runProblem(result: ProcessResult | undefined, okExitCodes: ReadonlySet<
  * code copied from something the PR did not touch.
  */
 async function runJscpd(request: QualityScanRequest, candidates: readonly ScannedFile[], workspace: string): Promise<ScanOutcome<Risk>> {
+  if (request.disabled?.has(JSCPD.id)) return notRun(JSCPD.check, TURNED_OFF_IN_SETTINGS)
   const reviewable = candidates.filter((file) => !isTestPath(file.diff.path) && hasAddedLines(file))
   if (reviewable.length === 0) return { findings: [], checksRun: [], notChecked: [] }
   const sources = (await listSourceFiles(request.repoDir, request.head)).filter(

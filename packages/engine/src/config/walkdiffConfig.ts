@@ -25,8 +25,12 @@ export const walkdiffConfigSchema = z.object({
     .default([]),
   /** Globs excluded from risk scanning, such as test fixtures full of fake secrets. */
   ignore: z.array(z.string().min(1)).default([]),
-  /** `allowed: false` keeps this repository's code from ever being sent to a model. */
-  ai: z.object({ allowed: z.boolean().default(true) }).default({ allowed: true }),
+  /**
+   * `allowed: false` keeps this repository's code from ever being sent to a model. `providers`
+   * limits where it can go: "anthropic", "local" for a model on the reviewer's machine, or a
+   * host such as "api.openai.com". Null means any.
+   */
+  ai: z.object({ allowed: z.boolean().default(true), providers: z.array(z.string().min(1)).nullable().default(null) }).default({ allowed: true, providers: null }),
   /** Semgrep rule packs from its registry; an empty list turns Semgrep off. */
   scanners: z
     .object({ semgrep: z.object({ rules: z.array(z.string().regex(/^[pr]\/[\w./-]+$/)).default(DEFAULT_SEMGREP_RULES) }).default({ rules: DEFAULT_SEMGREP_RULES }) })
@@ -38,7 +42,7 @@ export const walkdiffConfigSchema = z.object({
 })
 export type WalkdiffConfig = z.infer<typeof walkdiffConfigSchema>
 
-export const DEFAULT_WALKDIFF_CONFIG: WalkdiffConfig = { riskPaths: [], ignore: [], ai: { allowed: true }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, feedback: { url: null } }
+export const DEFAULT_WALKDIFF_CONFIG: WalkdiffConfig = { riskPaths: [], ignore: [], ai: { allowed: true, providers: null }, scanners: { semgrep: { rules: DEFAULT_SEMGREP_RULES } }, quality: { enabled: true }, feedback: { url: null } }
 
 export class WalkdiffConfigError extends Error {
   override readonly name = "WalkdiffConfigError"

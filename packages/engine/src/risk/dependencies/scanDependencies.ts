@@ -1,5 +1,5 @@
 import { basename } from "node:path"
-import { FileChangeStatus, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import { FileChangeStatus, RiskCategory, RiskSeverity, CheckId } from "@walkdiff/review-model"
 import type { CheckRun, CommitSha, FileDiff, Risk, SkippedCheck } from "@walkdiff/review-model"
 import { readBlobs } from "../../blobs.ts"
 import { findingAt } from "../scannedFile.ts"
@@ -8,6 +8,7 @@ import { findVulnerabilities, OsvUnavailableError } from "./osv.ts"
 import type { VulnerablePackage } from "./osv.ts"
 import { scanUnreadLockfiles } from "./osvScanner.ts"
 import { lockfileFormatFor, manifestFormatFor, UNREAD_LOCKFILES } from "./packages.ts"
+import { TURNED_OFF_IN_SETTINGS } from "../scanners/scanWorkspace.ts"
 import type { ScannerProcessRunner } from "../scanners/scannerProcess.ts"
 import type { PackageVersion } from "./packages.ts"
 
@@ -19,6 +20,8 @@ export interface DependencyScanRequest {
   /** False skips the OSV lookup, which sends package names and versions to api.osv.dev. */
   readonly network: boolean
   readonly runScanner: ScannerProcessRunner
+  /** Checks the person turned off. */
+  readonly disabled?: ReadonlySet<CheckId>
 }
 
 export interface DependencyScan {
@@ -75,6 +78,10 @@ export async function scanDependencies(request: DependencyScanRequest): Promise<
   })
 
   if (newVersions.length === 0) {
+    return { findings, checksRun, notChecked }
+  }
+  if (request.disabled?.has(CheckId.OsvDatabase)) {
+    notChecked.push({ check: VULNERABILITY_CHECK, reason: TURNED_OFF_IN_SETTINGS })
     return { findings, checksRun, notChecked }
   }
   if (!request.network) {

@@ -4,7 +4,9 @@ import { createServer } from "node:http"
 import type { IncomingMessage, Server, ServerResponse } from "node:http"
 import { join, resolve } from "node:path"
 import { InvalidPullRequestUrlError } from "@walkdiff/providers"
-import { addReviewRequestSchema } from "@walkdiff/review-model"
+import { AI_API_KEY_VARIABLE, AiUnavailableError, createAiProvider, describeChecks } from "@walkdiff/engine"
+import { addReviewRequestSchema, appSettingsSchema } from "@walkdiff/review-model"
+import type { AiConnectionResult, SettingsView } from "@walkdiff/review-model"
 import { REPORT_PAGE_FILE } from "../report.ts"
 import { addressOf, BASE_POLICY, listen, LOOPBACK_HOST, REPORT_PAGE_POLICY, respond, SECURITY_HEADERS } from "../server.ts"
 import type { ReviewService } from "./reviewService.ts"
@@ -35,6 +37,8 @@ interface AppContext {
   readonly service: ReviewService
   readonly apiKey: string
   readonly allowedHosts: ReadonlySet<string>
+  readonly env: Readonly<Record<string, string | undefined>>
+  readonly offline: boolean
 }
 
 export class AppPortInUseError extends Error {
@@ -50,13 +54,16 @@ export interface AppServerOptions {
   readonly log: (message: string) => void
   /** Tests fix the key; otherwise a new one is created for this run. */
   readonly apiKey?: string
+  /** For the settings page: whether API keys are available. Keys never leave the server. */
+  readonly env?: Readonly<Record<string, string | undefined>>
+  readonly offline?: boolean
 }
 
 /** Serves the review list, the reports and their API, on the loopback interface only. */
 export async function startAppServer(store: ReviewStore, service: ReviewService, options: AppServerOptions): Promise<AppServer> {
-  const { port, log, apiKey = newApiKey() } = options
+  const { port, log, apiKey = newApiKey(), env = {}, offline = false } = options
   const allowedHosts = new Set<string>()
-  const context: AppContext = { store, service, apiKey, allowedHosts }
+  const context: AppContext = { store, service, apiKey, allowedHosts, env, offline }
   const server = createServer((request, response) => {
     handle(request, response, context).catch((error: unknown) => {
       // Details such as file paths go to the terminal, not to whatever made the request.
@@ -126,6 +133,25 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
       return
     }
   }
+  if (pathname === "/api/settings") {
+    if (method === "GET") {
+      sendJson(response, 200, await settingsView(context))
+      return
+    }
+    if (method === "PUT") {
+      await saveSettings(request, response, context)
+      return
+    }
+  }
+  // Separate from the full view, which is slow because it asks every scanner for its version.
+  if (pathname === "/api/settings/current" && method === "GET") {
+    sendJson(response, 200, context.store.getSettings())
+    return
+  }
+  if (pathname === "/api/settings/test-ai" && method === "POST") {
+    sendJson(response, 200, await testAiConnection(context))
+    return
+  }
   const match = /^\/api\/reviews\/(\d+)(\/refresh)?$/.exec(pathname)
   const id = Number(match?.[1])
   if (match !== null && method === "POST" && match[2] !== undefined) {
@@ -139,6 +165,41 @@ async function handleApi(request: IncomingMessage, response: ServerResponse, pat
     return
   }
   sendJson(response, 404, { error: "Not found" })
+}
+
+async function settingsView(context: AppContext): Promise<SettingsView> {
+  return {
+    settings: context.store.getSettings(),
+    checks: await describeChecks(),
+    aiKeys: { anthropic: nonEmpty(context.env.ANTHROPIC_API_KEY), openaiCompatible: nonEmpty(context.env[AI_API_KEY_VARIABLE]) },
+    offline: context.offline,
+  }
+}
+
+function nonEmpty(value: string | undefined): boolean {
+  return value !== undefined && value !== ""
+}
+
+async function saveSettings(request: IncomingMessage, response: ServerResponse, context: AppContext): Promise<void> {
+  const parsed = appSettingsSchema.safeParse(await readJsonBody(request))
+  if (!parsed.success) {
+    sendJson(response, 400, { error: parsed.error.issues.at(0)?.message ?? "These settings aren't valid" })
+    return
+  }
+  context.store.saveSettings(parsed.data)
+  sendJson(response, 200, await settingsView(context))
+}
+
+/** Sends no code. Tries the saved settings, so what's tested is what a review would use. */
+async function testAiConnection(context: AppContext): Promise<AiConnectionResult> {
+  const provider = createAiProvider(context.store.getSettings().ai, context.env)
+  try {
+    await provider.checkConnection()
+    return { ok: true, message: `Connected to ${provider.destination.label}. No code was sent.` }
+  } catch (error: unknown) {
+    if (!(error instanceof AiUnavailableError)) throw error
+    return { ok: false, message: error.message }
+  }
 }
 
 async function addReview(request: IncomingMessage, response: ServerResponse, context: AppContext): Promise<void> {

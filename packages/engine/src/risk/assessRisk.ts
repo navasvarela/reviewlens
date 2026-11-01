@@ -1,5 +1,5 @@
 import { extname } from "node:path"
-import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import { CheckId, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 import type { ChangedFile, CheckRun, CommitSha, Risk, RiskAssessment, SkippedCheck } from "@walkdiff/review-model"
 import { scanDangerousApis } from "./dangerousApis.ts"
 import { scanDependencies } from "./dependencies/scanDependencies.ts"
@@ -12,6 +12,7 @@ import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
 import { runCodeScanners } from "./scanners/runCodeScanners.ts"
 import { runQualityScanners } from "./scanners/runQualityScanners.ts"
+import { TURNED_OFF_IN_SETTINGS } from "./scanners/scanWorkspace.ts"
 import type { ScanOutcome } from "./scanners/scanWorkspace.ts"
 import type { ScannerProcessRunner } from "./scanners/scannerProcess.ts"
 import { scanSensitivePaths } from "./sensitivePaths.ts"
@@ -27,6 +28,7 @@ export interface RiskAssessmentRequest {
   readonly functions: readonly FunctionQuality[]
   readonly network: boolean
   readonly runScanner: ScannerProcessRunner
+  readonly disabledChecks: ReadonlySet<CheckId>
 }
 
 /** Categories that make up the security level; the others are review signals. */
@@ -75,8 +77,9 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
     diffs: scanned.map((file) => file.diff),
     network: request.network,
     runScanner: request.runScanner,
+    disabled: request.disabledChecks,
   })
-  const codeScan = await runCodeScanners({ files: scanned, semgrepRules: config.scanners.semgrep.rules, network: request.network, run: request.runScanner })
+  const codeScan = await runCodeScanners({ files: scanned, semgrepRules: config.scanners.semgrep.rules, network: request.network, run: request.runScanner, disabled: request.disabledChecks })
   const quality = config.quality.enabled ? await assessQuality(request, scanned, config) : { findings: [], checksRun: [], notChecked: [QUALITY_TURNED_OFF] }
   const findings = withoutRepeatedSecrets([
     ...scanSecrets(scanned),
@@ -103,7 +106,11 @@ async function assessQuality(request: RiskAssessmentRequest, scanned: readonly S
     files: scanned,
     isIgnored: (path) => isIgnored(config, path),
     run: request.runScanner,
+    disabled: request.disabledChecks,
   })
+  if (request.disabledChecks.has(CheckId.FunctionMetrics)) {
+    return { ...scanners, notChecked: [{ check: "Function measures", reason: TURNED_OFF_IN_SETTINGS }, ...scanners.notChecked] }
+  }
   const functions = request.functions.filter((fn) => !isIgnored(config, fn.path))
   return { ...scanners, findings: [...scanFunctionMetrics(functions), ...scanners.findings], checksRun: [FUNCTION_METRICS_CHECK, ...scanners.checksRun] }
 }

@@ -9,7 +9,7 @@ import { isIgnored, readWalkdiffConfig } from "./walkdiffConfig.ts"
 
 const COMMITTER_ENV = { GIT_AUTHOR_NAME: "Test", GIT_AUTHOR_EMAIL: "test@example.com", GIT_COMMITTER_NAME: "Test", GIT_COMMITTER_EMAIL: "test@example.com" }
 const FORBIDS_AI = JSON.stringify({ ai: { allowed: false } })
-const ALLOWS_AI = JSON.stringify({ ai: { allowed: true } })
+const ALLOWS_AI = JSON.stringify({ ai: { allowed: true, providers: null } })
 
 describe("the config file from before the rename", () => {
   let repoDir = ""
@@ -49,7 +49,7 @@ describe("the config file from before the rename", () => {
   })
 
   it("can't be excluded by an ignore rule", () => {
-    const config = { riskPaths: [], ignore: ["*.json"], ai: { allowed: true }, scanners: { semgrep: { rules: [] } }, quality: { enabled: true }, feedback: { url: null } }
+    const config = { riskPaths: [], ignore: ["*.json"], ai: { allowed: true, providers: null }, scanners: { semgrep: { rules: [] } }, quality: { enabled: true }, feedback: { url: null } }
     expect(isIgnored(config, ".lens.json")).toBe(false)
     expect(isIgnored(config, ".walkdiff.json")).toBe(false)
     expect(isIgnored(config, "other.json")).toBe(true)

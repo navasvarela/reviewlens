@@ -6,6 +6,8 @@ import type { ScannedFile } from "../scannedFile.ts"
 import { redactSecrets } from "../secrets.ts"
 import type { ScannerFinding } from "./scannerFinding.ts"
 
+export const TURNED_OFF_IN_SETTINGS = "turned off in your settings"
+
 export interface ScanOutcome<Finding = ScannerFinding> {
   readonly findings: Finding[]
   readonly checksRun: CheckRun[]

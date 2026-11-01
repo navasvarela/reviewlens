@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite"
-import { GitHostKind, ReviewStatus, reviewSummarySchema } from "@walkdiff/review-model"
-import type { ReviewSummary } from "@walkdiff/review-model"
+import { appSettingsSchema, DEFAULT_APP_SETTINGS, GitHostKind, ReviewStatus, reviewSummarySchema } from "@walkdiff/review-model"
+import type { AppSettings, ReviewSummary } from "@walkdiff/review-model"
 import { z } from "zod"
 
 /** Each entry moves the database one version forward; `PRAGMA user_version` records how far. */
@@ -23,7 +23,10 @@ const MIGRATIONS: readonly string[] = [
      created_at TEXT NOT NULL,
      updated_at TEXT NOT NULL
    )`,
+  `CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), json TEXT NOT NULL)`,
 ]
+
+const settingsRowSchema = z.object({ json: z.string() })
 
 const INTERRUPTED_ERROR = "The app stopped during this analysis. Refresh to run it again."
 
@@ -147,6 +150,22 @@ export class ReviewStore {
     this.#db
       .prepare("UPDATE reviews SET status = ?, error = ?, updated_at = ? WHERE status IN (?, ?)")
       .run(ReviewStatus.Failed, INTERRUPTED_ERROR, this.#timestamp(), ReviewStatus.Queued, ReviewStatus.Analyzing)
+  }
+
+  /** Falls back to the defaults if saved settings can't be read, as after a downgrade. */
+  getSettings(): AppSettings {
+    const row = settingsRowSchema.safeParse(this.#db.prepare("SELECT json FROM settings WHERE id = 1").get())
+    if (!row.success) return DEFAULT_APP_SETTINGS
+    try {
+      const parsed = appSettingsSchema.safeParse(JSON.parse(row.data.json))
+      return parsed.success ? parsed.data : DEFAULT_APP_SETTINGS
+    } catch {
+      return DEFAULT_APP_SETTINGS
+    }
+  }
+
+  saveSettings(settings: AppSettings): void {
+    this.#db.prepare("INSERT INTO settings (id, json) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET json = excluded.json").run(JSON.stringify(settings))
   }
 
   #migrate(): void {

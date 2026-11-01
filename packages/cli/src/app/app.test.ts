@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { request } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION } from "@walkdiff/review-model"
+import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION, DEFAULT_APP_SETTINGS } from "@walkdiff/review-model"
 import type { ReviewModel } from "@walkdiff/review-model"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { parsePullRequestUrl } from "@walkdiff/providers"
@@ -173,6 +173,45 @@ describe("the app server", () => {
 
     expect((await fetch(`${base}api/reviews/1`, { method: "DELETE", headers })).status).toBe(200)
     expect((await fetch(`${base}reviews/1/`)).status).toBe(404)
+  })
+
+  describe("settings", () => {
+    const headers = { [API_KEY_HEADER]: KEY, "Content-Type": "application/json" }
+    const put = (body: unknown): Promise<Response> => fetch(`${base}api/settings`, { method: "PUT", headers, body: JSON.stringify(body) })
+
+    it("needs the key, even to read", async () => {
+      expect((await fetch(`${base}api/settings`)).status).toBe(401)
+      expect((await fetch(`${base}api/settings`, { method: "PUT", body: "{}" })).status).toBe(401)
+      expect((await fetch(`${base}api/settings/test-ai`, { method: "POST" })).status).toBe(401)
+    })
+
+    it("saves settings that survive a reload, and never exposes a key", async () => {
+      const settings = { disabledChecks: ["semgrep"], ai: { provider: "openaiCompatible", model: "llama3.2", baseUrl: "http://localhost:11434/v1", maxInputTokens: 1000, enabledByDefault: true } }
+      expect((await put(settings)).status).toBe(200)
+      const view = await (await fetch(`${base}api/settings`, { headers })).text()
+      expect(JSON.parse(view)).toMatchObject({ settings, aiKeys: { anthropic: false, openaiCompatible: false } })
+      expect(store.getSettings()).toEqual(settings)
+      store.saveSettings(DEFAULT_APP_SETTINGS)
+    })
+
+    it("refuses an address that would expose code, with a reason", async () => {
+      const response = await put({ disabledChecks: [], ai: { provider: "openaiCompatible", model: "m", baseUrl: "http://api.example.com", maxInputTokens: 1, enabledByDefault: false } })
+      expect(response.status).toBe(400)
+      expect(await response.text()).toContain("https")
+      expect(store.getSettings()).toEqual(DEFAULT_APP_SETTINGS)
+    })
+
+    it("reports a failed connection test as a result, not an error", async () => {
+      store.saveSettings({ disabledChecks: [], ai: { provider: "openaiCompatible", model: "m", baseUrl: "http://127.0.0.1:1/v1", maxInputTokens: 1, enabledByDefault: false } })
+      const response = await fetch(`${base}api/settings/test-ai`, { method: "POST", headers })
+      expect(response.status).toBe(200)
+      expect(await response.json()).toMatchObject({ ok: false, message: expect.stringContaining("could not reach") })
+      store.saveSettings(DEFAULT_APP_SETTINGS)
+    })
+
+    it("falls back to the defaults if what's saved can't be read", () => {
+      expect(store.getSettings()).toEqual(DEFAULT_APP_SETTINGS)
+    })
   })
 
   it("explains a bad link", async () => {
