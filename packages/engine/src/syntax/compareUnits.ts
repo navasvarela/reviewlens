@@ -1,5 +1,5 @@
-import { ModificationWeight, UnitChangeKind, UnitKind } from "@lens/review-model"
-import type { ComparedUnit, UnitLocation } from "@lens/review-model"
+import { ModificationWeight, UnitChangeKind, UnitKind } from "@walkdiff/review-model"
+import type { ComparedUnit, UnitLocation } from "@walkdiff/review-model"
 import { MODULE_SCOPE_NAME } from "./definitions.ts"
 import type { Definition, FileUnits, ModuleScope } from "./definitions.ts"
 import { factsBetween } from "./shape.ts"

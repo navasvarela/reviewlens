@@ -1,5 +1,5 @@
-import { DiffLineKind, FileContentKind, NoiseKind } from "@lens/review-model"
-import type { FileDiff, FileNoise, Risk, RiskCategory, RiskSeverity } from "@lens/review-model"
+import { DiffLineKind, FileContentKind, NoiseKind } from "@walkdiff/review-model"
+import type { FileDiff, FileNoise, Risk, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 
 /** What risk scanners see of a changed file. */
 export interface ScannedFile {

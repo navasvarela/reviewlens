@@ -28,7 +28,7 @@ describe("serveReport", () => {
   let server: ReportServer | undefined
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "lens-server-test-"))
+    dir = await mkdtemp(join(tmpdir(), "walkdiff-server-test-"))
     await writeFile(join(dir, "index.html"), "<html></html>")
     server = await serveReport(dir, 0)
   })
@@ -67,10 +67,10 @@ describe("the report file", () => {
 
 describe("protectLocalData", () => {
   it("closes the default folders to other users and ignores missing ones", async () => {
-    const home = await mkdtemp(join(tmpdir(), "lens-perm-test-"))
-    await mkdir(join(home, "cache", "lens"), { recursive: true, mode: 0o755 })
+    const home = await mkdtemp(join(tmpdir(), "walkdiff-perm-test-"))
+    await mkdir(join(home, "cache", "walkdiff"), { recursive: true, mode: 0o755 })
     await protectLocalData({ XDG_CACHE_HOME: join(home, "cache"), XDG_DATA_HOME: join(home, "data") })
-    expect((await stat(join(home, "cache", "lens"))).mode & 0o777).toBe(0o700)
+    expect((await stat(join(home, "cache", "walkdiff"))).mode & 0o777).toBe(0o700)
     await rm(home, { recursive: true, force: true })
   })
 })

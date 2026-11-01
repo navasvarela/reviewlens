@@ -1,11 +1,11 @@
 {
-  "name": "@lens/providers",
+  "name": "@walkdiff/providers",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": "./src/index.ts",
   "dependencies": {
-    "@lens/review-model": "workspace:*",
+    "@walkdiff/review-model": "workspace:*",
     "zod": "^4.6.7"
   }
 }

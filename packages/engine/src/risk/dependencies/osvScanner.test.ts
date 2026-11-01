@@ -1,8 +1,8 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
-import type { CommitSha, FileDiff } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { CommitSha, FileDiff } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { runGit } from "../../git.ts"
 import type { ScannerProcessRunner } from "../scanners/scannerProcess.ts"
@@ -41,7 +41,7 @@ describe("scanUnreadLockfiles", () => {
   const scan = (network: boolean, runScanner: ScannerProcessRunner) => scanUnreadLockfiles([LOCKFILE_DIFF], { repoDir, base, head, network, runScanner })
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-osv-test-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-osv-test-"))
     await git("init", "--quiet")
     base = await commitLockfile("v1\n")
     head = await commitLockfile("v2\n")

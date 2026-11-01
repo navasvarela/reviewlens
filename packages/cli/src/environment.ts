@@ -3,9 +3,9 @@ import { chmod } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
-import { isTrustedHost, TRUSTED_GITHUB_HOSTS_VARIABLE, TRUSTED_GITLAB_HOSTS_VARIABLE } from "@lens/providers"
-import type { HostTokens, PullRequestRef } from "@lens/providers"
-import { GitHostKind } from "@lens/review-model"
+import { isTrustedHost, TRUSTED_GITHUB_HOSTS_VARIABLE, TRUSTED_GITLAB_HOSTS_VARIABLE } from "@walkdiff/providers"
+import type { HostTokens, PullRequestRef } from "@walkdiff/providers"
+import { GitHostKind } from "@walkdiff/review-model"
 import { UsageError } from "./args.ts"
 
 type Environment = Readonly<Record<string, string | undefined>>
@@ -23,7 +23,7 @@ export function readHostTokens(env: Environment): HostTokens {
 
 /**
  * Comma-separated hosts, such as `git.acme.internal`. These come from the environment and
- * not `.lens.json`, because that file belongs to the repository the token would be sent to.
+ * not `.walkdiff.json`, because that file belongs to the repository the token would be sent to.
  * A bare host means https; plain http has to be spelled out.
  */
 function parseTrustedHosts(text: string | undefined): string[] {
@@ -91,12 +91,12 @@ async function chmodIfPresent(path: string, mode: number): Promise<void> {
 
 export function defaultDataDir(env: Environment): string {
   const xdgData = nonEmpty(env.XDG_DATA_HOME)
-  return join(xdgData ?? join(homedir(), ".local", "share"), "lens")
+  return join(xdgData ?? join(homedir(), ".local", "share"), "walkdiff")
 }
 
 export function defaultCacheDir(env: Environment): string {
   const xdgCache = nonEmpty(env.XDG_CACHE_HOME)
-  return join(xdgCache ?? join(homedir(), ".cache"), "lens")
+  return join(xdgCache ?? join(homedir(), ".cache"), "walkdiff")
 }
 
 function nonEmpty(value: string | undefined): string | undefined {

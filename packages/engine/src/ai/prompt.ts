@@ -1,5 +1,5 @@
-import { changedUnitsOf, CitationSide as Side, DiffLineKind, FileContentKind, isBehaviourChange, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, CitationSide, FileDiff, PullRequest, RiskAssessment, UnitRef, UnitSnapshot } from "@lens/review-model"
+import { changedUnitsOf, CitationSide as Side, DiffLineKind, FileContentKind, isBehaviourChange, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, CitationSide, FileDiff, PullRequest, RiskAssessment, UnitRef, UnitSnapshot } from "@walkdiff/review-model"
 
 import { isSecretFile, redactSecretsInText } from "../risk/secrets.ts"
 

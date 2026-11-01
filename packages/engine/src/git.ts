@@ -43,7 +43,7 @@ export async function runGit(args: readonly string[], invocation: GitInvocation)
   try {
     const { stdout } = await execFileAsync("git", args, {
       cwd: invocation.cwd,
-      // Never block on a credential prompt: lens runs unattended in CI.
+      // Never block on a credential prompt: walkdiff runs unattended in CI.
       env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...invocation.env },
       maxBuffer: MAX_GIT_OUTPUT_BYTES,
       encoding: "utf8",

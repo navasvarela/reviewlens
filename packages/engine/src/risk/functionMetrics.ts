@@ -1,5 +1,5 @@
-import { RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { Risk } from "@lens/review-model"
+import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import type { Risk } from "@walkdiff/review-model"
 import type { FunctionQuality } from "../syntax/functionQuality.ts"
 import type { FunctionMetrics } from "../syntax/shape.ts"
 import { findingAt } from "./scannedFile.ts"

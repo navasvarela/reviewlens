@@ -1,4 +1,4 @@
-import { SourceLanguage, UnitKind } from "@lens/review-model"
+import { SourceLanguage, UnitKind } from "@walkdiff/review-model"
 import type { Node } from "web-tree-sitter"
 import { classifyWithGrammar, isBindingWithGrammar, namedDefinition } from "./languageSpec.ts"
 import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec } from "./languageSpec.ts"

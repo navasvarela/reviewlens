@@ -1,5 +1,5 @@
-import { RiskCategory, RiskSeverity, SourceLanguage } from "@lens/review-model"
-import type { Risk } from "@lens/review-model"
+import { RiskCategory, RiskSeverity, SourceLanguage } from "@walkdiff/review-model"
+import type { Risk } from "@walkdiff/review-model"
 import type { Tree } from "web-tree-sitter"
 import { languageSpecFor } from "../syntax/languages.ts"
 import { withSyntaxTree } from "../syntax/parser.ts"

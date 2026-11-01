@@ -1,5 +1,5 @@
-import { ModificationWeight, ReferenceConfidence, UnitChangeKind, UnitImpactStatus, UnitKind } from "@lens/review-model"
-import type { CommitSha, ComparedUnit, Reference, UnitImpact } from "@lens/review-model"
+import { ModificationWeight, ReferenceConfidence, UnitChangeKind, UnitImpactStatus, UnitKind } from "@walkdiff/review-model"
+import type { CommitSha, ComparedUnit, Reference, UnitImpact } from "@walkdiff/review-model"
 import { readBlobs } from "../blobs.ts"
 import { extractUnits } from "../syntax/definitions.ts"
 import type { Definition } from "../syntax/definitions.ts"

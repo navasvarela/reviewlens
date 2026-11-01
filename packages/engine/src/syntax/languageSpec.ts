@@ -1,4 +1,4 @@
-import type { SourceLanguage, UnitKind } from "@lens/review-model"
+import type { SourceLanguage, UnitKind } from "@walkdiff/review-model"
 import type { Node } from "web-tree-sitter"
 
 export interface DefinitionHeader {

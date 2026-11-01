@@ -1,5 +1,5 @@
-import { DiffLineKind, FileContentKind } from "@lens/review-model"
-import type { DiffLine, FileContent, Hunk } from "@lens/review-model"
+import { DiffLineKind, FileContentKind } from "@walkdiff/review-model"
+import type { DiffLine, FileContent, Hunk } from "@walkdiff/review-model"
 
 const FILE_HEADER_PREFIX = "diff --git "
 const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$/

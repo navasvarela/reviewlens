@@ -1,5 +1,5 @@
 import { diffLines } from "diff"
-import type { UnitSnapshot } from "@lens/review-model"
+import type { UnitSnapshot } from "@walkdiff/review-model"
 
 export interface NumberedLine {
   /** Undefined where line numbers mean nothing, such as the elided module scope. */

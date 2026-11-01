@@ -1,13 +1,13 @@
-# Adds a ReviewLens report to each merge request. In your .gitlab-ci.yml:
+# Adds a Walkdiff report to each merge request. In your .gitlab-ci.yml:
 #
 #   include:
-#     - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/v0.1.0/ci/gitlab-ci.yml
+#     - remote: https://raw.githubusercontent.com/navasvarela/walkdiff/v0.1.0/ci/gitlab-ci.yml
 #
 # Set GITLAB_TOKEN as a masked CI/CD variable: a project access token with the `api` scope
 # (CI_JOB_TOKEN cannot read merge request details or post notes). For AI review, also set
-# ANTHROPIC_API_KEY and REVIEWLENS_AI to "true".
+# ANTHROPIC_API_KEY and WALKDIFF_AI to "true".
 
-reviewlens:
+walkdiff:
   stage: test
   # Node 25 and later no longer ship corepack.
   image: node:24
@@ -16,24 +16,24 @@ reviewlens:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
-    REVIEWLENS_REF: v0.1.0
-    REVIEWLENS_AI: "false"
+    WALKDIFF_REF: v0.1.0
+    WALKDIFF_AI: "false"
     # The job reads commits through the API-authenticated fetch; it needs no checkout.
     GIT_STRATEGY: none
   script:
-    - git clone --quiet --depth 1 --branch "$REVIEWLENS_REF" https://github.com/navasvarela/reviewlens.git /tmp/reviewlens
-    - cd /tmp/reviewlens
+    - git clone --quiet --depth 1 --branch "$WALKDIFF_REF" https://github.com/navasvarela/walkdiff.git /tmp/walkdiff
+    - cd /tmp/walkdiff
     - corepack enable
     - pnpm install --frozen-lockfile
     - pnpm build:ui
     - |
-      set -- review --no-serve --out "$CI_PROJECT_DIR/reviewlens-report"
-      if [ "$REVIEWLENS_AI" = "true" ]; then set -- "$@" --ai; fi
+      set -- review --no-serve --out "$CI_PROJECT_DIR/walkdiff-report"
+      if [ "$WALKDIFF_AI" = "true" ]; then set -- "$@" --ai; fi
       node packages/cli/src/main.ts "$@"
-    - node packages/cli/src/main.ts comment --report "$CI_PROJECT_DIR/reviewlens-report" --report-url "$CI_JOB_URL/artifacts/file/reviewlens-report/index.html"
+    - node packages/cli/src/main.ts comment --report "$CI_PROJECT_DIR/walkdiff-report" --report-url "$CI_JOB_URL/artifacts/file/walkdiff-report/index.html"
   artifacts:
-    expose_as: ReviewLens report
+    expose_as: Walkdiff report
     paths:
-      - reviewlens-report/
+      - walkdiff-report/
     expire_in: 14 days
     when: always

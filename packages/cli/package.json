@@ -1,15 +1,15 @@
 {
-  "name": "@lens/cli",
+  "name": "@walkdiff/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "lens": "./src/main.ts"
+    "walkdiff": "./src/main.ts"
   },
   "dependencies": {
-    "@lens/engine": "workspace:*",
-    "@lens/providers": "workspace:*",
-    "@lens/review-model": "workspace:*",
+    "@walkdiff/engine": "workspace:*",
+    "@walkdiff/providers": "workspace:*",
+    "@walkdiff/review-model": "workspace:*",
     "zod": "^4.6.7"
   }
 }

@@ -1,7 +1,7 @@
-import type { FileDiff, Risk } from "@lens/review-model"
+import type { FileDiff, Risk } from "@walkdiff/review-model"
 import { describe, expect, it } from "vitest"
 import { scanDangerousApis } from "./dangerousApis.ts"
-import { DEFAULT_LENS_CONFIG } from "../config/lensConfig.ts"
+import { DEFAULT_WALKDIFF_CONFIG } from "../config/walkdiffConfig.ts"
 import type { ScannedFile } from "./scannedFile.ts"
 import { scanSecrets } from "./secrets.ts"
 import { scanSensitivePaths } from "./sensitivePaths.ts"
@@ -96,11 +96,11 @@ describe("scanSensitivePaths", () => {
     ["deploy/Dockerfile", "path.infrastructure"],
     ["config/.env.production", "path.secrets-config"],
   ])("rates %s as %s", (path, ruleId) => {
-    expect(scanSensitivePaths([addedFile(path, "x")], DEFAULT_LENS_CONFIG).map((finding) => finding.ruleId)).toEqual([ruleId])
+    expect(scanSensitivePaths([addedFile(path, "x")], DEFAULT_WALKDIFF_CONFIG).map((finding) => finding.ruleId)).toEqual([ruleId])
   })
 
   it("does not mistake look-alike names for sensitive areas", () => {
-    expect(scanSensitivePaths([addedFile("src/author.ts", "x"), addedFile("src/sessionless_cache.rs", "x")], DEFAULT_LENS_CONFIG)).toEqual([])
+    expect(scanSensitivePaths([addedFile("src/author.ts", "x"), addedFile("src/sessionless_cache.rs", "x")], DEFAULT_WALKDIFF_CONFIG)).toEqual([])
   })
 
   it("applies team rules from the config before built-in ones", () => {

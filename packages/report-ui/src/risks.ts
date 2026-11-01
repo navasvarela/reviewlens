@@ -1,5 +1,5 @@
-import { RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { Risk } from "@lens/review-model"
+import { RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import type { Risk } from "@walkdiff/review-model"
 
 export const SEVERITY_LABELS: Readonly<Record<RiskSeverity, string>> = {
   [RiskSeverity.High]: "High",

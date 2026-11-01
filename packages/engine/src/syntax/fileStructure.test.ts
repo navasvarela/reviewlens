@@ -1,4 +1,4 @@
-import type { ComparedUnit, UnitFacts } from "@lens/review-model"
+import type { ComparedUnit, UnitFacts } from "@walkdiff/review-model"
 import { describe, expect, it } from "vitest"
 import { compareUnits } from "./compareUnits.ts"
 import { extractUnits } from "./definitions.ts"

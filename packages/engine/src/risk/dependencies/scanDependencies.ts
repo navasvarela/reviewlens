@@ -1,6 +1,6 @@
 import { basename } from "node:path"
-import { FileChangeStatus, RiskCategory, RiskSeverity } from "@lens/review-model"
-import type { CheckRun, CommitSha, FileDiff, Risk, SkippedCheck } from "@lens/review-model"
+import { FileChangeStatus, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import type { CheckRun, CommitSha, FileDiff, Risk, SkippedCheck } from "@walkdiff/review-model"
 import { readBlobs } from "../../blobs.ts"
 import { findingAt } from "../scannedFile.ts"
 import type { RuleDescription } from "../scannedFile.ts"

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, relative, resolve, sep } from "node:path"
-import type { CheckRun, Risk, SkippedCheck } from "@lens/review-model"
+import type { CheckRun, Risk, SkippedCheck } from "@walkdiff/review-model"
 import { addedLines, findingAt } from "../scannedFile.ts"
 import type { ScannedFile } from "../scannedFile.ts"
 import { redactSecrets } from "../secrets.ts"

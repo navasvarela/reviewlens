@@ -3,16 +3,16 @@ import { readFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import type { IncomingMessage, Server, ServerResponse } from "node:http"
 import { join, resolve } from "node:path"
-import { InvalidPullRequestUrlError } from "@lens/providers"
-import { addReviewRequestSchema } from "@lens/review-model"
+import { InvalidPullRequestUrlError } from "@walkdiff/providers"
+import { addReviewRequestSchema } from "@walkdiff/review-model"
 import { REPORT_PAGE_FILE } from "../report.ts"
 import { addressOf, BASE_POLICY, listen, LOOPBACK_HOST, REPORT_PAGE_POLICY, respond, SECURITY_HEADERS } from "../server.ts"
 import type { ReviewService } from "./reviewService.ts"
 import type { ReviewStore } from "./reviewStore.ts"
 
-export const API_KEY_HEADER = "x-lens-key"
-const API_KEY_META = "lens-api-key"
-const HOME_META = "lens-home"
+export const API_KEY_HEADER = "x-walkdiff-key"
+const API_KEY_META = "walkdiff-api-key"
+const HOME_META = "walkdiff-home"
 const HOME_PATH = "/"
 const MAX_REQUEST_BODY_BYTES = 64 * 1024
 const API_KEY_BYTES = 32
@@ -23,7 +23,7 @@ const APP_UI_DIST = resolve(import.meta.dirname, "../../../app-ui/dist")
 // Pages show text and code from PRs, and the API behind them can act with the user's token.
 const APP_PAGE_POLICY = `${BASE_POLICY}; script-src 'self'; style-src 'self'`
 
-const UNEXPECTED_ERROR = "Something went wrong. The terminal running Lens has the details."
+const UNEXPECTED_ERROR = "Something went wrong. The terminal running Walkdiff has the details."
 
 export interface AppServer {
   readonly url: string

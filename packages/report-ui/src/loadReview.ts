@@ -1,5 +1,5 @@
-import { reviewModelSchema } from "@lens/review-model"
-import type { ReviewModel } from "@lens/review-model"
+import { reviewModelSchema } from "@walkdiff/review-model"
+import type { ReviewModel } from "@walkdiff/review-model"
 
 // Only the Vite dev server uses this; built reports embed the model in the page.
 const REVIEW_MODEL_URL = "./review.json"

@@ -1,4 +1,4 @@
-import { GitHostKind } from "@lens/review-model"
+import { GitHostKind } from "@walkdiff/review-model"
 
 export interface GitHubPullRequestRef {
   readonly host: typeof GitHostKind.GitHub

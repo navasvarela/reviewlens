@@ -1,8 +1,8 @@
 import { chmod, mkdtemp, rm, symlink, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { commitShaSchema } from "@lens/review-model"
-import type { CommitSha, FileDiff } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { CommitSha, FileDiff } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { collectFileDiffs, PatchMismatchError, pairEntriesWithChunks } from "./changedFiles.ts"
 import { runGit } from "./git.ts"
@@ -28,7 +28,7 @@ describe("collectFileDiffs", () => {
   const file = (path: string): FileDiff | undefined => files.find((changed) => changed.path === path)
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-engine-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-engine-"))
     await git("init", "--quiet")
     await writeFile(join(repoDir, "edited.ts"), "const a = 1\nconst b = 2\n")
     await writeFile(join(repoDir, "deleted.py"), "print('bye')\n")
@@ -94,7 +94,7 @@ describe("collectFileDiffs under unusual user git config", () => {
   })
 
   it("keeps submodule sections and blank context lines that config would alter", async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-config-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-config-"))
     const git = (...args: string[]): Promise<string> => runGit(args, { cwd: repoDir, env: COMMITTER_ENV })
     // No --all: the gitlink has no working-tree entry, so --all would stage it as deleted.
     const commit = async (): Promise<CommitSha> => {

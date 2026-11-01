@@ -1,4 +1,4 @@
-import { GitHostKind } from "@lens/review-model"
+import { GitHostKind } from "@walkdiff/review-model"
 import type { GitHost, HostTokens } from "./gitHost.ts"
 import { GitHubHost } from "./github.ts"
 import { GitLabHost } from "./gitlab.ts"
@@ -22,7 +22,7 @@ export function gitHostFor(ref: PullRequestRef, tokens: HostTokens): GitHost {
 }
 
 function untrustedHostHint(origin: string, tokenVariable: string, trustVariable: string): string {
-  return `Lens sent no token, because ${origin} is not a trusted host. If you trust it and it needs a token, set ${tokenVariable} and add the host to ${trustVariable}.`
+  return `Walkdiff sent no token, because ${origin} is not a trusted host. If you trust it and it needs a token, set ${tokenVariable} and add the host to ${trustVariable}.`
 }
 
 function assertNever(value: never): never {

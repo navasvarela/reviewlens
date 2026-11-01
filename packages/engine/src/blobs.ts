@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import type { CommitSha } from "@lens/review-model"
+import type { CommitSha } from "@walkdiff/review-model"
 import { GitCommandError, ISOLATED_CONFIG_ENV } from "./git.ts"
 
 export interface BlobRequest {

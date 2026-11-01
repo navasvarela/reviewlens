@@ -1,5 +1,5 @@
-import { changedUnitsOf, isBehaviourChange, ReferenceConfidence, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@lens/review-model"
-import type { ChangedFile, Risk } from "@lens/review-model"
+import { changedUnitsOf, isBehaviourChange, ReferenceConfidence, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@walkdiff/review-model"
+import type { ChangedFile, Risk } from "@walkdiff/review-model"
 import { findingAt, pullRequestFinding } from "./scannedFile.ts"
 import type { RuleDescription } from "./scannedFile.ts"
 import { isTestPath, isTestUnit } from "./testCode.ts"

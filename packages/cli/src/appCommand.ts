@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
-import { findInstalledScanners } from "@lens/engine"
+import { findInstalledScanners } from "@walkdiff/engine"
 import { DEFAULT_AI_MAX_INPUT_TOKENS, DEFAULT_AI_MODEL } from "./args.ts"
 import type { AppOptions } from "./args.ts"
 import { startAppServer } from "./app/appServer.ts"
@@ -10,7 +10,7 @@ import { defaultCacheDir, defaultDataDir, hostTokensFor, runCommand } from "./en
 import { writeReport } from "./report.ts"
 import { analyzePullRequest, defaultReportDir } from "./reviewCommand.ts"
 
-const DATABASE_FILE = "lens.db"
+const DATABASE_FILE = "walkdiff.db"
 
 export interface AppDependencies {
   readonly env: Readonly<Record<string, string | undefined>>
@@ -42,7 +42,7 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
     deps.log,
   )
   const server = await startAppServer(store, service, { port: options.port, log: deps.log })
-  deps.log(`Lens is running at ${server.url} (Ctrl+C to stop)`)
+  deps.log(`Walkdiff is running at ${server.url} (Ctrl+C to stop)`)
   const scanners = await findInstalledScanners()
   deps.log(`Security scanners: ${scanners.installed.join(", ") || "none"} installed${scanners.missing.length > 0 ? `; not found: ${scanners.missing.join(", ")}` : ""}`)
 }

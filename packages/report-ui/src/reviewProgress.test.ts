@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind, UnitKind } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit } from "@lens/review-model"
+import { ModificationWeight, SyntaxAnalysisStatus, UnitChangeKind, UnitKind } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit } from "@walkdiff/review-model"
 import type { ReviewPlan, ReviewStop } from "./reviewPlan.ts"
 import { commentsAsMarkdown, commentsOnItems, EMPTY_REVIEW_STATE, fileProgress, isReviewed, ItemKind, itemsOfFile, nextUnreviewedStop, overallProgress, parseSavedState, pathProgress, remainingOffPath, serializeState, stopItemIds, unitItemId, withComment, withReviewed } from "./reviewProgress.ts"
 

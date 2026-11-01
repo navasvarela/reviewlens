@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
-import { UnitKind } from "@lens/review-model"
-import type { UnitSnapshot } from "@lens/review-model"
+import { UnitKind } from "@walkdiff/review-model"
+import type { UnitSnapshot } from "@walkdiff/review-model"
 import type { Node, Tree } from "web-tree-sitter"
 import type { ContainerContext, DefinitionHeader, LanguageSpec } from "./languageSpec.ts"
 import { extractShape } from "./shape.ts"

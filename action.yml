@@ -1,4 +1,4 @@
-name: ReviewLens
+name: Walkdiff
 description: Adds a review report to each pull request, with changed units, callers, risk findings and an optional AI review
 branding:
   icon: search
@@ -34,7 +34,7 @@ runs:
         # Node 25 and later no longer ship corepack.
         node-version: "24"
 
-    - name: Install ReviewLens
+    - name: Install Walkdiff
       shell: bash
       working-directory: ${{ github.action_path }}
       run: |
@@ -46,19 +46,19 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-        REVIEWLENS_AI: ${{ inputs.ai }}
+        WALKDIFF_AI: ${{ inputs.ai }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
       run: |
-        args=(review --no-serve --out "$RUNNER_TEMP/reviewlens")
-        if [ "$REVIEWLENS_AI" = "true" ]; then args+=(--ai); fi
+        args=(review --no-serve --out "$RUNNER_TEMP/walkdiff")
+        if [ "$WALKDIFF_AI" = "true" ]; then args+=(--ai); fi
         node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" "${args[@]}"
-        cp "$RUNNER_TEMP/reviewlens/index.html" "$RUNNER_TEMP/reviewlens/reviewlens-report.html"
+        cp "$RUNNER_TEMP/walkdiff/index.html" "$RUNNER_TEMP/walkdiff/walkdiff-report.html"
 
     - name: Upload the report
       id: upload
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
       with:
-        path: ${{ runner.temp }}/reviewlens/reviewlens-report.html
+        path: ${{ runner.temp }}/walkdiff/walkdiff-report.html
         # Unzipped, so the link gives reviewers the page itself. The artifact takes the
         # file's name; overwrite lets the job be re-run.
         archive: false
@@ -70,4 +70,4 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         REPORT_URL: ${{ steps.upload.outputs.artifact-url }}
-      run: node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" comment --report "$RUNNER_TEMP/reviewlens" --report-url "$REPORT_URL"
+      run: node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" comment --report "$RUNNER_TEMP/walkdiff" --report-url "$REPORT_URL"

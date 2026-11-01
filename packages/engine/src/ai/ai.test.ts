@@ -4,8 +4,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import Anthropic from "@anthropic-ai/sdk"
-import { commitShaSchema } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, CommitSha, PullRequest } from "@lens/review-model"
+import { commitShaSchema } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, CommitSha, PullRequest } from "@walkdiff/review-model"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { runGit } from "../git.ts"
 import { AnthropicProvider } from "./anthropicProvider.ts"
@@ -173,8 +173,8 @@ describe("reviewWithAi", () => {
   let head = SHA
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-ai-repo-"))
-    cacheDir = await mkdtemp(join(tmpdir(), "lens-ai-cache-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-ai-repo-"))
+    cacheDir = await mkdtemp(join(tmpdir(), "walkdiff-ai-cache-"))
     const env = { GIT_AUTHOR_NAME: "T", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "T", GIT_COMMITTER_EMAIL: "t@example.com" }
     await runGit(["init", "--quiet"], { cwd: repoDir })
     await runGit(["commit", "--quiet", "--allow-empty", "--message", "empty"], { cwd: repoDir, env })
@@ -210,14 +210,14 @@ describe("reviewWithAi in a repository that forbids AI", () => {
   let repoDir = ""
 
   const commitConfig = async (content: string): Promise<CommitSha> => {
-    await writeFile(join(repoDir, ".lens.json"), content)
-    await runGit(["add", ".lens.json"], { cwd: repoDir })
+    await writeFile(join(repoDir, ".walkdiff.json"), content)
+    await runGit(["add", ".walkdiff.json"], { cwd: repoDir })
     await runGit(["commit", "--quiet", "--allow-empty", "--message", "config"], { cwd: repoDir, env })
     return commitShaSchema.parse((await runGit(["rev-parse", "HEAD"], { cwd: repoDir })).trim())
   }
 
   beforeAll(async () => {
-    repoDir = await mkdtemp(join(tmpdir(), "lens-ai-forbidden-"))
+    repoDir = await mkdtemp(join(tmpdir(), "walkdiff-ai-forbidden-"))
     await runGit(["init", "--quiet"], { cwd: repoDir })
   })
 
@@ -234,7 +234,7 @@ describe("reviewWithAi in a repository that forbids AI", () => {
     const headSha = await commitConfig(head)
     const provider = new FakeProvider(COMPLETION)
     const review = await reviewWithAi({ repoDir, base: baseSha, head: headSha, context: CONTEXT, provider, cacheDir: repoDir, maxInputTokens: 40_000 })
-    expect(review).toEqual({ status: "unavailable", reason: ".lens.json forbids sending this repository's code to a model" })
+    expect(review).toEqual({ status: "unavailable", reason: ".walkdiff.json forbids sending this repository's code to a model" })
     expect(provider.calls).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
-# lens
+# walkdiff
 
-A review companion for GitHub pull requests and GitLab merge requests. `lens review <url>` fetches the
+A review companion for GitHub pull requests and GitLab merge requests. `walkdiff review <url>` fetches the
 change, analyzes it, and serves a local report. (Working name; the project name is still an open decision.)
 
 Status: early release, [v0.1.0](CHANGELOG.md). To run it on your team's PRs, see the [pilot guide](docs/pilot.md).
@@ -53,20 +53,20 @@ Requires Node.js 22.18 or newer (it runs the TypeScript sources directly), pnpm 
 
 ```sh
 pnpm install
-pnpm lens review https://github.com/owner/repo/pull/123
-pnpm lens review https://gitlab.com/group/project/-/merge_requests/45 --no-serve --out ./report
+pnpm walkdiff review https://github.com/owner/repo/pull/123
+pnpm walkdiff review https://gitlab.com/group/project/-/merge_requests/45 --no-serve --out ./report
 ```
 
 Set `GITHUB_TOKEN` (or `GH_TOKEN`) and `GITLAB_TOKEN` for private repositories and higher API rate limits.
-GitHub Enterprise and self-managed GitLab work by URL; tokens go to them only once they're [trusted](docs/configuration.md#tokens-and-trusted-hosts). Run `pnpm lens --help` for all options.
+GitHub Enterprise and self-managed GitLab work by URL; tokens go to them only once they're [trusted](docs/configuration.md#tokens-and-trusted-hosts). Run `pnpm walkdiff --help` for all options.
 
 ## Keep track of several reviews
 
 ```sh
-pnpm lens app
+pnpm walkdiff app
 ```
 
-This runs a local page at `http://127.0.0.1:4317/`. Paste a pull request or merge request link to add it; analyses run one at a time, and the list shows each review's status, security level and counts. Refresh re-runs a review after new commits. The list is kept in SQLite under `~/.local/share/lens`, so it survives restarts. If `GITHUB_TOKEN` is not set, the app asks the GitHub CLI for its login on that PR's host.
+This runs a local page at `http://127.0.0.1:4317/`. Paste a pull request or merge request link to add it; analyses run one at a time, and the list shows each review's status, security level and counts. Refresh re-runs a review after new commits. The list is kept in SQLite under `~/.local/share/walkdiff`, so it survives restarts. If `GITHUB_TOKEN` is not set, the app asks the GitHub CLI for its login on that PR's host.
 
 The server listens only on your machine, refuses requests for any other host name, and its API needs a key that is created each run.
 
@@ -74,25 +74,25 @@ The server listens only on your machine, refuses requests for any other host nam
 
 Private repositories and merge requests work once a token is in the environment. It is used for both the host's API and fetching the code, and it stays out of the command line and the cached repository's config.
 
-**GitLab**: create a personal or project access token with the `read_api` and `read_repository` scopes (`api` if you will also post comments with `lens comment`):
+**GitLab**: create a personal or project access token with the `read_api` and `read_repository` scopes (`api` if you will also post comments with `walkdiff comment`):
 
 ```sh
-GITLAB_TOKEN=<token> pnpm lens review https://gitlab.com/group/project/-/merge_requests/123
+GITLAB_TOKEN=<token> pnpm walkdiff review https://gitlab.com/group/project/-/merge_requests/123
 ```
 
 **GitHub**: use a token that can read the repository. With the GitHub CLI:
 
 ```sh
-GH_TOKEN=$(gh auth token) pnpm lens review https://github.com/owner/repo/pull/123
+GH_TOKEN=$(gh auth token) pnpm walkdiff review https://github.com/owner/repo/pull/123
 ```
 
-`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables, once listed in `LENS_TRUSTED_GITLAB_HOSTS` or `LENS_TRUSTED_GITHUB_HOSTS`. Without a token, a private repository usually answers 404, and lens says which variable to set.
+`GITHUB_TOKEN` works too. Self-managed GitLab and GitHub Enterprise are recognized from the URL and use the same variables, once listed in `WALKDIFF_TRUSTED_GITLAB_HOSTS` or `WALKDIFF_TRUSTED_GITHUB_HOSTS`. Without a token, a private repository usually answers 404, and walkdiff says which variable to set.
 
 Tokens and code stay on your machine, apart from the host itself, package names and versions sent to [OSV](https://osv.dev) (`--offline` skips that), and the code sent to the model if you pass `--ai`.
 
 ## In CI
 
-The GitHub Action (`navasvarela/reviewlens@v0.1.0`) and the GitLab template (`ci/gitlab-ci.yml`) generate the report for each PR, keep it as a job artifact, and post one summary comment that is updated on each push. The [pilot guide](docs/pilot.md) has the setup. Locally, `lens review` also works without a URL inside a CI job, and `lens comment --report <dir> --report-url <url>` posts the summary.
+The GitHub Action (`navasvarela/walkdiff@v0.1.0`) and the GitLab template (`ci/gitlab-ci.yml`) generate the report for each PR, keep it as a job artifact, and post one summary comment that is updated on each push. The [pilot guide](docs/pilot.md) has the setup. Locally, `walkdiff review` also works without a URL inside a CI job, and `walkdiff comment --report <dir> --report-url <url>` posts the summary.
 
 ## AI review
 
@@ -100,11 +100,11 @@ The GitHub Action (`navasvarela/reviewlens@v0.1.0`) and the GitLab template (`ci
 `--ai-model` to change it) through the official Anthropic SDK. Credentials come from `ANTHROPIC_API_KEY`
 or an `ant auth login` profile. `--ai-max-input-tokens` (default 40,000, about $0.16 of input) caps the
 prompt; past it, units are sent by name only and the report says how many. Without `--ai`, nothing is
-sent. A repository can forbid AI review entirely with `"ai": { "allowed": false }` in `.lens.json`.
+sent. A repository can forbid AI review entirely with `"ai": { "allowed": false }` in `.walkdiff.json`.
 
 ## Security scanners
 
-Lens runs [Semgrep](https://semgrep.dev), [gitleaks](https://github.com/gitleaks/gitleaks) and
+Walkdiff runs [Semgrep](https://semgrep.dev), [gitleaks](https://github.com/gitleaks/gitleaks) and
 [osv-scanner](https://github.com/google/osv-scanner) when they are installed. All three are optional:
 the Risks tab lists each one under "Checks that ran" or under "Not checked", with how to install it.
 
@@ -123,17 +123,17 @@ Scanners read a temporary copy of the changed files, without your tokens in thei
 cannot silence them: `# nosemgrep` and `gitleaks:allow` comments are ignored, and scanner config files
 in the PR (`.gitleaks.toml`, `.semgrepignore` and others) are not used. Those files are not scanned either.
 
-Choose Semgrep's rules in `.lens.json`; an empty list turns Semgrep off:
+Choose Semgrep's rules in `.walkdiff.json`; an empty list turns Semgrep off:
 
 ```json
 { "scanners": { "semgrep": { "rules": ["p/default", "p/owasp-top-ten"] } } }
 ```
 
-CI runners need the scanners installed in the job before running Lens.
+CI runners need the scanners installed in the job before running Walkdiff.
 
 ## Code quality
 
-Lens flags poor implementations and bad practice in the code a PR adds, under the "Code quality"
+Walkdiff flags poor implementations and bad practice in the code a PR adds, under the "Code quality"
 category in the Risks tab. These findings never change the security level.
 
 **Function metrics** are built in and cover Rust, TypeScript and Python. A function is flagged when
@@ -160,14 +160,14 @@ npm install -g oxlint jscpd
 | oxlint | Likely bugs in TypeScript and JavaScript | Changed files |
 | jscpd | New code of 10 lines or more copied from elsewhere | All source at the PR's head, except tests |
 
-Lens uses its own rules for these scanners and does not read your `ruff.toml`, `.oxlintrc.json` or
+Walkdiff uses its own rules for these scanners and does not read your `ruff.toml`, `.oxlintrc.json` or
 `.jscpd.json`, whether they are in the PR or on the default branch. Comments such as `# noqa` and
 `eslint-disable` are still honoured, because each one is visible in the diff.
 
-Rust has no linter here: Clippy can run a PR's build scripts and macros, so Lens does not run it on
+Rust has no linter here: Clippy can run a PR's build scripts and macros, so Walkdiff does not run it on
 untrusted code. Design problems, such as a wrong abstraction, are for human or AI review.
 
-To turn all of this off for a repository, add this to `.lens.json` on the default branch:
+To turn all of this off for a repository, add this to `.walkdiff.json` on the default branch:
 
 ```json
 { "quality": { "enabled": false } }
@@ -175,7 +175,7 @@ To turn all of this off for a repository, add this to `.lens.json` on the defaul
 
 ## Team rules
 
-A `.lens.json` at the repository root adds sensitive areas, excludes paths from risk rules, and can
+A `.walkdiff.json` at the repository root adds sensitive areas, excludes paths from risk rules, and can
 forbid AI review. A PR is always judged by the version on its merge base, so its own edits to the file
 take effect only after merge, and are reported as a finding:
 
@@ -184,7 +184,7 @@ take effect only after merge, and are reported as a finding:
   "riskPaths": [{ "pattern": "src/ledger/**", "severity": "high", "reason": "Moves customer funds" }],
   "ignore": ["tests/fixtures/**"],
   "ai": { "allowed": true },
-  "feedback": { "url": "https://forms.example.com/reviewlens" }
+  "feedback": { "url": "https://forms.example.com/walkdiff" }
 }
 ```
 
@@ -192,7 +192,7 @@ take effect only after merge, and are reported as a finding:
 
 1. **Providers** (`packages/providers`) parse the URL and read the PR from the host's API, including its merge base.
 2. **Engine** (`packages/engine`) fetches only the merge-base and head commits (depth 1) into a cached bare
-   repository under `~/.cache/lens/repos`, builds the file list and hunks from `git diff`, classifies noise,
+   repository under `~/.cache/walkdiff/repos`, builds the file list and hunks from `git diff`, classifies noise,
    and parses both versions of each file with tree-sitter (WASM) to extract and compare units
    (`src/syntax`: one small spec per language, a shared walker, token fingerprints for comparison).
    `src/impact` then scans the head commit's source for the changed names and parses the matching files
@@ -211,7 +211,7 @@ take effect only after merge, and are reported as a finding:
 ```sh
 pnpm typecheck
 pnpm test
-pnpm --filter @lens/report-ui dev   # needs a review.json in packages/report-ui/public
+pnpm --filter @walkdiff/report-ui dev   # needs a review.json in packages/report-ui/public
 ```
 
 ## License

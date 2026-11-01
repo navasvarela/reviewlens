@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
-import { UnitKind } from "@lens/review-model"
-import type { ChangedUnit, OutlineEntry, UnitCall } from "@lens/review-model"
+import { UnitKind } from "@walkdiff/review-model"
+import type { ChangedUnit, OutlineEntry, UnitCall } from "@walkdiff/review-model"
 import { changeLabel, unitAnchorId, UNIT_KIND_LABELS } from "../unitChange.ts"
 
 // A map of one or two changes adds nothing the cards below do not already show.

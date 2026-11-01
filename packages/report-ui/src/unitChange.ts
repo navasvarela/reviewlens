@@ -1,5 +1,5 @@
-import { changedUnitsOf, isBehaviourChange, ModificationWeight, UnitChangeKind, UnitKind, untouchedReferences } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, UnitChange, UnitFacts } from "@lens/review-model"
+import { changedUnitsOf, isBehaviourChange, ModificationWeight, UnitChangeKind, UnitKind, untouchedReferences } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, UnitChange, UnitFacts } from "@walkdiff/review-model"
 
 export const Tone = { Added: "added", Removed: "removed", Modified: "modified", Quiet: "quiet" } as const
 export type Tone = (typeof Tone)[keyof typeof Tone]

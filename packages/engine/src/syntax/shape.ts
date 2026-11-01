@@ -1,4 +1,4 @@
-import type { UnitFacts } from "@lens/review-model"
+import type { UnitFacts } from "@walkdiff/review-model"
 import type { Node } from "web-tree-sitter"
 import type { ShapeGrammar } from "./languageSpec.ts"
 

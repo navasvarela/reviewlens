@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { ModificationWeight, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema, RiskCategory, RiskSeverity, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus, UnitKind } from "@lens/review-model"
-import type { ChangedFile, ChangedUnit, ReviewModel, Risk, UnitKind as UnitKindType } from "@lens/review-model"
+import { ModificationWeight, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema, RiskCategory, RiskSeverity, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus, UnitKind } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, ReviewModel, Risk, UnitKind as UnitKindType } from "@walkdiff/review-model"
 import { buildReviewPlan, GuideRouteKind, guideRouteFromHash } from "./reviewPlan.ts"
 
 const SNAPSHOT = { startLine: 1, endLine: 5, text: "body", elidesNestedUnits: false }

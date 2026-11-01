@@ -1,24 +1,24 @@
 # Troubleshooting
 
-Find the message you see, or the symptom below. If nothing here helps, [open an issue](https://github.com/navasvarela/reviewlens/issues) with the command you ran and the full error. Leave out tokens and private code.
+Find the message you see, or the symptom below. If nothing here helps, [open an issue](https://github.com/navasvarela/walkdiff/issues) with the command you ran and the full error. Leave out tokens and private code.
 
-## Starting Lens
+## Starting Walkdiff
 
 ### `ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND`
 
-You ran `pnpm lens` outside the Lens folder. Change to the folder where you cloned it, then run the command again.
+You ran `pnpm walkdiff` outside the Walkdiff folder. Change to the folder where you cloned it, then run the command again.
 
 ### `Port 4317 is in use`
 
 The app is probably already running, so open `http://127.0.0.1:4317/`. To run another copy, choose a different port:
 
 ```bash
-pnpm lens app --port 4318
+pnpm walkdiff app --port 4318
 ```
 
 ### `The report UI has not been built`
 
-This happens if you run `packages/cli/src/main.ts` directly. Use `pnpm lens`, which builds the page first, or run:
+This happens if you run `packages/cli/src/main.ts` directly. Use `pnpm walkdiff`, which builds the page first, or run:
 
 ```bash
 pnpm build:ui
@@ -26,7 +26,7 @@ pnpm build:ui
 
 ### Node.js errors on startup
 
-Lens needs Node.js 22.18 or newer. Check your version:
+Walkdiff needs Node.js 22.18 or newer. Check your version:
 
 ```bash
 node --version
@@ -52,19 +52,25 @@ For a private repository, this usually means the token is missing or can't read 
 3. For GitLab, check that the token has the `read_api` and `read_repository` scopes.
 4. For a GitHub organization that uses SSO, authorize the token for that organization.
 
-In the app, a token set in the terminal only applies if it was set before `pnpm lens app` started. Restart the app after changing it.
+In the app, a token set in the terminal only applies if it was set before `pnpm walkdiff app` started. Restart the app after changing it.
 
-### `Lens sent no token, because … is not a trusted host`
+### `Walkdiff sent no token, because … is not a trusted host`
 
-Lens doesn't send tokens to a host until you add it, so a private repository on GitHub Enterprise or self-managed GitLab fails until then. If you trust the host, add it and run the review again. See [Tokens and trusted hosts](configuration.md#tokens-and-trusted-hosts).
+Walkdiff doesn't send tokens to a host until you add it, so a private repository on GitHub Enterprise or self-managed GitLab fails until then. If you trust the host, add it and run the review again. See [Tokens and trusted hosts](configuration.md#tokens-and-trusted-hosts).
+
+### Upgrading from Lens
+
+- **Config:** `.lens.json` keeps working, and `.walkdiff.json` takes priority if both exist.
+- **Trusted hosts:** rename the variables to `WALKDIFF_TRUSTED_GITHUB_HOSTS` and `WALKDIFF_TRUSTED_GITLAB_HOSTS`. Until you do, Walkdiff sends no token to those hosts.
+- **Saved reviews:** the app starts with an empty list. The old data is still in `~/.local/share/lens`, and you can delete it and `~/.cache/lens`.
 
 ### `Not a host name in a trusted hosts variable`
 
-An entry in `LENS_TRUSTED_GITHUB_HOSTS` or `LENS_TRUSTED_GITLAB_HOSTS` isn't valid. Use comma-separated hosts, such as `git.acme.internal,git.acme.dev:8443`.
+An entry in `WALKDIFF_TRUSTED_GITHUB_HOSTS` or `WALKDIFF_TRUSTED_GITLAB_HOSTS` isn't valid. Use comma-separated hosts, such as `git.acme.internal,git.acme.dev:8443`.
 
 ### `refused a redirect to another host`, or git fails with a redirect error
 
-Lens doesn't follow a redirect to another host while it holds a token, so the token can't go with it. Use the link's final address. For a renamed or moved repository, use its current link.
+Walkdiff doesn't follow a redirect to another host while it holds a token, so the token can't go with it. Use the link's final address. For a renamed or moved repository, use its current link.
 
 ### `responded 403` from GitHub
 
@@ -72,40 +78,40 @@ You have probably hit the API rate limit, which is low without a token. Set `GIT
 
 ### `did not provide …; the branch may have been force-pushed`
 
-The commits Lens asked for are no longer on the host. Run the review again so it picks up the latest commits. If it's a review in the app, refresh it.
+The commits Walkdiff asked for are no longer on the host. Run the review again so it picks up the latest commits. If it's a review in the app, refresh it.
 
 ### `GitLab has not computed the diff … yet`
 
 Wait a moment and try again. This is common just after a merge request is opened.
 
-### `.lens.json is not valid JSON` or `.lens.json is invalid`
+### `.walkdiff.json is not valid JSON` or `.walkdiff.json is invalid`
 
-The repository's own `.lens.json` has a mistake, and the review stops until it's fixed. Lens reads the file from the PR's merge base, so fixing it in the PR doesn't help. Fix it on the target branch, then run the review again. The settings are listed in [Configuration](configuration.md#team-rules-lensjson).
+The repository's own `.walkdiff.json` has a mistake, and the review stops until it's fixed. Walkdiff reads the file from the PR's merge base, so fixing it in the PR doesn't help. Fix it on the target branch, then run the review again. The settings are listed in [Configuration](configuration.md#team-rules-walkdiffjson).
 
 ## The report
 
 ### The page is blank or stuck on "Loading review…"
 
 1. Reload the page.
-2. Check that the terminal running Lens is still open, because the address stops working when Lens stops.
-3. Generate the report again with `pnpm lens`, which also rebuilds the page.
+2. Check that the terminal running Walkdiff is still open, because the address stops working when Walkdiff stops.
+3. Generate the report again with `pnpm walkdiff`, which also rebuilds the page.
 4. If it's still blank, open the browser's developer console and include any error in your issue.
 
 ### The Changes tab shows a line diff instead of functions
 
-Lens only understands Rust, TypeScript, JavaScript and Python. Other languages get a line diff, and so do files over 1 MB and files that aren't text.
+Walkdiff only understands Rust, TypeScript, JavaScript and Python. Other languages get a line diff, and so do files over 1 MB and files that aren't text.
 
 ### A file is collapsed or marked as skippable
 
-Lens groups lockfiles, vendored code and generated files. A file counts as generated if its path suggests it, or if it has a `@generated` or `DO NOT EDIT` header. You can still expand it.
+Walkdiff groups lockfiles, vendored code and generated files. A file counts as generated if its path suggests it, or if it has a `@generated` or `DO NOT EDIT` header. You can still expand it.
 
 ### A function shows as removed and added
 
-Lens shows a function as removed and added when it was both moved and edited in the same PR. Moves without edits are folded away.
+Walkdiff shows a function as removed and added when it was both moved and edited in the same PR. Moves without edits are folded away.
 
 ### Impact shows a caller that isn't really a caller
 
-Lens finds references by name and syntax, not by resolving types, so another function with the same name can match. Check the confidence label:
+Walkdiff finds references by name and syntax, not by resolving types, so another function with the same name can match. Check the confidence label:
 
 - **Exact:** qualified with the type, such as `Size::new`.
 - **Likely:** a direct use of the name.
@@ -120,7 +126,7 @@ Names found in more than 200 files, such as `new` or `get`, aren't traced. Very 
 Check "Not checked" on the Risks tab first. Also note that:
 
 - Scanners only report problems on lines the PR added, so older problems don't appear.
-- Paths under `ignore` in `.lens.json` aren't checked.
+- Paths under `ignore` in `.walkdiff.json` aren't checked.
 - Lockfiles and vendored code aren't checked by the secret and code rules.
 
 A low level never means the change is safe.
@@ -129,26 +135,26 @@ A low level never means the change is safe.
 
 ### A scanner is listed under "Not checked" as not installed
 
-Install it and start Lens again:
+Install it and start Walkdiff again:
 
 ```bash
 brew install semgrep gitleaks osv-scanner
 ```
 
-If it's installed but still not found, Lens can't see it on your `PATH`. Check from the terminal that starts Lens:
+If it's installed but still not found, Walkdiff can't see it on your `PATH`. Check from the terminal that starts Walkdiff:
 
 ```bash
 which semgrep gitleaks osv-scanner
 ```
 
-When you start `pnpm lens app`, its log lists the scanners it found.
+When you start `pnpm walkdiff app`, its log lists the scanners it found.
 
 ### A scanner is listed as failed
 
 The reason shown is the first line of the scanner's error. The usual causes are:
 
 - **Semgrep can't download rules:** check your network or proxy. You can use `--offline` to skip it.
-- **A rule pack doesn't exist:** check `scanners.semgrep.rules` in `.lens.json`.
+- **A rule pack doesn't exist:** check `scanners.semgrep.rules` in `.walkdiff.json`.
 - **A very large PR:** each scanner stops after 5 minutes.
 
 ### `# nosemgrep` or `gitleaks:allow` doesn't hide a finding
@@ -157,11 +163,11 @@ This is on purpose, so that a PR can't hide its own findings. Scanner config fil
 
 ### A false alarm on one path
 
-Add the path to `ignore` in `.lens.json` on the target branch. This removes it from all risk checks, not only the one that raised the alarm.
+Add the path to `ignore` in `.walkdiff.json` on the target branch. This removes it from all risk checks, not only the one that raised the alarm.
 
 ### The same line has two findings
 
-A built-in rule and Semgrep can both flag one line, as with `shell=True`. Lens keeps both, in case they're about different problems. Repeated secrets on a line are merged into one.
+A built-in rule and Semgrep can both flag one line, as with `shell=True`. Walkdiff keeps both, in case they're about different problems. Repeated secrets on a line are merged into one.
 
 ## AI review
 
@@ -169,9 +175,9 @@ A built-in rule and Semgrep can both flag one line, as with `shell=True`. Lens k
 
 Set `ANTHROPIC_API_KEY`, or run `ant auth login`.
 
-### `.lens.json forbids sending this repository's code to a model`
+### `.walkdiff.json forbids sending this repository's code to a model`
 
-Either version of `.lens.json` (the merge base or the PR) has `"ai": { "allowed": false }`. Someone with access to the target branch has to change it.
+Either version of `.walkdiff.json` (the merge base or the PR) has `"ai": { "allowed": false }`. Someone with access to the target branch has to change it.
 
 ### `rate limited by the Anthropic API`
 
@@ -221,14 +227,14 @@ On GitHub, the link needs someone signed in with access to the repository. Artif
 
 ### Scanners are listed as not installed in CI
 
-CI runners don't have them by default. Install them in the job before Lens runs.
+CI runners don't have them by default. Install them in the job before Walkdiff runs.
 
 ## Starting fresh
 
 If a cached repository seems wrong, delete the cache. It's rebuilt on the next run:
 
 ```bash
-rm -rf ~/.cache/lens
+rm -rf ~/.cache/walkdiff
 ```
 
-Existing reports in the app stop opening until you refresh them. To also empty the app's review list, stop the app and delete `~/.local/share/lens/lens.db`.
+Existing reports in the app stop opening until you refresh them. To also empty the app's review list, stop the app and delete `~/.local/share/walkdiff/walkdiff.db`.

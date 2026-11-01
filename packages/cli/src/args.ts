@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util"
 
 export const USAGE = `Usage:
-  lens review [pull-request-url] [options]
-  lens comment --report <dir> --report-url <url>
-  lens app [options]
+  walkdiff review [pull-request-url] [options]
+  walkdiff comment --report <dir> --report-url <url>
+  walkdiff app [options]
 
 review analyzes a GitHub pull request or GitLab merge request and serves a local report.
 In GitHub Actions or a GitLab merge request pipeline the URL comes from the environment.
@@ -22,8 +22,8 @@ Options:
   --ai-model <id>    Model for --ai (default: claude-opus-5-5)
   --ai-max-input-tokens <n>
                      Prompt budget for --ai (default: 40000); larger PRs are summarized
-  --cache-dir <dir>  Where repositories and reports are cached (default: ~/.cache/lens)
-  --data-dir <dir>   With app: where the review list is stored (default: ~/.local/share/lens)
+  --cache-dir <dir>  Where repositories and reports are cached (default: ~/.cache/walkdiff)
+  --data-dir <dir>   With app: where the review list is stored (default: ~/.local/share/walkdiff)
   --report <dir>     With comment: the directory review wrote (--out)
   --report-url <url> With comment: where reviewers can open the report
   -h, --help         Show this help
@@ -31,12 +31,12 @@ Options:
 Environment:
   GITHUB_TOKEN, GH_TOKEN   Token for GitHub (required for private repositories)
   GITLAB_TOKEN             Token for GitLab (required for private projects)
-  LENS_TRUSTED_GITHUB_HOSTS, LENS_TRUSTED_GITLAB_HOSTS
+  WALKDIFF_TRUSTED_GITHUB_HOSTS, WALKDIFF_TRUSTED_GITLAB_HOSTS
                            Comma-separated hosts besides github.com and gitlab.com that
                            may receive those tokens, such as git.acme.internal
   ANTHROPIC_API_KEY        Credential for --ai (or an \`ant auth login\` profile)
 
-Troubleshooting: https://github.com/navasvarela/reviewlens/blob/main/docs/troubleshooting.md`
+Troubleshooting: https://github.com/navasvarela/walkdiff/blob/main/docs/troubleshooting.md`
 
 const MAX_PORT = 65_535
 // About $0.16 of input on Claude Opus 5.5; enough for the full text of most PRs' changed units.
