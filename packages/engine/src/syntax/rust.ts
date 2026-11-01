@@ -1,6 +1,6 @@
 import { SourceLanguage, UnitKind } from "@walkdiff/review-model"
 import type { Node } from "web-tree-sitter"
-import { classifyWithGrammar, isBindingWithGrammar, namedDefinition } from "./languageSpec.ts"
+import { classifyWithGrammar, isBindingWithGrammar, namedDefinition, ParameterKind } from "./languageSpec.ts"
 import type { ContainerContext, DefinitionHeader, IdentifierGrammar, LanguageSpec } from "./languageSpec.ts"
 
 const KIND_BY_NODE_TYPE: ReadonlyMap<string, UnitKind> = new Map([
@@ -72,6 +72,7 @@ export const rustSpec: LanguageSpec = {
   },
 
   normalizeLeaf: (leaf) => leaf.text,
+  publicDefinitions: () => isPublicItem,
   identifierTypes: new Set(["identifier", "field_identifier", "type_identifier"]),
   classifyIdentifier: (leaf) => classifyWithGrammar(leaf, IDENTIFIER_GRAMMAR),
   selfReceivers: new Set(["self", "Self"]),
@@ -81,6 +82,7 @@ export const rustSpec: LanguageSpec = {
   isImplicitlyInvoked: (methodName) => methodName === "drop",
   shape: {
     functionNode: (definition) => definition,
+    parameterKind: (parameter) => (parameter.type === "self_parameter" ? ParameterKind.Receiver : parameter.type === "variadic_parameter" ? ParameterKind.Rest : ParameterKind.Required),
     calls: new Map([
       ["call_expression", { calleeField: "function", suffix: "" }],
       ["macro_invocation", { calleeField: "macro", suffix: "!" }],
@@ -92,6 +94,15 @@ export const rustSpec: LanguageSpec = {
     logicalTypes: ["binary_expression"],
     logicalOperators: new Set(["&&", "||"]),
   },
+}
+
+// Only a bare `pub` reaches other crates; `pub(crate)` and `pub(super)` stay inside this one.
+function isPublicItem(node: Node, _name: string, container: ContainerContext | undefined): boolean {
+  // A trait's methods are as public as the trait. A trait impl's signatures are set by the trait,
+  // so the impl block is passed through and its methods are not API of their own.
+  if (container?.kind === UnitKind.Trait || node.type === "impl_item") return true
+  if (container?.kind === UnitKind.Impl && node.parent?.parent?.childForFieldName("trait") !== null) return false
+  return node.namedChildren.some((child) => child?.type === "visibility_modifier" && child.text === "pub")
 }
 
 function describeImpl(node: Node): DefinitionHeader | undefined {

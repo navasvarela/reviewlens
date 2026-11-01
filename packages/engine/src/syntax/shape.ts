@@ -1,16 +1,26 @@
 import type { UnitFacts } from "@walkdiff/review-model"
 import type { Node } from "web-tree-sitter"
+import { ParameterKind } from "./languageSpec.ts"
 import type { ShapeGrammar } from "./languageSpec.ts"
 
 /** A function's outward form and control flow, enough to state what an edit changed. */
 export interface UnitShape {
   /** Parameter name → its full text, so a changed type or default shows under the same name. */
   readonly parameters: ReadonlyMap<string, string>
+  /** The same parameters in order, with what a caller must supply for each. */
+  readonly signature: readonly SignatureParameter[]
   readonly returnType: string | null
   readonly calls: ReadonlySet<string>
   readonly errorPaths: number
   readonly branches: number
   readonly metrics: FunctionMetrics
+}
+
+export interface SignatureParameter {
+  readonly name: string
+  readonly kind: ParameterKind
+  /** The declared type; null where the parameter has none. */
+  readonly type: string | null
 }
 
 /** How hard a function is to read, for spotting when a change makes one worse. */
@@ -28,18 +38,20 @@ export interface FunctionMetrics {
 const MAX_CALLEE_TEXT = 40
 const LAST_SEGMENT = /[\p{L}\p{N}_$]+$/u
 // `self`, `&self`, `&mut self` and `cls` are how a method is called, not something a caller passes.
-const RECEIVER_PARAMETER = /\b(self|cls)$/
+const RECEIVER_PARAMETER = /\b(self|cls)$|^this$/
 
 export function extractShape(grammar: ShapeGrammar, definition: Node): UnitShape {
   const fn = grammar.functionNode(definition)
   const calls = callNames(grammar, fn)
   const bailOuts = calls.list.filter((name) => grammar.errorCalls.has(name)).length
-  const parameters = parametersOf(fn)
+  const parameterNodes = parameterNodesOf(fn)
+  const parameters = new Map(parameterNodes.map((node) => [squeeze(parameterName(node)), squeeze(node.text)]))
   const branches = fn.descendantsOfType([...grammar.branchTypes]).length
   return {
     parameters,
+    signature: parameterNodes.map((node) => signatureParameter(grammar, node)),
     // TypeScript's return type node includes its leading colon.
-    returnType: squeeze(fn.childForFieldName("return_type")?.text ?? "").replace(/^:\s*/, "") || null,
+    returnType: typeText(fn.childForFieldName("return_type")),
     calls: new Set(calls.list),
     errorPaths: fn.descendantsOfType([...grammar.errorTypes]).length + bailOuts,
     branches,
@@ -96,17 +108,22 @@ export function factsBetween(before: UnitShape, after: UnitShape): UnitFacts | n
   return hasAny ? facts : null
 }
 
-function parametersOf(fn: Node): Map<string, string> {
+function parameterNodesOf(fn: Node): Node[] {
   const list = fn.childForFieldName("parameters")
   // `x => x + 1` has a single parameter and no list around it.
   const single = fn.childForFieldName("parameter")
   const nodes = list === null ? (single === null ? [] : [single]) : list.namedChildren
-  const parameters = new Map<string, string>()
-  for (const node of nodes) {
-    if (node === null || node.type.includes("comment")) continue
-    parameters.set(squeeze(parameterName(node)), squeeze(node.text))
-  }
-  return parameters
+  return nodes.filter((node): node is Node => node !== null && !node.type.includes("comment"))
+}
+
+function signatureParameter(grammar: ShapeGrammar, node: Node): SignatureParameter {
+  const name = squeeze(parameterName(node)).replace(/^\*+/, "")
+  const kind = RECEIVER_PARAMETER.test(name) ? ParameterKind.Receiver : grammar.parameterKind(node)
+  return { name, kind, type: typeText(node.childForFieldName("type")) }
+}
+
+function typeText(node: Node | null): string | null {
+  return squeeze(node?.text ?? "").replace(/^:\s*/, "") || null
 }
 
 function parameterName(node: Node): string {

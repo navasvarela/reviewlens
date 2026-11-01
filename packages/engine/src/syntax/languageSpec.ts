@@ -13,6 +13,8 @@ export interface ContainerContext {
   readonly kind: UnitKind
   /** Prefix for children's qualified names, e.g. `<Foo as Display>` for a Rust trait impl. */
   readonly childPrefix: string
+  /** False when nothing outside the container's file or module can reach its children. */
+  readonly isPublic: boolean
 }
 
 /**
@@ -37,6 +39,8 @@ export interface LanguageSpec {
   childPrefix(header: DefinitionHeader, node: Node, qualifiedName: string): string
   /** Rewrites a leaf token whose spelling carries no meaning, e.g. TypeScript quote style. */
   normalizeLeaf(leaf: Node): string
+  /** Says whether the language's own rules expose a definition, given the file's root. */
+  publicDefinitions(root: Node): PublicDefinitionTest
   /** Leaf node types that can name a unit where it is used: identifiers, field and type names. */
   readonly identifierTypes: ReadonlySet<string>
   /** How an identifier leaf is used; undefined when it declares a name rather than using one. */
@@ -55,10 +59,30 @@ export interface LanguageSpec {
   readonly shape: ShapeGrammar
 }
 
+export type PublicDefinitionTest = (node: Node, name: string, container: ContainerContext | undefined) => boolean
+
+/** How a caller supplies a parameter, or a marker in the list that changes how later ones are supplied. */
+export const ParameterKind = {
+  Required: "required",
+  Optional: "optional",
+  /** Takes any number of positional arguments: `...rest`, `*args`. */
+  Rest: "rest",
+  /** Takes any number of named arguments: `**kwargs`. */
+  KeywordRest: "keywordRest",
+  /** Supplied by the call's form rather than an argument: `self`, `this`. */
+  Receiver: "receiver",
+  /** Python's bare `*`: the parameters after it can only be passed by keyword. */
+  KeywordOnlyMarker: "keywordOnlyMarker",
+  /** Python's `/`: the parameters before it can only be passed by position. */
+  PositionalOnlyMarker: "positionalOnlyMarker",
+} as const
+export type ParameterKind = (typeof ParameterKind)[keyof typeof ParameterKind]
+
 /** How to read a function's parameters, calls, error paths and branches from its syntax. */
 export interface ShapeGrammar {
   /** The node holding the parameters; differs from the definition for `const f = () => {}`. */
   functionNode(definition: Node): Node
+  parameterKind(parameter: Node): ParameterKind
   /** Call node type → the field naming what is called, and text appended to that name. */
   readonly calls: ReadonlyMap<string, CallSyntax>
   /** Calls that bail out, such as Rust's `panic!`, named as `calls` renders them. */

@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 10
+export const REVIEW_MODEL_SCHEMA_VERSION = 11
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -336,6 +336,8 @@ export const RiskCategory = {
   Tests: "tests",
   Size: "size",
   BrokenReference: "brokenReference",
+  /** Could break other code or a deployment: a public API, a migration or a config key. */
+  BreakingChange: "breakingChange",
 } as const
 export type RiskCategory = (typeof RiskCategory)[keyof typeof RiskCategory]
 
@@ -355,6 +357,8 @@ export const riskSchema = z.object({
   location: riskLocationSchema.nullable(),
   /** The triggering line, with any secret redacted. */
   evidence: z.string().nullable(),
+  /** The changed unit this is about, for when no line can say: a removed function has none at head. */
+  unit: z.string().optional(),
 })
 export type Risk = z.infer<typeof riskSchema>
 

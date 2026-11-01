@@ -298,14 +298,14 @@ function StopCode({ stop }: { readonly stop: ReviewStop }): ReactElement {
   const item = stopItems(stop).at(0)
   const earlier = item === undefined ? undefined : stateAtOpen.reviewed.get(item.id)
   const isOutdated = item !== undefined && earlier !== undefined && earlier.fingerprint !== item.fingerprint
-  if (!isOutdated || earlier.snapshot === null || item.snapshot === null) return <UnitBody unit={stop.unit} />
+  if (!isOutdated || earlier.snapshot === null || item.snapshot === null) return <UnitBody path={stop.file.diff.path} unit={stop.unit} />
   return (
     <>
       <p className="guide-since">Since you reviewed it</p>
-      <SideBySide before={earlier.snapshot} after={item.snapshot} numbered={!earlier.snapshot.elidesNestedUnits && !item.snapshot.elidesNestedUnits} />
+      <SideBySide path={stop.file.diff.path} before={earlier.snapshot} after={item.snapshot} numbered={!earlier.snapshot.elidesNestedUnits && !item.snapshot.elidesNestedUnits} />
       <details className="guide-section guide-details">
         <summary>The whole change in this PR</summary>
-        <UnitBody unit={stop.unit} />
+        <UnitBody path={stop.file.diff.path} unit={stop.unit} />
       </details>
     </>
   )

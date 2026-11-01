@@ -58,6 +58,6 @@ function wordMatcher(names: readonly string[]): RegExp {
   return new RegExp(`(?<!${IDENTIFIER_CHAR})(?:${alternatives.join("|")})(?!${IDENTIFIER_CHAR})`, "gu")
 }
 
-function escapeRegExp(text: string): string {
+export function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
