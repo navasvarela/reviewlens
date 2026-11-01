@@ -174,6 +174,8 @@ function takeMatches(
   matches: (from: Located, to: Located) => boolean,
 ): [Located, Located][] {
   const pairs: [Located, Located][] = []
+  // The copy is load-bearing: this loop removes from `froms`, and walking it directly would skip items.
+  // oxlint-disable-next-line unicorn/no-useless-spread
   for (const from of [...froms]) {
     const toIndex = tos.findIndex((to) => matches(from, to))
     const to = tos.at(toIndex)
