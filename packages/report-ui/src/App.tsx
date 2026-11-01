@@ -12,8 +12,8 @@ import { RiskView } from "./components/RiskView.tsx"
 import { loadReview } from "./loadReview.ts"
 import type { ReviewLoad } from "./loadReview.ts"
 import { findingsInFile } from "./risks.ts"
-import { buildReviewPlan, guideRouteFromHash, REVIEW_HASH } from "./reviewPlan.ts"
-import { overallProgress, pathProgress } from "./reviewProgress.ts"
+import { guideRouteFromHash, REVIEW_HASH } from "./reviewPlan.ts"
+import { overallProgress, pathProgress, reviewPlanFor } from "./reviewProgress.ts"
 import { ReviewStateProvider, useReviewState } from "./reviewState.tsx"
 import { ReportTab, summarizeTabs, tabFromHash } from "./tabs.ts"
 
@@ -43,7 +43,7 @@ function Routed({ review }: ReportProps): ReactElement {
     return () => window.removeEventListener("hashchange", followHash)
   }, [])
   const route = guideRouteFromHash(hash)
-  return <ReviewStateProvider headSha={review.pullRequest.headSha}>{route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />}</ReviewStateProvider>
+  return <ReviewStateProvider review={review}>{route === undefined ? <Report review={review} /> : <ReviewGuide review={review} route={route} />}</ReviewStateProvider>
 }
 
 interface ReportProps {
@@ -52,8 +52,8 @@ interface ReportProps {
 
 /** Keeps the guided review in view from the full lists, as both are one review. */
 function ReviewBar({ review }: ReportProps): ReactElement {
-  const { state } = useReviewState()
-  const plan = useMemo(() => buildReviewPlan(review), [review])
+  const { state, changedAtOpen } = useReviewState()
+  const plan = useMemo(() => reviewPlanFor(review, changedAtOpen), [review, changedAtOpen])
   const path = pathProgress(plan, state)
   const overall = overallProgress(review.files, state)
   return (

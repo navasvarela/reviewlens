@@ -5,7 +5,8 @@
 #
 # Set GITLAB_TOKEN as a masked CI/CD variable: a project access token with the `api` scope
 # (CI_JOB_TOKEN cannot read merge request details or post notes). For AI review, also set
-# ANTHROPIC_API_KEY and WALKDIFF_AI to "true".
+# ANTHROPIC_API_KEY and WALKDIFF_AI to "true". For another provider, set WALKDIFF_AI_PROVIDER to
+# openai-compatible, plus WALKDIFF_AI_MODEL, WALKDIFF_AI_BASE_URL and WALKDIFF_AI_API_KEY.
 
 walkdiff:
   stage: test
@@ -18,6 +19,11 @@ walkdiff:
   variables:
     WALKDIFF_REF: v0.2.0
     WALKDIFF_AI: "false"
+    WALKDIFF_AI_PROVIDER: "anthropic"
+    WALKDIFF_AI_MODEL: ""
+    WALKDIFF_AI_BASE_URL: ""
+    # Path to an LCOV or Cobertura report from an earlier job, relative to the project.
+    WALKDIFF_COVERAGE: ""
     # The job reads commits through the API-authenticated fetch; it needs no checkout.
     GIT_STRATEGY: none
   script:
@@ -28,7 +34,10 @@ walkdiff:
     - pnpm build:ui
     - |
       set -- review --no-serve --out "$CI_PROJECT_DIR/walkdiff-report"
-      if [ "$WALKDIFF_AI" = "true" ]; then set -- "$@" --ai; fi
+      if [ "$WALKDIFF_AI" = "true" ]; then set -- "$@" --ai --ai-provider "$WALKDIFF_AI_PROVIDER"; fi
+      if [ "$WALKDIFF_AI" = "true" ] && [ -n "$WALKDIFF_AI_MODEL" ]; then set -- "$@" --ai-model "$WALKDIFF_AI_MODEL"; fi
+      if [ "$WALKDIFF_AI" = "true" ] && [ -n "$WALKDIFF_AI_BASE_URL" ]; then set -- "$@" --ai-base-url "$WALKDIFF_AI_BASE_URL"; fi
+      if [ -n "$WALKDIFF_COVERAGE" ]; then set -- "$@" --coverage "$CI_PROJECT_DIR/$WALKDIFF_COVERAGE"; fi
       node packages/cli/src/main.ts "$@"
     - node packages/cli/src/main.ts comment --report "$CI_PROJECT_DIR/walkdiff-report" --report-url "$CI_JOB_URL/artifacts/file/walkdiff-report/index.html"
   artifacts:

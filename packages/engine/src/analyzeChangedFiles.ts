@@ -1,5 +1,5 @@
 import { FileChangeStatus, FileContentKind, SyntaxAnalysisStatus } from "@walkdiff/review-model"
-import type { ChangedFile, ChangedUnit, CommitSha, ComparedUnit, FileDiff, FileNoise, RiskAssessment, SyntaxAnalysis } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, CheckId, CommitSha, ComparedUnit, FileDiff, FileNoise, RiskAssessment, SyntaxAnalysis } from "@walkdiff/review-model"
 import { readBlobs } from "./blobs.ts"
 import type { BlobRequest } from "./blobs.ts"
 import { collectFileDiffs } from "./changedFiles.ts"
@@ -36,6 +36,8 @@ export interface AnalysisOptions {
   readonly network: boolean
   /** Runs third-party scanners; tests replace it. */
   readonly runScanner?: ScannerProcessRunner
+  /** Checks the person turned off in their settings. */
+  readonly disabledChecks?: readonly CheckId[]
 }
 
 export interface PullRequestAnalysis {
@@ -76,6 +78,7 @@ export async function analyzeChangedFiles(
     functions: functionQualities(versions.filter((version): version is FileVersions => version !== undefined)),
     network: options.network,
     runScanner: options.runScanner ?? runScannerProcess,
+    disabledChecks: new Set(options.disabledChecks),
   })
   return { files, risk }
 }

@@ -1,4 +1,6 @@
 import { parseArgs } from "node:util"
+import { AiProviderKind, aiSettingsSchema, DEFAULT_AI_MAX_INPUT_TOKENS, DEFAULT_AI_MODEL } from "@walkdiff/review-model"
+import type { AiSettings } from "@walkdiff/review-model"
 
 export const USAGE = `Usage:
   walkdiff review [pull-request-url] [options]
@@ -19,9 +21,14 @@ Options:
   --offline          Skip network checks (dependency vulnerability lookups in OSV)
   --ai               Add an AI review (reading order, intent check, questions); sends the
                      changed code to the model provider. Off by default.
+  --ai-provider <p>  anthropic (default), or openai-compatible for OpenAI, other services and
+                     local models such as Ollama
+  --ai-base-url <u>  With openai-compatible: the address, such as http://localhost:11434/v1
   --ai-model <id>    Model for --ai (default: claude-opus-5-5)
   --ai-max-input-tokens <n>
                      Prompt budget for --ai (default: 40000); larger PRs are summarized
+  --coverage <file>  With review: an LCOV or Cobertura report, to show whether changed lines
+                     ran in tests
   --cache-dir <dir>  Where repositories and reports are cached (default: ~/.cache/walkdiff)
   --data-dir <dir>   With app: where the review list is stored (default: ~/.local/share/walkdiff)
   --report <dir>     With comment: the directory review wrote (--out)
@@ -34,14 +41,12 @@ Environment:
   WALKDIFF_TRUSTED_GITHUB_HOSTS, WALKDIFF_TRUSTED_GITLAB_HOSTS
                            Comma-separated hosts besides github.com and gitlab.com that
                            may receive those tokens, such as git.acme.internal
-  ANTHROPIC_API_KEY        Credential for --ai (or an \`ant auth login\` profile)
+  ANTHROPIC_API_KEY        Key for --ai with Anthropic (or an \`ant auth login\` profile)
+  WALKDIFF_AI_API_KEY      Key for --ai with an OpenAI-compatible provider
 
 Troubleshooting: https://github.com/navasvarela/walkdiff/blob/main/docs/troubleshooting.md`
 
 const MAX_PORT = 65_535
-// About $0.16 of input on Claude Opus 5.5; enough for the full text of most PRs' changed units.
-export const DEFAULT_AI_MAX_INPUT_TOKENS = 40_000
-export const DEFAULT_AI_MODEL = "claude-opus-5-5"
 // Fixed so the list page has an address worth bookmarking.
 const DEFAULT_APP_PORT = 4317
 
@@ -55,14 +60,13 @@ export interface ReviewOptions {
   readonly cacheDir: string | undefined
   /** False when --offline: no package names or versions leave the machine. */
   readonly network: boolean
+  /** A coverage report to read; undefined leaves test evidence to changed tests alone. */
+  readonly coveragePath: string | undefined
   /** Undefined unless --ai: no code is sent to a model without it. */
   readonly ai: AiOptions | undefined
 }
 
-export interface AiOptions {
-  readonly model: string
-  readonly maxInputTokens: number
-}
+export type AiOptions = AiSettings
 
 export interface CommentOptions {
   readonly reportDir: string
@@ -98,11 +102,14 @@ export function parseCommand(argv: readonly string[]): Command {
       offline: { type: "boolean", default: false },
       ai: { type: "boolean", default: false },
       "ai-model": { type: "string" },
+      "ai-provider": { type: "string" },
+      "ai-base-url": { type: "string" },
       "ai-max-input-tokens": { type: "string" },
       "data-dir": { type: "string" },
       report: { type: "string" },
       "report-url": { type: "string" },
       "cache-dir": { type: "string" },
+      coverage: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   })
@@ -141,15 +148,30 @@ export function parseCommand(argv: readonly string[]): Command {
       serve: values.serve,
       cacheDir: values["cache-dir"],
       network: !values.offline,
-      ai: values.ai
-        ? {
-            model: values["ai-model"] ?? DEFAULT_AI_MODEL,
-            maxInputTokens:
-              values["ai-max-input-tokens"] === undefined ? DEFAULT_AI_MAX_INPUT_TOKENS : parsePositiveInteger(values["ai-max-input-tokens"], "--ai-max-input-tokens"),
-          }
-        : undefined,
+      coveragePath: values.coverage,
+      ai: values.ai ? parseAiOptions(values["ai-provider"], values["ai-model"], values["ai-base-url"], values["ai-max-input-tokens"]) : undefined,
     },
   }
+}
+
+const AI_PROVIDER_FLAGS: ReadonlyMap<string, AiProviderKind> = new Map([
+  ["anthropic", AiProviderKind.Anthropic],
+  ["openai-compatible", AiProviderKind.OpenAiCompatible],
+])
+
+function parseAiOptions(providerFlag: string | undefined, model: string | undefined, baseUrl: string | undefined, maxInputTokens: string | undefined): AiOptions {
+  const provider = AI_PROVIDER_FLAGS.get(providerFlag ?? "anthropic")
+  if (provider === undefined) throw new UsageError(`--ai-provider must be anthropic or openai-compatible, got "${providerFlag ?? ""}"`)
+  if (provider === AiProviderKind.OpenAiCompatible && model === undefined) throw new UsageError("--ai-provider openai-compatible needs --ai-model")
+  const parsed = aiSettingsSchema.safeParse({
+    provider,
+    model: model ?? DEFAULT_AI_MODEL,
+    baseUrl: baseUrl ?? null,
+    maxInputTokens: maxInputTokens === undefined ? DEFAULT_AI_MAX_INPUT_TOKENS : parsePositiveInteger(maxInputTokens, "--ai-max-input-tokens"),
+    enabledByDefault: false,
+  })
+  if (!parsed.success) throw new UsageError(`--ai-base-url: ${parsed.error.issues.at(0)?.message ?? "invalid"}`)
+  return parsed.data
 }
 
 function parseCommentOptions(reportDir: string | undefined, reportUrl: string | undefined): CommentOptions {

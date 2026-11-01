@@ -196,3 +196,166 @@ button:disabled {
 .status-failed {
   color: var(--high-text);
 }
+
+.page-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.settings-lede,
+.settings-hint {
+  color: var(--text-muted);
+}
+
+.settings-lede {
+  margin: 0 0 20px;
+}
+
+.settings-hint {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+.settings-card {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.settings-card h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+
+.check-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.check-label {
+  display: flex;
+  flex: 1 1 320px;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.check-label input {
+  margin-top: 4px;
+}
+
+.check-purpose,
+.check-sends {
+  display: block;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.check-sends {
+  font-size: 13px;
+  font-style: italic;
+}
+
+.check-missing {
+  color: var(--medium-text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.check-ready,
+.settings-saved {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.settings-field {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.settings-field input,
+.settings-field select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-key {
+  margin: 4px 0 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.settings-check {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  cursor: pointer;
+}
+
+.settings-test,
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-actions .primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.privacy-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.privacy-table th,
+.privacy-table td {
+  padding: 8px 10px 8px 0;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.privacy-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .settings-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}

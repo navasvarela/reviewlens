@@ -1,35 +1,42 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react"
 import type { ReactElement, ReactNode } from "react"
-import { EMPTY_REVIEW_STATE, parseSavedState, serializeState, withComment, withReviewed } from "./reviewProgress.ts"
-import type { ReviewState } from "./reviewProgress.ts"
+import type { ReviewModel } from "@walkdiff/review-model"
+import { changedSinceReview, EMPTY_REVIEW_STATE, parseSavedState, serializeState, withComment, withReviewed } from "./reviewProgress.ts"
+import type { ReviewItem, ReviewState } from "./reviewProgress.ts"
 
 const STORAGE_KEY_PREFIX = "walkdiff-review:"
 
 export interface ReviewStateActions {
   readonly state: ReviewState
-  readonly setReviewed: (ids: readonly string[], reviewed: boolean) => void
+  /** What had changed when the page opened. It stays put, so the path doesn't move during a review. */
+  readonly changedAtOpen: readonly ReviewItem[]
+  /** The record as it was when the page opened, for showing what changed since. */
+  readonly stateAtOpen: ReviewState
+  readonly setReviewed: (items: readonly ReviewItem[], reviewed: boolean) => void
   readonly setComment: (id: string, text: string) => void
 }
 
-const ReviewStateContext = createContext<ReviewStateActions>({ state: EMPTY_REVIEW_STATE, setReviewed: () => undefined, setComment: () => undefined })
+const ReviewStateContext = createContext<ReviewStateActions>({ state: EMPTY_REVIEW_STATE, changedAtOpen: [], stateAtOpen: EMPTY_REVIEW_STATE, setReviewed: () => undefined, setComment: () => undefined })
 
 export function useReviewState(): ReviewStateActions {
   return useContext(ReviewStateContext)
 }
 
 interface ReviewStateProviderProps {
-  readonly headSha: string
+  readonly review: ReviewModel
   readonly children: ReactNode
 }
 
 /**
- * Keeps progress and comments in this browser, by commit, so a new push starts afresh until
- * "Changes since my last review" can carry ticks across. Storage can be unavailable, as in a
- * private window or some reports opened from disk: the review then lasts until the page closes.
+ * Keeps progress and comments in this browser, per pull request, so they survive a new push.
+ * Storage can be unavailable or full, as in a private window or some reports opened from disk:
+ * the review then lasts until the page closes.
  */
-export function ReviewStateProvider({ headSha, children }: ReviewStateProviderProps): ReactElement {
-  const key = `${STORAGE_KEY_PREFIX}${headSha}`
-  const [state, setState] = useState(() => parseSavedState(readStorage(key)))
+export function ReviewStateProvider({ review, children }: ReviewStateProviderProps): ReactElement {
+  const key = `${STORAGE_KEY_PREFIX}${review.pullRequest.url}`
+  const [stateAtOpen] = useState(() => parseSavedState(readStorage(key)))
+  const [state, setState] = useState(stateAtOpen)
+  const changedAtOpen = useMemo(() => changedSinceReview(review.files, stateAtOpen), [review.files, stateAtOpen])
   const update = useCallback(
     (change: (current: ReviewState) => ReviewState): void => {
       setState((current) => {
@@ -43,10 +50,12 @@ export function ReviewStateProvider({ headSha, children }: ReviewStateProviderPr
   const value = useMemo(
     () => ({
       state,
-      setReviewed: (ids: readonly string[], reviewed: boolean): void => update((current) => withReviewed(current, ids, reviewed)),
+      changedAtOpen,
+      stateAtOpen,
+      setReviewed: (items: readonly ReviewItem[], reviewed: boolean): void => update((current) => withReviewed(current, items, reviewed)),
       setComment: (id: string, text: string): void => update((current) => withComment(current, id, text)),
     }),
-    [state, update],
+    [state, changedAtOpen, stateAtOpen, update],
   )
   return <ReviewStateContext.Provider value={value}>{children}</ReviewStateContext.Provider>
 }

@@ -113,6 +113,14 @@ describe("runCodeScanners", () => {
     expect(offline.notChecked.at(0)?.reason).toContain("offline")
   })
 
+  it("skips a check the person turned off, and says so instead of pretending it ran", async () => {
+    const { run, seen } = fakeScanners({ semgrep: { exitCode: 0, stdout: '{"results":[]}', stderr: "" }, gitleaks: [] })
+    const { notChecked, checksRun } = await runCodeScanners({ ...request([modifiedFile("a.py", "x", [1])], run), disabled: new Set(["semgrep"]) })
+    expect(notChecked).toEqual([{ check: "Semgrep code scan", reason: "turned off in your settings" }])
+    expect(checksRun.map((check) => check.name)).toEqual(["gitleaks"])
+    expect(seen.has("semgrep")).toBe(false)
+  })
+
   it("reports a scanner that fails, rather than implying it found nothing", async () => {
     const { run } = fakeScanners({ semgrep: { exitCode: 2, stdout: "", stderr: "\nInvalid rule\nmore" }, gitleaks: [] })
     const { notChecked, checksRun } = await runCodeScanners(request([modifiedFile("a.py", "x", [1])], run))

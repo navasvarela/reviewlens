@@ -1,7 +1,6 @@
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { findInstalledScanners } from "@walkdiff/engine"
-import { DEFAULT_AI_MAX_INPUT_TOKENS, DEFAULT_AI_MODEL } from "./args.ts"
 import type { AppOptions } from "./args.ts"
 import { startAppServer } from "./app/appServer.ts"
 import { ReviewService } from "./app/reviewService.ts"
@@ -29,9 +28,10 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
   const service = new ReviewService(
     store,
     async (ref, ai) => {
+      const settings = store.getSettings()
       const model = await analyzePullRequest(
         ref,
-        { network: options.network, ai: ai ? { model: DEFAULT_AI_MODEL, maxInputTokens: DEFAULT_AI_MAX_INPUT_TOKENS } : undefined },
+        { network: options.network, coveragePath: undefined, ai: ai ? settings.ai : undefined, disabledChecks: settings.disabledChecks },
         // Looked up per PR, so a token is only ever asked for the host it belongs to.
         { tokens: await hostTokensFor(ref, deps.env, runCommand), cacheDir, now: deps.now, log: deps.log },
       )
@@ -41,7 +41,7 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
     },
     deps.log,
   )
-  const server = await startAppServer(store, service, { port: options.port, log: deps.log })
+  const server = await startAppServer(store, service, { port: options.port, log: deps.log, env: deps.env, offline: !options.network })
   deps.log(`Walkdiff is running at ${server.url} (Ctrl+C to stop)`)
   const scanners = await findInstalledScanners()
   deps.log(`Security scanners: ${scanners.installed.join(", ") || "none"} installed${scanners.missing.length > 0 ? `; not found: ${scanners.missing.join(", ")}` : ""}`)

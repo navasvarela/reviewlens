@@ -5,7 +5,7 @@ import { z } from "zod"
  * (report UI, CI, future server). Bump the version on any breaking change so a
  * report UI can refuse a model it does not understand instead of misrendering it.
  */
-export const REVIEW_MODEL_SCHEMA_VERSION = 9
+export const REVIEW_MODEL_SCHEMA_VERSION = 10
 
 export const GitHostKind = { GitHub: "github", GitLab: "gitlab" } as const
 export type GitHostKind = (typeof GitHostKind)[keyof typeof GitHostKind]
@@ -459,6 +459,20 @@ export const aiReviewSchema = z.discriminatedUnion("status", [
 ])
 export type AiReview = z.infer<typeof aiReviewSchema>
 
+/**
+ * Which lines the PR added ran in tests, from a report the user supplied. Lines that can't run,
+ * such as comments, are in neither list. In CI the PR's own code produces the report, so it can
+ * show that code ran, but is not proof against someone trying to deceive.
+ */
+export const testCoverageSchema = z.object({
+  /** The report's file name, so a reader knows where this came from. */
+  source: z.string(),
+  files: z
+    .array(z.object({ path: z.string().min(1), coveredLines: z.array(lineNumberSchema).readonly(), uncoveredLines: z.array(lineNumberSchema).readonly() }))
+    .readonly(),
+})
+export type TestCoverage = z.infer<typeof testCoverageSchema>
+
 export const reviewModelSchema = z.object({
   schemaVersion: z.literal(REVIEW_MODEL_SCHEMA_VERSION),
   generatedAt: z.iso.datetime(),
@@ -466,6 +480,8 @@ export const reviewModelSchema = z.object({
   files: z.array(changedFileSchema).readonly(),
   risk: riskAssessmentSchema,
   ai: aiReviewSchema,
+  /** Null when no coverage report was supplied. */
+  testCoverage: testCoverageSchema.nullable().default(null),
   /** Where to send feedback on the tool, from the repository's config. */
   feedbackUrl: z.url({ protocol: /^https?$/ }).nullable(),
 })

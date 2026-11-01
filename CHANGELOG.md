@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Settings page:** the app now has a page to turn optional checks on or off, choose the AI provider and model, test the connection, and see what leaves your machine.
+- **More AI providers:** besides Anthropic, Walkdiff can use any OpenAI-compatible service or a local model such as Ollama, with `--ai-provider openai-compatible --ai-base-url <address> --ai-model <name>`. Keys come from `WALKDIFF_AI_API_KEY`, and only https addresses are accepted unless the model is on your machine.
+- **Team limits on AI:** `"ai": { "providers": ["local"] }` in `.walkdiff.json` limits where a repository's code can be sent.
+- **Changes since your last review:** progress and comments now belong to the PR, not the commit. After a new push, ticks stay on what didn't change, and anything you reviewed that did change comes first, showing the difference from the version you saw. Progress saved by earlier versions isn't carried over.
+- **Test evidence:** `--coverage` reads an LCOV or Cobertura report and shows whether each change's lines ran in tests. Changes whose lines didn't run rank higher. Also available as the Action's `coverage-file` input and the GitLab template's `WALKDIFF_COVERAGE` variable. The review model schema is now version 10.
+
 ## 0.2.0
 
 - **Renamed to Walkdiff.** The command is now `pnpm walkdiff`, the config file is `.walkdiff.json`, and the trusted hosts variables are `WALKDIFF_TRUSTED_GITHUB_HOSTS` and `WALKDIFF_TRUSTED_GITLAB_HOSTS`. An existing `.lens.json` keeps working, but the old variables don't, so set the new ones or tokens won't be sent to those hosts. Saved reviews aren't moved, so the app starts with an empty list.

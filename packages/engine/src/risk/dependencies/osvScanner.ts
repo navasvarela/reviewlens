@@ -1,10 +1,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
-import { FileChangeStatus } from "@walkdiff/review-model"
+import { CheckId, FileChangeStatus } from "@walkdiff/review-model"
 import type { CheckRun, CommitSha, FileDiff, SkippedCheck } from "@walkdiff/review-model"
 import { z } from "zod"
 import { readBlobs } from "../../blobs.ts"
+import { TURNED_OFF_IN_SETTINGS } from "../scanners/scanWorkspace.ts"
 import { firstErrorLine } from "../scanners/scannerProcess.ts"
 import type { ScannerProcessRunner } from "../scanners/scannerProcess.ts"
 import { toKnownVulnerability, vulnerabilitySchema } from "./osv.ts"
@@ -52,6 +53,7 @@ export interface LockfileScanOptions {
   readonly head: CommitSha
   readonly network: boolean
   readonly runScanner: ScannerProcessRunner
+  readonly disabled?: ReadonlySet<CheckId>
 }
 
 /**
@@ -66,6 +68,10 @@ export async function scanUnreadLockfiles(lockfiles: readonly FileDiff[], option
   const scannable = lockfiles.filter((diff) => !UNSCANNABLE_LOCKFILES.has(basename(diff.path)))
   lockfiles.filter((diff) => UNSCANNABLE_LOCKFILES.has(basename(diff.path))).forEach((diff) => skip(diff.path, "this lockfile format is binary and cannot be read"))
   if (scannable.length === 0) return result
+  if (options.disabled?.has(CheckId.OsvScanner)) {
+    scannable.forEach((diff) => skip(diff.path, TURNED_OFF_IN_SETTINGS))
+    return result
+  }
   if (!options.network) {
     scannable.forEach((diff) => skip(diff.path, "offline mode: the OSV database was not queried"))
     return result

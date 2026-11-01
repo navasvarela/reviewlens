@@ -1,5 +1,5 @@
-import { reviewSummarySchema } from "@walkdiff/review-model"
-import type { AddReviewRequest, ReviewSummary } from "@walkdiff/review-model"
+import { aiConnectionResultSchema, appSettingsSchema, reviewSummarySchema, settingsViewSchema } from "@walkdiff/review-model"
+import type { AddReviewRequest, AiConnectionResult, AppSettings, ReviewSummary, SettingsView } from "@walkdiff/review-model"
 
 const API_KEY_HEADER = "X-Walkdiff-Key"
 
@@ -7,7 +7,7 @@ function apiKey(): string {
   return document.querySelector('meta[name="walkdiff-api-key"]')?.getAttribute("content") ?? ""
 }
 
-async function call(path: string, method: string, body?: AddReviewRequest): Promise<unknown> {
+async function call(path: string, method: string, body?: AddReviewRequest | AppSettings): Promise<unknown> {
   const response = await fetch(path, {
     method,
     headers: { [API_KEY_HEADER]: apiKey(), ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
@@ -38,4 +38,20 @@ export async function refreshReview(id: number): Promise<void> {
 
 export async function removeReview(id: number): Promise<void> {
   await call(`/api/reviews/${id}`, "DELETE")
+}
+
+export async function loadSettings(): Promise<SettingsView> {
+  return settingsViewSchema.parse(await call("/api/settings", "GET"))
+}
+
+export async function loadCurrentSettings(): Promise<AppSettings> {
+  return appSettingsSchema.parse(await call("/api/settings/current", "GET"))
+}
+
+export async function saveSettings(settings: AppSettings): Promise<SettingsView> {
+  return settingsViewSchema.parse(await call("/api/settings", "PUT", settings))
+}
+
+export async function testAiConnection(): Promise<AiConnectionResult> {
+  return aiConnectionResultSchema.parse(await call("/api/settings/test-ai", "POST"))
 }

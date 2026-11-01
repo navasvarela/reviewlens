@@ -8,9 +8,12 @@
 | `--port <number>` | `review`, `app` | Sets the local port. `review` uses 4318, or any free port if that is taken; `app` uses 4317 |
 | `--no-serve` | `review` | Writes the report and exits |
 | `--offline` | `review`, `app` | Skips OSV lookups, Semgrep and osv-scanner |
-| `--ai` | `review` | Adds an AI review, which sends the changed code to Anthropic |
-| `--ai-model <id>` | `review` | Sets the model (default `claude-opus-5-5`) |
+| `--ai` | `review` | Adds an AI review, which sends the changed code to your AI provider |
+| `--ai-provider <p>` | `review` | `anthropic` (default) or `openai-compatible` |
+| `--ai-base-url <url>` | `review` | With `openai-compatible`, the provider's address |
+| `--ai-model <id>` | `review` | Sets the model (default `claude-opus-5-5`; required with `openai-compatible`) |
 | `--ai-max-input-tokens <n>` | `review` | Caps the prompt (default 40,000); larger PRs are summarized |
+| `--coverage <file>` | `review` | Reads an LCOV or Cobertura report, to show whether changed lines ran in tests |
 | `--cache-dir <dir>` | `review`, `app` | Sets where repositories and reports are cached |
 | `--data-dir <dir>` | `app` | Sets where the review list is stored |
 | `--report <dir>` | `comment` | The folder `review` wrote with `--out` |
@@ -23,7 +26,8 @@
 | `GITHUB_TOKEN`, `GH_TOKEN` | Token for GitHub, and GitHub Enterprise once it's trusted |
 | `GITLAB_TOKEN` | Token for GitLab, and self-managed GitLab once it's trusted |
 | `WALKDIFF_TRUSTED_GITHUB_HOSTS`, `WALKDIFF_TRUSTED_GITLAB_HOSTS` | Hosts besides github.com and gitlab.com that may receive those tokens |
-| `ANTHROPIC_API_KEY` | Credential for `--ai`, unless you use an `ant auth login` profile |
+| `ANTHROPIC_API_KEY` | Key for AI review with Anthropic, unless you use an `ant auth login` profile |
+| `WALKDIFF_AI_API_KEY` | Key for AI review with an OpenAI-compatible provider; local models usually need none |
 | `XDG_CACHE_HOME` | Moves the cache from `~/.cache/walkdiff` |
 | `XDG_DATA_HOME` | Moves the app's data from `~/.local/share/walkdiff` |
 
@@ -47,6 +51,22 @@ export WALKDIFF_TRUSTED_GITLAB_HOSTS=gitlab.acme.internal,gitlab.acme.dev:8443
 
 In the app, a GitHub CLI login is used for github.com and for hosts in the list.
 
+## Settings in the app
+
+In `pnpm walkdiff app`, the Settings page lets you turn optional checks on or off, choose the AI provider and model, test the connection, and see what leaves your machine. Settings are saved in the app's database and only apply to the app. The command line and CI use the options above.
+
+API keys aren't saved by Walkdiff. Set them in the environment before starting the app. A check you turn off appears in reports as a check that didn't run.
+
+## AI providers
+
+| Provider | Example | Key |
+| --- | --- | --- |
+| Anthropic | The default | `ANTHROPIC_API_KEY` |
+| OpenAI | `--ai-provider openai-compatible --ai-base-url https://api.openai.com/v1 --ai-model <name>` | `WALKDIFF_AI_API_KEY` |
+| Ollama, on your machine | `--ai-provider openai-compatible --ai-base-url http://localhost:11434/v1 --ai-model llama3.2` | Usually none |
+
+Any service with an OpenAI-style chat completions API should work, as long as its model supports structured output. Addresses must use https unless the model is on your machine. Costs are only estimated for Anthropic models.
+
 ## Team rules: `.walkdiff.json`
 
 Put this file at the root of the repository being reviewed. Every setting is optional.
@@ -66,6 +86,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | `riskPaths` | Marks sensitive areas. `severity` is `high`, `medium` or `low`, and `reason` appears in the finding |
 | `ignore` | Leaves these paths out of the risk checks. The report says how many files were left out |
 | `ai.allowed` | Set to `false` to block AI review for the repository |
+| `ai.providers` | Limits where code can go: `"anthropic"`, `"local"` for a model on the reviewer's machine, or a host such as `"api.openai.com"` |
 | `scanners.semgrep.rules` | Sets Semgrep registry rule packs (`p/…` or `r/…`). Use an empty list to turn Semgrep off |
 | `feedback.url` | Adds a feedback link to the report and the PR comment |
 
@@ -78,7 +99,7 @@ Put this file at the root of the repository being reviewed. Every setting is opt
 | The PR's host | Your token, if the host is trusted, to read the PR and its code | Always |
 | OSV | Names and versions of dependencies | Unless `--offline` |
 | Semgrep registry | A rule download; your code isn't uploaded | When Semgrep is installed, unless `--offline` |
-| Anthropic | The changed code, and the PR's title and description, with known credential formats redacted and credential files left out | Only with `--ai` |
+| Your AI provider | The changed code, and the PR's title and description, with known credential formats redacted and credential files left out | Only with `--ai` or the app's AI option. Nothing leaves your machine with a local model |
 
 ## Where Walkdiff keeps files
 

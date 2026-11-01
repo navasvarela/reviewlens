@@ -1,3 +1,4 @@
+import type { AiDestination } from "@walkdiff/review-model"
 import type { RawAiOutput } from "./output.ts"
 
 export interface TokenUsage {
@@ -15,7 +16,11 @@ export interface AiCompletion {
 /** A model backend. Implementations map their own failures to `AiUnavailableError`. */
 export interface AiProvider {
   readonly model: string
+  /** Where prompts go, so a team's rules can allow or forbid it. */
+  readonly destination: AiDestination
   complete(system: string, prompt: string): Promise<AiCompletion>
+  /** Checks that the provider answers and accepts the credentials, without sending any code. */
+  checkConnection(): Promise<void>
 }
 
 /** The review could not be produced; the message is shown to the user as the reason. */

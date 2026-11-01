@@ -38,6 +38,7 @@ export {
   riskSchema,
   checkRunSchema,
   riskAssessmentSchema,
+  testCoverageSchema,
   skippedCheckSchema,
   citationSchema,
   unitRefSchema,
@@ -75,6 +76,7 @@ export type {
   RiskAssessment,
   SkippedCheck,
   CheckRun,
+  TestCoverage,
   Citation,
   UnitRef,
   Chapter,
@@ -86,3 +88,18 @@ export type {
   ReviewModel,
 } from "./schema.ts"
 export { changedUnitsOf, isBehaviourChange, untouchedReferences } from "./queries.ts"
+export {
+  AiProviderKind,
+  aiConnectionResultSchema,
+  aiDestination,
+  aiSettingsSchema,
+  appSettingsSchema,
+  baseUrlProblem,
+  CheckId,
+  DEFAULT_AI_MAX_INPUT_TOKENS,
+  DEFAULT_AI_MODEL,
+  DEFAULT_APP_SETTINGS,
+  LOCAL_AI_DESTINATION,
+  settingsViewSchema,
+} from "./settings.ts"
+export type { AiConnectionResult, AiDestination, AiSettings, AppSettings, CheckStatus, SettingsView } from "./settings.ts"

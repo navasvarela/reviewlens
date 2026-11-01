@@ -131,6 +131,20 @@ Check "Not checked" on the Risks tab first. Also note that:
 
 A low level never means the change is safe.
 
+## Test evidence
+
+### `isn't a coverage format Walkdiff can read`
+
+Walkdiff reads LCOV and Cobertura XML. Most test tools can write one of them, such as `coverage xml` for Python, or the `lcov` reporter for Vitest and Jest.
+
+### A change says the report has no line data
+
+The report doesn't cover that file, or its path matches more than one file in the report. Walkdiff won't guess, because it could show the wrong file's coverage. Generate the report from the repository root so paths are complete.
+
+### The coverage looks wrong
+
+The report probably came from a different commit than the PR's latest. Generate it from that commit, as line numbers need to match.
+
 ## Security scanners
 
 ### A scanner is listed under "Not checked" as not installed
@@ -178,6 +192,18 @@ Set `ANTHROPIC_API_KEY`, or run `ant auth login`.
 ### `.walkdiff.json forbids sending this repository's code to a model`
 
 Either version of `.walkdiff.json` (the merge base or the PR) has `"ai": { "allowed": false }`. Someone with access to the target branch has to change it.
+
+### `could not reach` or `answered` from another provider
+
+Use "Save and test connection" on the Settings page, which sends no code. Check that the address includes the API path, such as `/v1`, and that a local server is running. Some servers don't offer the model list that test uses, so a real review may still work.
+
+### `the response did not match the expected review format`
+
+The model didn't return structured output. Try a model that supports it, or a different provider.
+
+### `only allows AI review with`
+
+The repository's `.walkdiff.json` limits where its code can go. Choose one of the providers it lists on the Settings page.
 
 ### `rate limited by the Anthropic API`
 

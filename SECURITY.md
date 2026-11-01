@@ -28,6 +28,7 @@ Each guarantee describes the latest release and has an automated test or setting
 | --- | --- |
 | Walkdiff never builds, installs or runs code from a PR | It only reads commits from a bare repository and parses them. The GitHub Action doesn't check out the PR |
 | Code isn't sent to any AI service unless you ask | AI review needs `--ai`, or the checkbox in the app |
+| A team can limit where code goes | `"ai": { "providers": ["local"] }` in `.walkdiff.json`. Both the merge base and the PR have to allow the provider |
 | A repository can forbid AI review | `"ai": { "allowed": false }` in `.walkdiff.json`. A PR can't remove this, because if either version forbids it, it's blocked |
 | Walkdiff has no telemetry and no server of its own | It collects no usage data, and the only network destinations are listed below |
 | A report can't contact anything | Every report carries a Content Security Policy that blocks network requests, so script injected through a PR has nowhere to send data |
@@ -41,6 +42,8 @@ Each guarantee describes the latest release and has an automated test or setting
 | A token only goes to hosts you trust | `github.com`, `gitlab.com` and hosts you list. See [trusted hosts](docs/configuration.md#tokens-and-trusted-hosts) |
 | A token doesn't go to the wrong kind of host, or over plain http | Whole origins are compared, for each kind of token |
 | A redirect can't carry a token to another host | Walkdiff refuses cross-host API redirects, and git doesn't follow redirects while it holds a token |
+| AI keys aren't stored | They come from the environment, and the settings have no field for them |
+| An AI key and your code only go over https, or to this machine | Other addresses are refused, and redirects aren't followed |
 | Tokens stay out of command lines and repository config | They reach git through its environment |
 | Third-party scanners don't get your tokens | They run with a minimal environment, on a temporary copy of the changed files |
 | Walkdiff doesn't store your tokens | It reads them from the environment or the GitHub CLI each time |
@@ -67,6 +70,7 @@ Each guarantee describes the latest release and has an automated test or setting
 - **Secret detection isn't complete.** Redaction recognises known formats and common assignments. A secret in an unusual format can still reach an AI prompt, so don't use `--ai` on a PR you know contains secrets.
 - **The Changes tab shows the code as it is.** A secret in a PR is redacted from findings, but still appears in the diff, in the report and in `review.json`.
 - **Prompt injection can mislead the AI review.** Someone writing a PR can try to influence what it says, so treat its output as a hint and not as a verdict.
+- **Coverage can be faked.** In CI, a PR's own code produces the coverage report, so someone trying to deceive could fake it. It helps honest reviewers, and isn't a security control.
 - **Reference finding is by name and syntax,** so the Impact tab can miss callers or match the wrong ones.
 - **Walkdiff doesn't protect you from your own machine.** Files are stored unencrypted, and anything running as your user can read them.
 
@@ -77,9 +81,9 @@ Each guarantee describes the latest release and has an automated test or setting
 | The PR's host | Your token if the host is trusted, and requests for the PR and its code | Always | - |
 | [OSV](https://osv.dev) | Names and versions of dependencies changed in the PR, **including private package names** | By default | `--offline` |
 | Semgrep registry | A rule download; code isn't uploaded | If Semgrep is installed | `--offline`, or an empty rule list |
-| Anthropic | Changed code, and the PR's title and description | Only with `--ai` | Leave `--ai` off, or forbid it in `.walkdiff.json` |
+| Your AI provider (Anthropic by default) | Changed code, and the PR's title and description | Only with `--ai` or the app's AI option | Leave it off, forbid it in `.walkdiff.json`, or use a local model |
 
-For how Anthropic handles API data, see [its privacy documentation](https://privacy.anthropic.com).
+You choose the AI provider, so check how it handles your data. For Anthropic, see [its privacy documentation](https://privacy.anthropic.com).
 
 ## The report in CI
 

@@ -1,11 +1,12 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { CheckId } from "@walkdiff/review-model"
 import type { CheckRun, Risk, SkippedCheck } from "@walkdiff/review-model"
 import { isThirdParty } from "../scannedFile.ts"
 import type { ScannedFile } from "../scannedFile.ts"
 import { GITLEAKS_BINARY, gitleaksArgs, parseGitleaksReport } from "./gitleaks.ts"
-import { notRun, toRisks, writeScanFiles } from "./scanWorkspace.ts"
+import { notRun, toRisks, TURNED_OFF_IN_SETTINGS, writeScanFiles } from "./scanWorkspace.ts"
 import type { ScanOutcome } from "./scanWorkspace.ts"
 import { firstErrorLine } from "./scannerProcess.ts"
 import type { ScannerProcessRunner } from "./scannerProcess.ts"
@@ -18,6 +19,8 @@ export interface CodeScanRequest {
   /** False skips Semgrep, which downloads its rules. */
   readonly network: boolean
   readonly run: ScannerProcessRunner
+  /** Checks the person turned off. */
+  readonly disabled?: ReadonlySet<CheckId>
 }
 
 export interface CodeScanResult {
@@ -82,6 +85,7 @@ async function copyFiles(root: string, files: readonly ScannedFile[]): Promise<v
 }
 
 async function runSemgrep(request: CodeScanRequest, root: string): Promise<ScanOutcome> {
+  if (request.disabled?.has(CheckId.Semgrep)) return notRun(SEMGREP_CHECK, TURNED_OFF_IN_SETTINGS)
   if (request.semgrepRules.length === 0) return notRun(SEMGREP_CHECK, "turned off in .walkdiff.json")
   if (!request.network) return notRun(SEMGREP_CHECK, "offline mode: Semgrep downloads its rules")
   const result = await request.run(SEMGREP_BINARY, semgrepArgs(request.semgrepRules), root)
@@ -95,6 +99,7 @@ async function runSemgrep(request: CodeScanRequest, root: string): Promise<ScanO
 }
 
 async function runGitleaks(request: CodeScanRequest, root: string, workspace: string): Promise<ScanOutcome> {
+  if (request.disabled?.has(CheckId.Gitleaks)) return notRun(GITLEAKS_CHECK, TURNED_OFF_IN_SETTINGS)
   // The report goes outside the scanned folder, so gitleaks cannot scan its own output.
   const reportPath = join(workspace, GITLEAKS_REPORT_FILE)
   const result = await request.run(GITLEAKS_BINARY, gitleaksArgs(reportPath), root)
