@@ -1,5 +1,5 @@
 import { join } from "node:path"
-import { analyzeChangedFiles, AnthropicProvider, fetchCommits, readWalkdiffConfig, reviewWithAi } from "@walkdiff/engine"
+import { analyzeChangedFiles, AnthropicProvider, fetchCommits, readCoverage, readWalkdiffConfig, reviewWithAi } from "@walkdiff/engine"
 import { displayName, gitHostFor, parsePullRequestUrl, repositoryPath } from "@walkdiff/providers"
 import type { HostTokens, PullRequestRef } from "@walkdiff/providers"
 import { AiReviewStatus, REVIEW_MODEL_SCHEMA_VERSION, reviewModelSchema } from "@walkdiff/review-model"
@@ -31,6 +31,7 @@ export interface ReviewDependencies extends AnalysisDependencies {
 /** What an analysis needs to know, whichever command asked for it. */
 export interface AnalysisRequest {
   readonly network: boolean
+  readonly coveragePath: string | undefined
   readonly ai: AiOptions | undefined
 }
 
@@ -79,6 +80,7 @@ export async function analyzePullRequest(ref: PullRequestRef, options: AnalysisR
   const { files, risk } = await analyzeChangedFiles(repoDir, pullRequest.mergeBaseSha, pullRequest.headSha, {
     network: options.network,
   })
+  const testCoverage = options.coveragePath === undefined ? null : await readCoverage(options.coveragePath, files.map((file) => file.diff))
   const ai: AiReview =
     options.ai === undefined
       ? { status: AiReviewStatus.Disabled }
@@ -100,6 +102,7 @@ export async function analyzePullRequest(ref: PullRequestRef, options: AnalysisR
     files,
     risk,
     ai,
+    testCoverage,
     feedbackUrl: (await readWalkdiffConfig(repoDir, pullRequest.mergeBaseSha)).feedback.url,
   })
 }

@@ -57,6 +57,16 @@ pnpm walkdiff app
 
 This runs a list at `http://127.0.0.1:4317/`, which you open in your browser. Paste a link to add a review. If you're signed in with the GitHub CLI, the app uses that login for GitHub. For GitLab, set `GITLAB_TOKEN` before starting it.
 
+## Show test evidence
+
+Give Walkdiff a coverage report from your tests, in LCOV or Cobertura format, and each change shows whether its changed lines ran. Changes whose lines didn't run rank higher.
+
+```bash
+pnpm walkdiff review https://github.com/owner/repo/pull/123 --coverage coverage/lcov.info
+```
+
+Generate the report from the PR's latest commit, or the line numbers won't match. In CI, use the Action's `coverage-file` input or the GitLab template's `WALKDIFF_COVERAGE` variable. The local app can't read reports yet.
+
 ## Add more checks
 
 These are optional. Without them, Walkdiff still runs its built-in rules and lists what it skipped.

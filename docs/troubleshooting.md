@@ -131,6 +131,20 @@ Check "Not checked" on the Risks tab first. Also note that:
 
 A low level never means the change is safe.
 
+## Test evidence
+
+### `isn't a coverage format Walkdiff can read`
+
+Walkdiff reads LCOV and Cobertura XML. Most test tools can write one of them, such as `coverage xml` for Python, or the `lcov` reporter for Vitest and Jest.
+
+### A change says the report has no line data
+
+The report doesn't cover that file, or its path matches more than one file in the report. Walkdiff won't guess, because it could show the wrong file's coverage. Generate the report from the repository root so paths are complete.
+
+### The coverage looks wrong
+
+The report probably came from a different commit than the PR's latest. Generate it from that commit, as line numbers need to match.
+
 ## Security scanners
 
 ### A scanner is listed under "Not checked" as not installed

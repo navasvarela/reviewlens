@@ -2,7 +2,7 @@ import { useState } from "react"
 import type { ReactElement } from "react"
 import { changedUnitsOf, FileChangeStatus, RiskSeverity, SyntaxAnalysisStatus } from "@walkdiff/review-model"
 import type { ChangedFile, PullRequest, Risk, SyntaxAnalysis, UnitRef } from "@walkdiff/review-model"
-import { itemsOfFile, unitItemId } from "../reviewProgress.ts"
+import { itemsOfFile, unitItem } from "../reviewProgress.ts"
 import { worstSeverity } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 import { FileMap, MIN_UNITS_FOR_MAP } from "./FileMap.tsx"
@@ -51,7 +51,7 @@ export function FileView({ file, findings, pullRequest, onShowImpact }: FileView
             </button>
           </div>
         )}
-        {items.length > 0 && <ReviewControls ids={items.map((item) => item.id)} commentId={units.length === 0 ? items.at(0)?.id : undefined} markLabel={units.length === 0 ? "Mark as reviewed" : "Mark file as reviewed"} />}
+        {items.length > 0 && <ReviewControls items={items} commentId={units.length === 0 ? items.at(0)?.id : undefined} markLabel={units.length === 0 ? "Mark as reviewed" : "Mark file as reviewed"} />}
       </header>
       {file.noise !== null && (
         <p className="notice">
@@ -75,7 +75,7 @@ export function FileView({ file, findings, pullRequest, onShowImpact }: FileView
           )}
           {units.map((unit, index) => (
             // Overloads and cfg variants can repeat a name and change, so the index disambiguates.
-            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} itemId={unitItemId(file, unit)} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
+            <UnitCard key={`${index}:${unit.qualifiedName}`} unit={unit} item={unitItem(file, unit)} index={index} onShowImpact={() => onShowImpact({ path: diff.path, qualifiedName: unit.qualifiedName })} />
           ))}
         </>
       ) : (

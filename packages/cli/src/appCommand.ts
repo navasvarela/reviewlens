@@ -31,7 +31,7 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
     async (ref, ai) => {
       const model = await analyzePullRequest(
         ref,
-        { network: options.network, ai: ai ? { model: DEFAULT_AI_MODEL, maxInputTokens: DEFAULT_AI_MAX_INPUT_TOKENS } : undefined },
+        { network: options.network, coveragePath: undefined, ai: ai ? { model: DEFAULT_AI_MODEL, maxInputTokens: DEFAULT_AI_MAX_INPUT_TOKENS } : undefined },
         // Looked up per PR, so a token is only ever asked for the host it belongs to.
         { tokens: await hostTokensFor(ref, deps.env, runCommand), cacheDir, now: deps.now, log: deps.log },
       )

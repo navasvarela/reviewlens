@@ -1,5 +1,5 @@
 import { changedUnitsOf, DiffLineKind, FileContentKind, FileChangeStatus, isBehaviourChange, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@walkdiff/review-model"
-import type { ChangedFile, ChangedUnit, ReviewModel, Risk } from "@walkdiff/review-model"
+import type { ChangedFile, ChangedUnit, ReviewModel, Risk, TestCoverage } from "@walkdiff/review-model"
 
 /*
  * Turns a review into a guided path. The rules are plain points rather than a model, so every
@@ -26,6 +26,8 @@ const POINTS_FOR_CHANGED_EXISTING_CODE = 15
 const POINTS_FOR_MORE_LOGIC = 8
 const POINTS_FOR_SENSITIVE_FILE = 15
 const POINTS_FOR_NO_RELATED_TESTS = 5
+const POINTS_FOR_UNTESTED_LINES = 15
+const POINTS_FOR_PARTLY_TESTED_LINES = 8
 const POINTS_FOR_LARGE_NEW_CODE = 10
 const LARGE_NEW_CODE_LINES = 25
 /** A change below this has nothing specific to draw attention to. */
@@ -66,6 +68,14 @@ export interface ReviewStop {
   readonly findings: readonly Risk[]
   /** Changed test files that mention this function: a hint, not proof that it is tested. */
   readonly relatedTests: readonly string[]
+  /** Null without a coverage report, or when the report says nothing about these lines. */
+  readonly coverage: LineCoverage | null
+}
+
+/** Whether the lines this change added ran in tests. */
+export interface LineCoverage {
+  readonly coveredLines: readonly number[]
+  readonly uncoveredLines: readonly number[]
 }
 
 export interface ReviewCheck {
@@ -98,7 +108,7 @@ export function buildReviewPlan(review: ReviewModel): ReviewPlan {
   const testFiles = reviewable.filter((file) => isTestPath(file.diff.path))
   const candidates = reviewable
     .filter((file) => !isTestPath(file.diff.path))
-    .flatMap((file) => stopsForFile(file, review.risk.findings, testFiles))
+    .flatMap((file) => stopsForFile(file, review.risk.findings, testFiles, review.testCoverage))
     .sort((a, b) => b.points - a.points || a.file.diff.path.localeCompare(b.file.diff.path))
   const qualifying = candidates.filter((stop) => stop.points >= POINTS_TO_BE_ON_THE_PATH).length
   const stops = candidates.slice(0, Math.min(MAX_STOPS, Math.max(qualifying, MIN_STOPS)))
@@ -126,25 +136,46 @@ function isOnThePathKind(unit: ChangedUnit): boolean {
   return isBehaviourChange(unit.change) && !isTestUnit(unit)
 }
 
-function stopsForFile(file: ChangedFile, findings: readonly Risk[], testFiles: readonly ChangedFile[]): ReviewStop[] {
+/** A stop for one change, on request: used for work that belongs on the path whatever its rank. */
+export function stopFor(review: ReviewModel, file: ChangedFile, unit: ChangedUnit | null): ReviewStop {
+  const inFile = review.risk.findings.filter((finding) => finding.location?.path === file.diff.path && finding.category !== RiskCategory.Size)
+  const stop = unit === null ? stopForWholeFile(file, inFile) : buildUnitStop(unit, file, inFile, review.files.filter((other) => other.noise === null && isTestPath(other.diff.path)), review.testCoverage)
+  return { ...stop, reasons: [] }
+}
+
+function stopsForFile(file: ChangedFile, findings: readonly Risk[], testFiles: readonly ChangedFile[], coverage: TestCoverage | null): ReviewStop[] {
   const inFile = findings.filter((finding) => finding.location?.path === file.diff.path && finding.category !== RiskCategory.Size)
   const units = changedUnitsOf(file).filter(isOnThePathKind)
-  if (units.length > 0) return units.flatMap((unit) => stopForUnit(unit, file, inFile, testFiles))
+  if (units.length > 0) return units.flatMap((unit) => stopForUnit(unit, file, inFile, testFiles, coverage))
   return inFile.length === 0 ? [] : [stopForWholeFile(file, inFile)]
 }
 
 function stopForWholeFile(file: ChangedFile, findings: readonly Risk[]): ReviewStop {
   const points = pointsForFindings(findings)
-  return { unit: null, file, title: file.diff.path, reasons: reasonsFromFindings(findings), points, findings, relatedTests: [] }
+  return { unit: null, file, title: file.diff.path, reasons: reasonsFromFindings(findings), points, findings, relatedTests: [], coverage: null }
 }
 
-function stopForUnit(unit: ChangedUnit, file: ChangedFile, inFile: readonly Risk[], testFiles: readonly ChangedFile[]): ReviewStop[] {
+function stopForUnit(unit: ChangedUnit, file: ChangedFile, inFile: readonly Risk[], testFiles: readonly ChangedFile[], coverage: TestCoverage | null): ReviewStop[] {
+  const stop = buildUnitStop(unit, file, inFile, testFiles, coverage)
+  // Top-level code has no story of its own, so it only appears when something is wrong with it.
+  return unit.kind === UnitKind.ModuleScope && stop.findings.length === 0 ? [] : [stop]
+}
+
+function buildUnitStop(unit: ChangedUnit, file: ChangedFile, inFile: readonly Risk[], testFiles: readonly ChangedFile[], coverage: TestCoverage | null): ReviewStop {
   const findings = inFile.filter((finding) => findingIsInUnit(finding, unit))
   const relatedTests = testFilesMentioning(unit, file, testFiles)
-  const scored = scoreUnit(unit, findings, inFile, relatedTests)
-  // Top-level code has no story of its own, so it only appears when something is wrong with it.
-  if (unit.kind === UnitKind.ModuleScope && findings.length === 0) return []
-  return [{ unit, file, title: unit.kind === UnitKind.ModuleScope ? "Imports and top-level code" : unit.qualifiedName, reasons: scored.reasons.slice(0, MAX_REASONS_SHOWN), points: scored.points, findings, relatedTests }]
+  const lineCoverage = coverageOfUnit(unit, file, coverage)
+  const scored = scoreUnit(unit, findings, inFile, relatedTests, lineCoverage)
+  return { unit, file, title: unit.kind === UnitKind.ModuleScope ? "Imports and top-level code" : unit.qualifiedName, reasons: scored.reasons.slice(0, MAX_REASONS_SHOWN), points: scored.points, findings, relatedTests, coverage: lineCoverage }
+}
+
+function coverageOfUnit(unit: ChangedUnit, file: ChangedFile, coverage: TestCoverage | null): LineCoverage | null {
+  const lines = coverage?.files.find((entry) => entry.path === file.diff.path)
+  if (lines === undefined || !("after" in unit.change)) return null
+  const { startLine, endLine } = unit.change.after
+  const inUnit = (line: number): boolean => line >= startLine && line <= endLine
+  const result = { coveredLines: lines.coveredLines.filter(inUnit), uncoveredLines: lines.uncoveredLines.filter(inUnit) }
+  return result.coveredLines.length + result.uncoveredLines.length === 0 ? null : result
 }
 
 function findingIsInUnit(finding: Risk, unit: ChangedUnit): boolean {
@@ -159,7 +190,7 @@ interface Scored {
 }
 
 // Reasons are collected most important first, as only the first few are shown.
-function scoreUnit(unit: ChangedUnit, findings: readonly Risk[], inFile: readonly Risk[], relatedTests: readonly string[]): Scored {
+function scoreUnit(unit: ChangedUnit, findings: readonly Risk[], inFile: readonly Risk[], relatedTests: readonly string[], coverage: LineCoverage | null): Scored {
   let points = pointsForFindings(findings)
   const reasons = reasonsFromFindings(findings)
   const add = (amount: number, reason: string): void => {
@@ -172,6 +203,12 @@ function scoreUnit(unit: ChangedUnit, findings: readonly Risk[], inFile: readonl
   const gone = unit.change.kind === UnitChangeKind.Removed
   if (gone && untouched > 0) add(POINTS_FOR_LEFTOVER_REFERENCES, `It was removed, but ${places(untouched)} this PR didn't change still ${untouched === 1 ? "uses" : "use"} it`)
   else if (untouched > 0) add(Math.min(MAX_POINTS_FOR_CALLERS, untouched * POINTS_PER_UNTOUCHED_CALLER) / (isData ? DATA_KIND_CALLER_DIVISOR : 1), `${capitalize(places(untouched))} this PR didn't change ${untouched === 1 ? "depends" : "depend"} on it`)
+
+  if (coverage !== null && coverage.uncoveredLines.length > 0) {
+    const total = coverage.coveredLines.length + coverage.uncoveredLines.length
+    if (coverage.coveredLines.length === 0) add(POINTS_FOR_UNTESTED_LINES, `None of its ${total} changed ${total === 1 ? "line" : "lines"} ran in tests`)
+    else add(POINTS_FOR_PARTLY_TESTED_LINES, `${coverage.uncoveredLines.length} of its ${total} changed lines didn't run in tests`)
+  }
 
   const facts = unit.facts
   if (facts !== null) {

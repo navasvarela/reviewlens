@@ -25,6 +25,7 @@ function fakeModel(title: string): ReviewModel {
     files: [],
     risk: { securityLevel: "high", findings: [], checksRun: [], notChecked: [] },
     ai: { status: "disabled" },
+    testCoverage: null,
     feedbackUrl: null,
   }
 }

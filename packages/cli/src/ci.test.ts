@@ -72,6 +72,7 @@ function modelWith(url: string, overrides: Partial<ReviewModel> = {}): ReviewMod
       notChecked: [{ check: "c", reason: "r" }],
     },
     ai: { status: "disabled" },
+    testCoverage: null,
     feedbackUrl: "https://forms.example.com/walkdiff",
     ...overrides,
   }

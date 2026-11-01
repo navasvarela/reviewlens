@@ -14,6 +14,9 @@ inputs:
   anthropic-api-key:
     description: Anthropic API key, required when ai is "true"
     default: ""
+  coverage-file:
+    description: Path to an LCOV or Cobertura report from an earlier step, to show whether changed lines ran in tests
+    default: ""
   retention-days:
     description: Days to keep the report artifact
     default: "14"
@@ -47,10 +50,12 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         WALKDIFF_AI: ${{ inputs.ai }}
+        WALKDIFF_COVERAGE: ${{ inputs.coverage-file }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
       run: |
         args=(review --no-serve --out "$RUNNER_TEMP/walkdiff")
         if [ "$WALKDIFF_AI" = "true" ]; then args+=(--ai); fi
+        if [ -n "$WALKDIFF_COVERAGE" ]; then args+=(--coverage "$WALKDIFF_COVERAGE"); fi
         node "$GITHUB_ACTION_PATH/packages/cli/src/main.ts" "${args[@]}"
         cp "$RUNNER_TEMP/walkdiff/index.html" "$RUNNER_TEMP/walkdiff/walkdiff-report.html"
 

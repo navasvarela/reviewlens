@@ -22,6 +22,8 @@ Options:
   --ai-model <id>    Model for --ai (default: claude-opus-5-5)
   --ai-max-input-tokens <n>
                      Prompt budget for --ai (default: 40000); larger PRs are summarized
+  --coverage <file>  With review: an LCOV or Cobertura report, to show whether changed lines
+                     ran in tests
   --cache-dir <dir>  Where repositories and reports are cached (default: ~/.cache/walkdiff)
   --data-dir <dir>   With app: where the review list is stored (default: ~/.local/share/walkdiff)
   --report <dir>     With comment: the directory review wrote (--out)
@@ -55,6 +57,8 @@ export interface ReviewOptions {
   readonly cacheDir: string | undefined
   /** False when --offline: no package names or versions leave the machine. */
   readonly network: boolean
+  /** A coverage report to read; undefined leaves test evidence to changed tests alone. */
+  readonly coveragePath: string | undefined
   /** Undefined unless --ai: no code is sent to a model without it. */
   readonly ai: AiOptions | undefined
 }
@@ -103,6 +107,7 @@ export function parseCommand(argv: readonly string[]): Command {
       report: { type: "string" },
       "report-url": { type: "string" },
       "cache-dir": { type: "string" },
+      coverage: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   })
@@ -141,6 +146,7 @@ export function parseCommand(argv: readonly string[]): Command {
       serve: values.serve,
       cacheDir: values["cache-dir"],
       network: !values.offline,
+      coveragePath: values.coverage,
       ai: values.ai
         ? {
             model: values["ai-model"] ?? DEFAULT_AI_MODEL,

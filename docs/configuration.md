@@ -11,6 +11,7 @@
 | `--ai` | `review` | Adds an AI review, which sends the changed code to Anthropic |
 | `--ai-model <id>` | `review` | Sets the model (default `claude-opus-5-5`) |
 | `--ai-max-input-tokens <n>` | `review` | Caps the prompt (default 40,000); larger PRs are summarized |
+| `--coverage <file>` | `review` | Reads an LCOV or Cobertura report, to show whether changed lines ran in tests |
 | `--cache-dir <dir>` | `review`, `app` | Sets where repositories and reports are cached |
 | `--data-dir <dir>` | `app` | Sets where the review list is stored |
 | `--report <dir>` | `comment` | The folder `review` wrote with `--out` |

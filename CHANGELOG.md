@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Changes since your last review:** progress and comments now belong to the PR, not the commit. After a new push, ticks stay on what didn't change, and anything you reviewed that did change comes first, showing the difference from the version you saw. Progress saved by earlier versions isn't carried over.
+- **Test evidence:** `--coverage` reads an LCOV or Cobertura report and shows whether each change's lines ran in tests. Changes whose lines didn't run rank higher. Also available as the Action's `coverage-file` input and the GitLab template's `WALKDIFF_COVERAGE` variable. The review model schema is now version 10.
+
 ## 0.2.0
 
 - **Renamed to Walkdiff.** The command is now `pnpm walkdiff`, the config file is `.walkdiff.json`, and the trusted hosts variables are `WALKDIFF_TRUSTED_GITHUB_HOSTS` and `WALKDIFF_TRUSTED_GITLAB_HOSTS`. An existing `.lens.json` keeps working, but the old variables don't, so set the new ones or tokens won't be sent to those hosts. Saved reviews aren't moved, so the app starts with an empty list.

@@ -12,3 +12,4 @@ export { AnthropicProvider, DEFAULT_ANTHROPIC_MODEL } from "./ai/anthropicProvid
 export type { AiProvider, AiCompletion } from "./ai/provider.ts"
 export { AiUnavailableError } from "./ai/provider.ts"
 export { findInstalledScanners } from "./risk/scanners/installedScanners.ts"
+export { CoverageFileError, readCoverage } from "./coverage/readCoverage.ts"

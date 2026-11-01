@@ -2,6 +2,8 @@ import type { ReactElement } from "react"
 import { UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@walkdiff/review-model"
 import type { ChangedUnit, UnitChange, UnitImpact, UnitSnapshot } from "@walkdiff/review-model"
 import { changeLabel, factPhrases, isQuiet, Tone, unitAnchorId, UNIT_KIND_LABELS } from "../unitChange.ts"
+import { isItemReviewed } from "../reviewProgress.ts"
+import type { ReviewItem } from "../reviewProgress.ts"
 import { useReviewState } from "../reviewState.tsx"
 import { SideBySide, SinglePane } from "./CodeViews.tsx"
 import { ReviewControls } from "./ReviewControls.tsx"
@@ -9,13 +11,13 @@ import { ReviewControls } from "./ReviewControls.tsx"
 interface UnitCardProps {
   readonly unit: ChangedUnit
   /** Identifies this change in the review record, shared with the guided path. */
-  readonly itemId: string
+  readonly item: ReviewItem
   /** Position among the file's cards, which the file map links to. */
   readonly index: number
   readonly onShowImpact: () => void
 }
 
-export function UnitCard({ unit, itemId, index, onShowImpact }: UnitCardProps): ReactElement {
+export function UnitCard({ unit, item, index, onShowImpact }: UnitCardProps): ReactElement {
   const { state } = useReviewState()
   const label = changeLabel(unit.change)
   const untouchedCallers = untouchedReferences(unit).length
@@ -29,7 +31,8 @@ export function UnitCard({ unit, itemId, index, onShowImpact }: UnitCardProps): 
             {untouchedCallers} untouched {untouchedCallers === 1 ? "caller" : "callers"}
           </span>
         )}
-        {state.reviewed.has(itemId) && <span className="unit-reviewed">✓ Reviewed</span>}
+        {isItemReviewed(item, state) && <span className="unit-reviewed">✓ Reviewed</span>}
+        {state.reviewed.has(item.id) && !isItemReviewed(item, state) && <span className="unit-changed">Changed since your review</span>}
         <span className={`change-label tone-${label.tone}`}>{label.text}</span>
       </summary>
       {unit.facts !== null && (
@@ -43,7 +46,7 @@ export function UnitCard({ unit, itemId, index, onShowImpact }: UnitCardProps): 
       {unit.impact !== null && <ImpactLine unit={unit} impact={unit.impact} onShow={onShowImpact} />}
       {!isQuiet(unit) && (
         <div className="unit-review">
-          <ReviewControls ids={[itemId]} commentId={itemId} />
+          <ReviewControls items={[item]} commentId={item.id} />
         </div>
       )}
     </details>

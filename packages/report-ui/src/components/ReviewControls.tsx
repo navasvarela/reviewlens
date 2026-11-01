@@ -1,23 +1,24 @@
 import { useId, useState } from "react"
 import type { ReactElement } from "react"
 import { isReviewed } from "../reviewProgress.ts"
+import type { ReviewItem } from "../reviewProgress.ts"
 import { useReviewState } from "../reviewState.tsx"
 
 interface ReviewControlsProps {
   /** Everything this control marks; a file marks all of its functions at once. */
-  readonly ids: readonly string[]
+  readonly items: readonly ReviewItem[]
   /** Where a comment is saved. Absent where marking covers several things. */
   readonly commentId?: string | undefined
   readonly markLabel?: string
 }
 
 /** The same marking and comments wherever a change appears, so there is one review record. */
-export function ReviewControls({ ids, commentId, markLabel = "Mark as reviewed" }: ReviewControlsProps): ReactElement {
+export function ReviewControls({ items, commentId, markLabel = "Mark as reviewed" }: ReviewControlsProps): ReactElement {
   const { state, setReviewed } = useReviewState()
-  const reviewed = isReviewed(ids, state)
+  const reviewed = isReviewed(items, state)
   return (
     <div className="review-controls">
-      <button type="button" className={reviewed ? "review-mark review-mark-done" : "review-mark"} aria-pressed={reviewed} onClick={() => setReviewed(ids, !reviewed)}>
+      <button type="button" className={reviewed ? "review-mark review-mark-done" : "review-mark"} aria-pressed={reviewed} onClick={() => setReviewed(items, !reviewed)}>
         {reviewed ? "✓ Reviewed" : markLabel}
       </button>
       {commentId !== undefined && <CommentBox id={commentId} />}

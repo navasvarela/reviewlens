@@ -121,6 +121,27 @@ describe("buildReviewPlan", () => {
     expect(plan.checks.map((check) => check.message)).toEqual([expect.stringContaining("eval")])
   })
 
+  it("ranks untested changes higher and says so, using only lines inside the function", () => {
+    const tested = unit({ name: "tested", callers: 2 })
+    const untested = unit({ name: "untested", callers: 2 })
+    const model = { ...review([file("a.ts", [tested]), file("b.ts", [untested])]), testCoverage: { source: "lcov.info", files: [{ path: "a.ts", coveredLines: [1, 2], uncoveredLines: [] }, { path: "b.ts", coveredLines: [], uncoveredLines: [1, 2, 99] }] } }
+    const plan = buildReviewPlan(model)
+    expect(plan.stops.at(0)?.title).toBe("untested")
+    expect(plan.stops.at(0)?.reasons).toContain("None of its 2 changed lines ran in tests")
+    expect(plan.stops.at(0)?.coverage).toEqual({ coveredLines: [], uncoveredLines: [1, 2] })
+    expect(plan.stops.at(1)?.reasons.join()).not.toContain("ran in tests")
+  })
+
+  it("says how many lines ran when only some did", () => {
+    const model = { ...review([file("a.ts", [unit({ name: "partly" })])]), testCoverage: { source: "x", files: [{ path: "a.ts", coveredLines: [1, 2], uncoveredLines: [3] }] } }
+    expect(buildReviewPlan(model).stops.at(0)?.reasons).toContain("1 of its 3 changed lines didn't run in tests")
+  })
+
+  it("has no coverage for a function the report says nothing about", () => {
+    const model = { ...review([file("a.ts", [unit({ name: "other", callers: 2 })])]), testCoverage: { source: "x", files: [{ path: "a.ts", coveredLines: [50], uncoveredLines: [] }] } }
+    expect(buildReviewPlan(model).stops.at(0)?.coverage).toBeNull()
+  })
+
   it("finds tests by the code they mention, in other files or the same one", () => {
     const test: ChangedFile = {
       ...file("tests/run.spec.ts"),

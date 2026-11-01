@@ -67,6 +67,7 @@ Each guarantee describes the latest release and has an automated test or setting
 - **Secret detection isn't complete.** Redaction recognises known formats and common assignments. A secret in an unusual format can still reach an AI prompt, so don't use `--ai` on a PR you know contains secrets.
 - **The Changes tab shows the code as it is.** A secret in a PR is redacted from findings, but still appears in the diff, in the report and in `review.json`.
 - **Prompt injection can mislead the AI review.** Someone writing a PR can try to influence what it says, so treat its output as a hint and not as a verdict.
+- **Coverage can be faked.** In CI, a PR's own code produces the coverage report, so someone trying to deceive could fake it. It helps honest reviewers, and isn't a security control.
 - **Reference finding is by name and syntax,** so the Impact tab can miss callers or match the wrong ones.
 - **Walkdiff doesn't protect you from your own machine.** Files are stored unencrypted, and anything running as your user can read them.
 

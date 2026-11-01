@@ -18,6 +18,8 @@ walkdiff:
   variables:
     WALKDIFF_REF: v0.2.0
     WALKDIFF_AI: "false"
+    # Path to an LCOV or Cobertura report from an earlier job, relative to the project.
+    WALKDIFF_COVERAGE: ""
     # The job reads commits through the API-authenticated fetch; it needs no checkout.
     GIT_STRATEGY: none
   script:
@@ -29,6 +31,7 @@ walkdiff:
     - |
       set -- review --no-serve --out "$CI_PROJECT_DIR/walkdiff-report"
       if [ "$WALKDIFF_AI" = "true" ]; then set -- "$@" --ai; fi
+      if [ -n "$WALKDIFF_COVERAGE" ]; then set -- "$@" --coverage "$CI_PROJECT_DIR/$WALKDIFF_COVERAGE"; fi
       node packages/cli/src/main.ts "$@"
     - node packages/cli/src/main.ts comment --report "$CI_PROJECT_DIR/walkdiff-report" --report-url "$CI_JOB_URL/artifacts/file/walkdiff-report/index.html"
   artifacts:
