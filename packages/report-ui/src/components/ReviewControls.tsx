@@ -1,5 +1,6 @@
 import { useId, useState } from "react"
 import type { ReactElement } from "react"
+import { isConnectedToApp } from "../appApi.ts"
 import { isReviewed } from "../reviewProgress.ts"
 import type { ReviewItem } from "../reviewProgress.ts"
 import { useReviewState } from "../reviewState.tsx"
@@ -44,7 +45,7 @@ function CommentBox({ id }: { readonly id: string }): ReactElement {
         Your comment
       </label>
       <textarea id={fieldId} rows={3} value={text} autoFocus={open} placeholder="What should the author look at?" onChange={(event) => setComment(id, event.target.value)} />
-      <p className="review-comment-note">Saved in this browser. Walkdiff can't post to the PR yet, so copy your comments from the finish screen.</p>
+      <p className="review-comment-note">{isConnectedToApp() ? "A draft, saved in this browser. Nothing is posted until you submit your review on the finish screen." : "Saved in this browser. To post it, open this review in the Walkdiff app, or copy your comments from the finish screen."}</p>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
 import { UnitImpactStatus } from "@walkdiff/review-model"
 import type { ChangedUnit, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
+import { isConnectedToApp } from "../appApi.ts"
 import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, REVIEW_HASH } from "../reviewPlan.ts"
 import type { GuideRoute, LineCoverage, ReviewPlan, ReviewStop } from "../reviewPlan.ts"
 import { commentsAsMarkdown, commentsOnItems, isReviewed, ItemKind, nextUnreviewedStop, overallProgress, pathProgress, remainingOffPath, reviewPlanFor, stopItems } from "../reviewProgress.ts"
@@ -9,9 +10,11 @@ import type { ItemComment, Progress, RemainingCounts, ReviewState } from "../rev
 import { useReviewState } from "../reviewState.tsx"
 import { factPhrases } from "../unitChange.ts"
 import { SideBySide } from "./CodeViews.tsx"
+import { ReviewerSummary, StopThreads } from "./ConversationView.tsx"
 import { HunkView } from "./HunkView.tsx"
 import { ImpactPanel } from "./ImpactPanel.tsx"
 import { ReviewControls } from "./ReviewControls.tsx"
+import { SubmitReviewForm } from "./SubmitReviewForm.tsx"
 import { RiskList } from "./RiskView.tsx"
 import { UnitBody } from "./UnitCard.tsx"
 
@@ -70,6 +73,8 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
         by {pullRequest.author} · {files.length} {files.length === 1 ? "file" : "files"} · <span className="added">+{additions}</span> <span className="removed">−{deletions}</span>
       </p>
       <h1 className="guide-title">{pullRequest.title}</h1>
+
+      <ReviewerSummary />
 
       {changedAtOpen.length > 0 && (
         <p className="guide-updated">
@@ -250,6 +255,7 @@ function StopView({ review, stop, index, total }: { readonly review: ReviewModel
           <RiskList findings={located} pullRequest={review.pullRequest} onOpenFile={undefined} />
         </section>
       )}
+      <StopThreads stop={stop} />
       {stop.unit !== null && <Callers unit={stop.unit} review={review} />}
       {stop.unit !== null && <TestEvidence stop={stop} source={review.testCoverage?.source} />}
 
@@ -373,7 +379,7 @@ function Finish({ review, plan, state }: { readonly review: ReviewModel; readonl
         {overall.reviewed} of {overall.total} changes reviewed overall. The decision is yours: Walkdiff only points at what to look at.
       </p>
 
-      {comments.length > 0 && <Comments comments={comments} />}
+      {isConnectedToApp() ? <SubmitReviewForm review={review} comments={comments} /> : comments.length > 0 && <Comments comments={comments} />}
 
       {remaining.length > 0 && (
         <section className="guide-panel">

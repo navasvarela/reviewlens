@@ -31,7 +31,10 @@ Each guarantee describes the latest release and has an automated test or setting
 | A team can limit where code goes | `"ai": { "providers": ["local"] }` in `.walkdiff.json`. Both the merge base and the PR have to allow the provider |
 | A repository can forbid AI review | `"ai": { "allowed": false }` in `.walkdiff.json`. A PR can't remove this, because if either version forbids it, it's blocked |
 | Walkdiff has no telemetry and no server of its own | It collects no usage data, and the only network destinations are listed below |
-| A report can't contact anything | Every report carries a Content Security Policy that blocks network requests, so script injected through a PR has nowhere to send data |
+| A report can't contact anything outside the app | Every report carries a Content Security Policy that blocks network requests, so script injected through a PR has nowhere to send data. In the app, a report can call the app itself, and nothing else |
+| Walkdiff only changes something on the host when you press a button | Posting a review, replying and resolving each need a click, and only happen in the local app. The command line and reports opened from a file can't do them, and CI only posts its summary comment |
+| A review only speaks for the code you read | Walkdiff refuses to post if the PR has new commits since the report was made, and the review is tied to that commit |
+| A page can't aim your token at another host | The host comes from the saved review, never from the request, and these actions need the key created each time the app starts |
 | Local servers aren't reachable from your network | They listen only on `127.0.0.1` and refuse other host names, which blocks DNS rebinding |
 | Local files are private to your user account | Reports, cached repositories and the review list are created for your user only, and the default folders are closed to other users |
 
@@ -72,13 +75,14 @@ Each guarantee describes the latest release and has an automated test or setting
 - **Prompt injection can mislead the AI review.** Someone writing a PR can try to influence what it says, so treat its output as a hint and not as a verdict.
 - **Coverage can be faked.** In CI, a PR's own code produces the coverage report, so someone trying to deceive could fake it. It helps honest reviewers, and isn't a security control.
 - **Reference finding is by name and syntax,** so the Impact tab can miss callers or match the wrong ones.
+- **A flaw in the report page could post as you.** In the app, a report can call the API that posts reviews, using your token. PR text is always shown as text, never as HTML, but if script ever got onto that page, it could post comments or approve in your name, on that review's host only.
 - **Walkdiff doesn't protect you from your own machine.** Files are stored unencrypted, and anything running as your user can read them.
 
 ## What leaves your machine
 
 | Destination | What is sent | When | How to stop it |
 | --- | --- | --- | --- |
-| The PR's host | Your token if the host is trusted, and requests for the PR and its code | Always | - |
+| The PR's host | Your token if the host is trusted, and requests for the PR and its code. Your comments and decisions when you post a review | Always; posting only when you press the button | - |
 | [OSV](https://osv.dev) | Names and versions of dependencies changed in the PR, **including private package names** | By default | `--offline` |
 | Semgrep registry | A rule download; code isn't uploaded | If Semgrep is installed | `--offline`, or an empty rule list |
 | Your AI provider (Anthropic by default) | Changed code, and the PR's title and description | Only with `--ai` or the app's AI option | Leave it off, forbid it in `.walkdiff.json`, or use a local model |

@@ -5,8 +5,9 @@ import { join } from "node:path"
 import { commitShaSchema, REVIEW_MODEL_SCHEMA_VERSION, DEFAULT_APP_SETTINGS } from "@walkdiff/review-model"
 import type { ReviewModel } from "@walkdiff/review-model"
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
-import { parsePullRequestUrl } from "@walkdiff/providers"
-import type { PullRequestRef } from "@walkdiff/providers"
+import { HostApiError, parsePullRequestUrl } from "@walkdiff/providers"
+import type { GitHost, PullRequestRef } from "@walkdiff/providers"
+import { REPORT_FILE_POLICY_TAG } from "../report.ts"
 import { hostTokensFor, readHostTokens } from "../environment.ts"
 import { API_KEY_HEADER, startAppServer, withMeta } from "./appServer.ts"
 import type { AppServer } from "./appServer.ts"
@@ -212,6 +213,118 @@ describe("the app server", () => {
     it("falls back to the defaults if what's saved can't be read", () => {
       expect(store.getSettings()).toEqual(DEFAULT_APP_SETTINGS)
     })
+  })
+
+  describe("posting to the host", () => {
+    const headers = { [API_KEY_HEADER]: KEY, "Content-Type": "application/json" }
+    const HEAD = "a".repeat(40)
+    const review = { event: "comment", body: "Looks fine", headSha: HEAD, comments: [] }
+    const calls: string[] = []
+    const fakeHost: GitHost = {
+      fetchPullRequest: async () => ({ pullRequest: { ...fakeModel("x").pullRequest, headSha: commitShaSchema.parse(HEAD) }, cloneUrl: "", gitAuth: undefined }),
+      upsertComment: async () => undefined,
+      fetchConversation: async () => ({ reviewers: [], threads: [], truncated: false }),
+      submitReview: async () => {
+        calls.push("submit")
+        return { url: "https://github.com/acme/app/pull/7#review" }
+      },
+      replyToThread: async (id, body) => void calls.push(`reply ${id} ${body}`),
+      setThreadResolved: async (id, resolved) => void calls.push(`resolve ${id} ${resolved}`),
+    }
+    let hostServer: AppServer
+    let hostBase = ""
+    let reviewId = 0
+    const requested: string[] = []
+
+    beforeAll(async () => {
+      const service = new ReviewService(store, async () => ({ model: fakeModel("x"), reportDir: dir }), () => undefined)
+      hostServer = await startAppServer(store, service, {
+        port: 0,
+        apiKey: KEY,
+        log: () => undefined,
+        hostFor: async (ref) => {
+          requested.push(ref.webOrigin)
+          return fakeHost
+        },
+      })
+      hostBase = hostServer.url
+      reviewId = store.add({ url: "https://github.com/acme/app/pull/77", host: "github", displayName: "acme/app#77", ai: false }).id
+    })
+    afterAll(async () => {
+      store.remove(reviewId)
+      await hostServer.close()
+    })
+    const submit = (body: unknown): Promise<Response> => fetch(`${hostBase}api/reviews/${reviewId}/submit`, { method: "POST", headers, body: JSON.stringify(body) })
+
+    it("needs the key for every action", async () => {
+      const before = calls.length
+      expect((await fetch(`${hostBase}api/reviews/${reviewId}/submit`, { method: "POST", body: JSON.stringify(review) })).status).toBe(401)
+      expect((await fetch(`${hostBase}api/reviews/${reviewId}/threads/t/reply`, { method: "POST", body: "{}" })).status).toBe(401)
+      expect(calls.length).toBe(before)
+    })
+
+    it("posts a review, using the host saved with the review", async () => {
+      const response = await submit(review)
+      expect(response.status).toBe(201)
+      expect(await response.json()).toEqual({ url: "https://github.com/acme/app/pull/7#review" })
+      expect(requested.at(-1)).toBe("https://github.com")
+      expect(calls.at(-1)).toBe("submit")
+    })
+
+    it("refuses when the PR moved on, so an approval can't reach code nobody read", async () => {
+      const before = calls.length
+      const response = await submit({ ...review, event: "approve", headSha: "b".repeat(40) })
+      expect(response.status).toBe(409)
+      expect(await response.text()).toContain("new commits")
+      expect(calls.length).toBe(before)
+    })
+
+    it("refuses a review with nothing in it", async () => {
+      expect((await submit({ ...review, body: "  " })).status).toBe(400)
+      expect((await submit({ ...review, event: "requestChanges", body: "" })).status).toBe(400)
+    })
+
+    it("allows an approval without a comment", async () => {
+      expect((await submit({ ...review, event: "approve", body: "" })).status).toBe(201)
+    })
+
+    it("replies and resolves, decoding the thread id", async () => {
+      await fetch(`${hostBase}api/reviews/${reviewId}/threads/${encodeURIComponent("PRRT_a/b")}/reply`, { method: "POST", headers, body: JSON.stringify({ body: "Done" }) })
+      expect(calls.at(-1)).toBe("reply PRRT_a/b Done")
+      await fetch(`${hostBase}api/reviews/${reviewId}/threads/t1/resolve`, { method: "POST", headers, body: JSON.stringify({ resolved: true }) })
+      expect(calls.at(-1)).toBe("resolve t1 true")
+    })
+
+    it("answers 404 for a review that doesn't exist", async () => {
+      expect((await fetch(`${hostBase}api/reviews/99999/conversation`, { headers })).status).toBe(404)
+    })
+
+    it("passes on a host's refusal", async () => {
+      const refusing = fakeHost.submitReview
+      fakeHost.submitReview = async () => {
+        throw new HostApiError(422, "https://api.github.com/x", "Can not approve your own pull request")
+      }
+      const response = await submit({ ...review, event: "approve" })
+      fakeHost.submitReview = refusing
+      expect(response.status).toBe(502)
+      expect(await response.text()).toContain("Can not approve your own")
+    })
+  })
+
+  it("serves a report without the file's policy, so it can call the app and nothing else", async () => {
+    const headers = { [API_KEY_HEADER]: KEY, "Content-Type": "application/json" }
+    await writeFile(join(dir, "index.html"), `<html><head>${REPORT_FILE_POLICY_TAG}</head><body></body></html>`)
+    await fetch(`${base}api/reviews`, { method: "POST", headers, body: JSON.stringify({ url: PR_URL, ai: false }) })
+    await new Promise((done) => setTimeout(done, 20))
+    const id = store.list().at(0)?.id ?? 0
+    const page = await fetch(`${base}reviews/${id}/`)
+    const html = await page.text()
+    await fetch(`${base}api/reviews/${id}`, { method: "DELETE", headers })
+    await writeFile(join(dir, "index.html"), "<html><head></head><body>report page</body></html>")
+    expect(html).not.toContain("http-equiv")
+    expect(html).toContain(`name="walkdiff-review-id" content="${id}"`)
+    expect(page.headers.get("content-security-policy")).toContain("connect-src 'self'")
+    expect(page.headers.get("content-security-policy")).toContain("default-src 'none'")
   })
 
   it("explains a bad link", async () => {

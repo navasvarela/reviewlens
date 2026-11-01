@@ -1,10 +1,10 @@
 import { AiReviewStatus, changedUnitsOf, isBehaviourChange, untouchedReferences } from "@walkdiff/review-model"
 import type { ReviewModel, RiskSeverity } from "@walkdiff/review-model"
 
-export const ReportTab = { Changes: "changes", Impact: "impact", Risks: "risks", AiReview: "ai-review" } as const
+export const ReportTab = { Changes: "changes", Impact: "impact", Risks: "risks", AiReview: "ai-review", Conversation: "conversation" } as const
 export type ReportTab = (typeof ReportTab)[keyof typeof ReportTab]
 
-const ALL_TABS: readonly ReportTab[] = [ReportTab.Changes, ReportTab.Impact, ReportTab.Risks, ReportTab.AiReview]
+const ALL_TABS: readonly ReportTab[] = [ReportTab.Changes, ReportTab.Impact, ReportTab.Risks, ReportTab.AiReview, ReportTab.Conversation]
 
 /** The tab named in the URL, so a link or the back button can return to it. */
 export function tabFromHash(hash: string): ReportTab {
@@ -20,7 +20,7 @@ export interface TabSummary {
   readonly tone: RiskSeverity | undefined
 }
 
-export function summarizeTabs(review: ReviewModel): TabSummary[] {
+export function summarizeTabs(review: ReviewModel, openThreads?: number): TabSummary[] {
   const units = review.files.flatMap(changedUnitsOf)
   const untouched = units.reduce((sum, unit) => sum + untouchedReferences(unit).length, 0)
   return [
@@ -28,6 +28,7 @@ export function summarizeTabs(review: ReviewModel): TabSummary[] {
     { tab: ReportTab.Impact, label: "Impact", count: String(untouched), tone: untouched > 0 ? "medium" : undefined },
     { tab: ReportTab.Risks, label: "Risks", count: String(review.risk.findings.length), tone: review.risk.securityLevel },
     { tab: ReportTab.AiReview, label: "AI review", count: review.ai.status === AiReviewStatus.Completed ? String(review.ai.questions.length) : undefined, tone: undefined },
+    { tab: ReportTab.Conversation, label: "Conversation", count: openThreads === undefined || openThreads === 0 ? undefined : String(openThreads), tone: undefined },
   ]
 }
 

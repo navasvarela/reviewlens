@@ -12,9 +12,13 @@ const STYLESHEET_TAG = /<link rel="stylesheet" crossorigin href="\.\/([^"]+)">/
 const HEAD_END = "</head>"
 /**
  * Travels with the file, so a report opened from disk or a CI artifact cannot contact anything,
- * even if a crafted PR got script onto the page. Servers add their own policy as a header.
+ * even if a crafted PR got script onto the page. Servers add their own policy as a header. The
+ * app removes this tag and allows calling itself and nothing else, because browsers apply every
+ * policy on a page, and this one would stop a report from posting a review.
  */
 const FILE_POLICY = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+
+export const REPORT_FILE_POLICY_TAG = `<meta http-equiv="Content-Security-Policy" content="${FILE_POLICY}">`
 
 export class ReportUiMissingError extends Error {
   override readonly name = "ReportUiMissingError"
@@ -69,8 +73,7 @@ export function assembleReportPage(page: string, assets: ReadonlyMap<string, str
     .replace(STYLESHEET_TAG, (_tag, path: string) => `<style>${asset(path).replaceAll("</style", "<\\/style")}</style>`)
   // `<` is escaped so text from the PR, such as "</script>" in code, cannot end the block.
   const embedded = `<script type="application/json" id="review-model">${modelJson.replaceAll("<", "\\u003c")}</script>`
-  const policy = `<meta http-equiv="Content-Security-Policy" content="${FILE_POLICY}">`
-  return inlined.replace(HEAD_END, () => `${policy}\n${embedded}\n${HEAD_END}`)
+  return inlined.replace(HEAD_END, () => `${REPORT_FILE_POLICY_TAG}\n${embedded}\n${HEAD_END}`)
 }
 
 async function isReadable(path: string): Promise<boolean> {

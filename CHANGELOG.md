@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Post your review:** in the app, post comments and Comment, Approve or Request changes from the finish screen, to GitHub or GitLab. Nothing is posted until you press the button, and Walkdiff refuses if the PR has new commits since the report was made.
+- **Conversation:** the app shows existing threads in a new tab and beside each change, where you can reply and resolve them, plus who has reviewed so far.
 - **Fewer false warnings:** reports no longer list "Change history" under checks that didn't run on every PR. It was never built, so it wasn't a gap you could do anything about. It's still planned.
 - **Settings page:** the app now has a page to turn optional checks on or off, choose the AI provider and model, test the connection, and see what leaves your machine.
 - **More AI providers:** besides Anthropic, Walkdiff can use any OpenAI-compatible service or a local model such as Ollama, with `--ai-provider openai-compatible --ai-base-url <address> --ai-model <name>`. Keys come from `WALKDIFF_AI_API_KEY`, and only https addresses are accepted unless the model is on your machine.

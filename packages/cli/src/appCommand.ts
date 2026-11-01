@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { findInstalledScanners } from "@walkdiff/engine"
+import { gitHostFor } from "@walkdiff/providers"
 import type { AppOptions } from "./args.ts"
 import { startAppServer } from "./app/appServer.ts"
 import { ReviewService } from "./app/reviewService.ts"
@@ -41,7 +42,7 @@ export async function runApp(options: AppOptions, deps: AppDependencies): Promis
     },
     deps.log,
   )
-  const server = await startAppServer(store, service, { port: options.port, log: deps.log, env: deps.env, offline: !options.network })
+  const server = await startAppServer(store, service, { port: options.port, log: deps.log, env: deps.env, offline: !options.network, hostFor: async (ref) => gitHostFor(ref, await hostTokensFor(ref, deps.env, runCommand)) })
   deps.log(`Walkdiff is running at ${server.url} (Ctrl+C to stop)`)
   const scanners = await findInstalledScanners()
   deps.log(`Security scanners: ${scanners.installed.join(", ") || "none"} installed${scanners.missing.length > 0 ? `; not found: ${scanners.missing.join(", ")}` : ""}`)

@@ -24,7 +24,7 @@ The report opens on a brief, with what to check and where to start:
 
 1. **Start the review.** Walkdiff takes you through the changes that matter most, one at a time, and says why each one is there.
 2. **Mark what you've reviewed** and leave comments as you go. The side panel shows your progress and links to every change.
-3. **Finish.** The last screen shows what you reviewed, what's left, and what Walkdiff couldn't check. Comments aren't posted to the PR yet, so copy them from here.
+3. **Finish.** The last screen shows what you reviewed, what's left, and what Walkdiff couldn't check. In the app, you can post your review from here. Elsewhere, copy your comments.
 
 Everything else is under **All changes**:
 
@@ -56,6 +56,12 @@ pnpm walkdiff app
 ```
 
 This runs a list at `http://127.0.0.1:4317/`, which you open in your browser. Paste a link to add a review. If you're signed in with the GitHub CLI, the app uses that login for GitHub. For GitLab, set `GITLAB_TOKEN` before starting it.
+
+## Post your review
+
+In the app, the finish screen posts your comments and your decision to the PR: Comment, Approve or Request changes. The Conversation tab shows existing threads, where you can reply and resolve them. Nothing is posted until you press the button.
+
+Your token needs write access: `pull-requests: write` on GitHub, or the `api` scope on GitLab. A GitHub CLI login usually already has it.
 
 ## Show test evidence
 

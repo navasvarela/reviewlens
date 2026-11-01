@@ -9,9 +9,9 @@ Status: early release, [v0.2.0](CHANGELOG.md). To run it on your team's PRs, see
 
 ## What the report shows
 
-The report opens on a brief: what to check, how many changes need attention, and where to start. A review path then takes you through the changes that matter most, one at a time, with why each one is there, its code, callers and tests. You can mark changes as reviewed and leave comments, and everything else stays one link away under **All changes**.
+The report opens on a brief: what to check, how many changes need attention, and where to start. A review path then takes you through the changes that matter most, one at a time, with why each one is there, its code, callers and tests. You can mark changes as reviewed and leave comments, and everything else stays one link away under **All changes**. In the app, you can then post your review to the PR and join the discussion.
 
-All changes has four tabs: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
+All changes has five tabs, including **Conversation** in the app: **Changes** (files, the map of each file and the changed units), **Impact** (where other code uses what changed), **Risks** (security level, findings and what was not checked) and **AI review**. Each tab shows a count, and its name in the URL lets you link to it, as in `#risks`.
 
 - **Changed units, not hunks.** For Rust, TypeScript/JavaScript and Python, each changed function, method,
   type or class appears once, whole, before and after, with edited words marked. A class shows only the

@@ -1,4 +1,5 @@
-import { commitShaSchema, GitHostKind } from "@walkdiff/review-model"
+import { commitShaSchema, GitHostKind, ReviewerState, ReviewEvent } from "@walkdiff/review-model"
+import type { Conversation, ReviewComment, SubmitResult, SubmitReview } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
 import { getJson, writeJson } from "./http.ts"
@@ -27,6 +28,41 @@ const mergeRequestSchema = z.object({
 })
 
 const noteSchema = z.object({ id: z.number().int(), body: z.string().nullable() })
+
+const DISCUSSIONS_PER_PAGE = 100
+
+const userSchema = z.object({ username: z.string() })
+
+const discussionSchema = z.object({
+  id: z.string(),
+  individual_note: z.boolean(),
+  notes: z.array(
+    z.object({
+      id: z.number().int(),
+      body: z.string(),
+      created_at: z.string(),
+      system: z.boolean(),
+      author: userSchema,
+      resolvable: z.boolean().optional(),
+      resolved: z.boolean().optional(),
+      position: z.object({ new_path: z.string().nullable().optional(), new_line: z.number().int().positive().nullable().optional() }).nullable().optional(),
+    }),
+  ),
+})
+
+const approvalsSchema = z.object({ approved_by: z.array(z.object({ user: userSchema })) })
+const reviewersSchema = z.array(z.object({ user: userSchema, state: z.string().nullable().optional() }))
+
+const REVIEWER_STATES: ReadonlyMap<string, ReviewerState> = new Map([
+  ["requested_changes", ReviewerState.ChangesRequested],
+  ["reviewed", ReviewerState.Commented],
+  ["approved", ReviewerState.Approved],
+])
+const REVIEWER_PUBLISH_STATES: Readonly<Record<ReviewEvent, string | undefined>> = {
+  [ReviewEvent.Comment]: "reviewed",
+  [ReviewEvent.Approve]: undefined,
+  [ReviewEvent.RequestChanges]: "requested_changes",
+}
 
 export class DiffNotReadyError extends Error {
   override readonly name = "DiffNotReadyError"
@@ -93,6 +129,73 @@ export class GitLabHost implements GitHost {
     )
   }
 
+  async fetchConversation(): Promise<Conversation> {
+    const api = this.#mergeRequestApi()
+    const [discussions, approvals, reviewers] = await Promise.all([
+      this.#get(`${api}/discussions?per_page=${DISCUSSIONS_PER_PAGE}`, z.array(discussionSchema)),
+      this.#get(`${api}/approvals`, approvalsSchema),
+      this.#get(`${api}/reviewers`, reviewersSchema),
+    ])
+    const approved = new Set(approvals.approved_by.map(({ user }) => user.username))
+    const others = reviewers.filter(({ user }) => !approved.has(user.username)).map(({ user, state }) => ({ name: user.username, state: REVIEWER_STATES.get(state ?? "") ?? ReviewerState.Other }))
+    return {
+      reviewers: [...[...approved].map((name) => ({ name, state: ReviewerState.Approved })), ...others],
+      threads: discussions.filter((discussion) => !discussion.individual_note).map((discussion) => this.#toThread(discussion)),
+      truncated: discussions.length === DISCUSSIONS_PER_PAGE,
+    }
+  }
+
+  /**
+   * GitLab has no single call for this, so comments are drafted and then published together.
+   * Drafts are invisible until then, so a failure part-way leaves nothing others can see, though
+   * the drafts stay on the merge request. Approval is a separate call, made last so that a review
+   * can't be approved if its comments failed.
+   */
+  async submitReview(review: SubmitReview): Promise<SubmitResult> {
+    const api = this.#mergeRequestApi()
+    const mergeRequest = await this.#get(api, mergeRequestSchema)
+    const refs = mergeRequest.diff_refs
+    if (refs === null) throw new DiffNotReadyError(mergeRequest.web_url)
+    for (const comment of review.comments.filter((candidate) => candidate.line !== null)) {
+      await this.#write("POST", `${api}/draft_notes`, {
+        note: comment.body,
+        position: { position_type: "text", base_sha: refs.base_sha, start_sha: refs.start_sha, head_sha: refs.head_sha, old_path: comment.previousPath, new_path: comment.path, new_line: comment.line },
+      })
+    }
+    const text = withUnplacedComments(review)
+    if (text !== "") await this.#write("POST", `${api}/draft_notes`, { note: text })
+    const reviewerState = REVIEWER_PUBLISH_STATES[review.event]
+    await this.#write("POST", `${api}/draft_notes/bulk_publish`, reviewerState === undefined ? {} : { reviewer_state: reviewerState })
+    if (review.event === ReviewEvent.Approve) await this.#write("POST", `${api}/approve`, { sha: review.headSha })
+    return { url: mergeRequest.web_url }
+  }
+
+  async replyToThread(threadId: string, body: string): Promise<void> {
+    await this.#write("POST", `${this.#mergeRequestApi()}/discussions/${encodeURIComponent(threadId)}/notes`, { body })
+  }
+
+  async setThreadResolved(threadId: string, resolved: boolean): Promise<void> {
+    await this.#write("PUT", `${this.#mergeRequestApi()}/discussions/${encodeURIComponent(threadId)}`, { resolved })
+  }
+
+  #toThread(discussion: z.infer<typeof discussionSchema>): Conversation["threads"][number] {
+    const { webOrigin, projectPath, number } = this.#ref
+    const notes = discussion.notes.filter((note) => !note.system)
+    const position = notes.at(0)?.position
+    return {
+      id: discussion.id,
+      path: position?.new_path ?? null,
+      line: position?.new_line ?? null,
+      isResolved: notes.some((note) => note.resolvable === true) && notes.filter((note) => note.resolvable === true).every((note) => note.resolved === true),
+      isOutdated: false,
+      comments: notes.map((note) => ({ author: note.author.username, body: note.body, createdAt: note.created_at, url: `${webOrigin}/${projectPath}/-/merge_requests/${number}#note_${note.id}` })),
+    }
+  }
+
+  #get<T>(url: string, schema: z.ZodType<T>): Promise<T> {
+    return getJson({ url, headers: this.#headers(), schema, authHint: this.#authHint })
+  }
+
   #mergeRequestApi(): string {
     const { webOrigin, projectPath, number } = this.#ref
     return `${webOrigin}/api/v4/projects/${encodeURIComponent(projectPath)}/merge_requests/${number}`
@@ -109,4 +212,10 @@ export class GitLabHost implements GitHost {
   #gitAuth(): GitHttpAuth | undefined {
     return this.#token === undefined ? undefined : { username: GITLAB_GIT_USERNAME, token: this.#token }
   }
+}
+
+/** Comments without a line, and the summary, go together as one note. */
+function withUnplacedComments(review: SubmitReview): string {
+  const unplaced = review.comments.filter((comment: ReviewComment) => comment.line === null).map((comment) => `**\`${comment.label}\`** in \`${comment.path}\`\n\n${comment.body}`)
+  return [review.body, ...unplaced].filter((part) => part !== "").join("\n\n---\n\n")
 }

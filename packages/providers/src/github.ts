@@ -1,8 +1,8 @@
-import { commitShaSchema, GitHostKind } from "@walkdiff/review-model"
-import type { CommitSha } from "@walkdiff/review-model"
+import { commitShaSchema, GitHostKind, ReviewerState, ReviewEvent } from "@walkdiff/review-model"
+import type { CommitSha, Conversation, ReviewComment, SubmitResult, SubmitReview } from "@walkdiff/review-model"
 import { z } from "zod"
 import type { GitHost, GitHttpAuth, PullRequestSnapshot } from "./gitHost.ts"
-import { getJson, writeJson } from "./http.ts"
+import { getJson, HostApiError, writeJson } from "./http.ts"
 import type { WriteMethod } from "./http.ts"
 import { COMMENTS_PER_PAGE, upsertMarkedComment } from "./markedComment.ts"
 import type { MarkedComment } from "./markedComment.ts"
@@ -35,6 +35,63 @@ const issueCommentSchema = z.object({ id: z.number().int(), body: z.string().nul
 const compareSchema = z.object({
   merge_base_commit: z.object({ sha: commitShaSchema }),
 })
+
+const THREADS_PER_PAGE = 100
+const COMMENTS_PER_THREAD = 50
+const REVIEWERS_PER_PAGE = 30
+
+const CONVERSATION_QUERY = `query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      latestReviews(first: ${REVIEWERS_PER_PAGE}) { nodes { state author { login } } }
+      reviewThreads(first: ${THREADS_PER_PAGE}) {
+        pageInfo { hasNextPage }
+        nodes {
+          id isResolved isOutdated path line
+          comments(first: ${COMMENTS_PER_THREAD}) { nodes { bodyText createdAt url author { login } } }
+        }
+      }
+    }
+  }
+}`
+const REPLY_MUTATION = "mutation($id: ID!, $body: String!) { addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $id, body: $body }) { comment { id } } }"
+const RESOLVE_MUTATION = "mutation($id: ID!) { resolveReviewThread(input: { threadId: $id }) { thread { id } } }"
+const UNRESOLVE_MUTATION = "mutation($id: ID!) { unresolveReviewThread(input: { threadId: $id }) { thread { id } } }"
+
+const authorSchema = z.object({ login: z.string() }).nullable()
+
+const conversationResponseSchema = z.object({
+  repository: z.object({
+    pullRequest: z.object({
+      latestReviews: z.object({ nodes: z.array(z.object({ state: z.string(), author: authorSchema })) }),
+      reviewThreads: z.object({
+        pageInfo: z.object({ hasNextPage: z.boolean() }),
+        nodes: z.array(
+          z.object({
+            id: z.string(),
+            isResolved: z.boolean(),
+            isOutdated: z.boolean(),
+            path: z.string(),
+            line: z.number().int().positive().nullable(),
+            comments: z.object({ nodes: z.array(z.object({ bodyText: z.string(), createdAt: z.string(), url: z.string(), author: authorSchema })) }),
+          }),
+        ),
+      }),
+    }),
+  }),
+})
+
+const REVIEW_EVENTS: Readonly<Record<ReviewEvent, string>> = {
+  [ReviewEvent.Comment]: "COMMENT",
+  [ReviewEvent.Approve]: "APPROVE",
+  [ReviewEvent.RequestChanges]: "REQUEST_CHANGES",
+}
+
+const REVIEWER_STATES: ReadonlyMap<string, ReviewerState> = new Map([
+  ["APPROVED", ReviewerState.Approved],
+  ["CHANGES_REQUESTED", ReviewerState.ChangesRequested],
+  ["COMMENTED", ReviewerState.Commented],
+])
 
 export class GitHubHost implements GitHost {
   readonly #ref: GitHubPullRequestRef
@@ -86,6 +143,59 @@ export class GitHubHost implements GitHost {
     )
   }
 
+  async fetchConversation(): Promise<Conversation> {
+    const { owner, repo, number } = this.#ref
+    const data = await this.#graphql(CONVERSATION_QUERY, { owner, repo, number }, conversationResponseSchema)
+    const { latestReviews, reviewThreads } = data.repository.pullRequest
+    return {
+      reviewers: latestReviews.nodes.map((review) => ({ name: review.author?.login ?? DELETED_USER_LOGIN, state: REVIEWER_STATES.get(review.state) ?? ReviewerState.Other })),
+      threads: reviewThreads.nodes.map((thread) => ({
+        id: thread.id,
+        path: thread.path,
+        line: thread.line,
+        isResolved: thread.isResolved,
+        isOutdated: thread.isOutdated,
+        comments: thread.comments.nodes.map((comment) => ({ author: comment.author?.login ?? DELETED_USER_LOGIN, body: comment.bodyText, createdAt: comment.createdAt, url: comment.url })),
+      })),
+      truncated: reviewThreads.pageInfo.hasNextPage,
+    }
+  }
+
+  async submitReview(review: SubmitReview): Promise<SubmitResult> {
+    const onLines = review.comments.filter((comment) => comment.line !== null)
+    const posted = await writeJson({
+      method: "POST",
+      url: `${this.#repoApi()}/pulls/${this.#ref.number}/reviews`,
+      headers: this.#headers(),
+      schema: postedReviewSchema,
+      authHint: this.#authHint,
+      body: {
+        // Ties the review to the commit that was read, so it can't land on a newer one.
+        commit_id: review.headSha,
+        event: REVIEW_EVENTS[review.event],
+        body: withUnplacedComments(review),
+        comments: onLines.map((comment) => ({ path: comment.path, line: comment.line, side: "RIGHT", body: comment.body })),
+      },
+    })
+    return { url: posted.html_url }
+  }
+
+  async replyToThread(threadId: string, body: string): Promise<void> {
+    await this.#graphql(REPLY_MUTATION, { id: threadId, body }, z.unknown())
+  }
+
+  async setThreadResolved(threadId: string, resolved: boolean): Promise<void> {
+    await this.#graphql(resolved ? RESOLVE_MUTATION : UNRESOLVE_MUTATION, { id: threadId }, z.unknown())
+  }
+
+  async #graphql<T>(query: string, variables: Readonly<Record<string, string | number>>, schema: z.ZodType<T>): Promise<T> {
+    const url = graphqlUrl(this.#ref.webOrigin)
+    const response = await writeJson({ method: "POST", url, body: { query, variables }, headers: this.#headers(), schema: graphqlResponseSchema, authHint: this.#authHint })
+    // GraphQL reports most failures with a 200, so they would otherwise look like success.
+    if (response.errors !== undefined && response.errors.length > 0) throw new HostApiError(GRAPHQL_FAILURE_STATUS, url, response.errors.map((error) => error.message).join("; "))
+    return schema.parse(response.data)
+  }
+
   #repoApi(): string {
     const { owner, repo, webOrigin } = this.#ref
     return `${apiBase(webOrigin)}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
@@ -119,6 +229,20 @@ export class GitHubHost implements GitHost {
   #gitAuth(): GitHttpAuth | undefined {
     return this.#token === undefined ? undefined : { username: GITHUB_GIT_USERNAME, token: this.#token }
   }
+}
+
+const postedReviewSchema = z.object({ html_url: z.string() })
+const graphqlResponseSchema = z.object({ data: z.unknown().optional(), errors: z.array(z.object({ message: z.string() })).optional() })
+const GRAPHQL_FAILURE_STATUS = 502
+
+/** GitHub only accepts comments on lines, so anything without one joins the review's own text. */
+function withUnplacedComments(review: SubmitReview): string {
+  const unplaced = review.comments.filter((comment: ReviewComment) => comment.line === null).map((comment) => `**\`${comment.label}\`** in \`${comment.path}\`\n\n${comment.body}`)
+  return [review.body, ...unplaced].filter((part) => part !== "").join("\n\n---\n\n")
+}
+
+function graphqlUrl(webOrigin: string): string {
+  return webOrigin === GITHUB_DOT_COM_ORIGIN ? `${GITHUB_DOT_COM_API}/graphql` : `${webOrigin}/api/graphql`
 }
 
 // GitHub Enterprise Server serves its REST API under /api/v3 on the web host.
