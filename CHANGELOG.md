@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **The app opens your browser:** `pnpm walkdiff app` now opens the review list. Use `--no-open` to turn this off.
 - **Clearer all-clear:** the brief and the PR comment now say what was found absent and name the checks used, instead of saying "the checks that ran".
 - **Semgrep, gitleaks and osv-scanner now install with Walkdiff,** so reports stop saying they didn't run, in CI too. `pnpm install` fetches pinned versions and checks them against hashes in this repository, on macOS and Linux. Semgrep needs Python 3.10 or later.
 - **oxlint and jscpd now install with Walkdiff,** so they work with no extra setup, including in CI, at versions pinned in the lockfile. Earlier global installs are no longer used.
