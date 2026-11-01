@@ -1727,3 +1727,88 @@ button.guide-button-primary:hover {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.impact-lead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+
+.impact-lead-text {
+  flex: 1 1 420px;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.impact-lead-text strong {
+  color: var(--text);
+}
+
+.impact-view .impact-entry {
+  margin: 0 0 8px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 6px;
+}
+
+.impact-tone-warning {
+  border-left-color: var(--high-text) !important;
+}
+
+.impact-tone-attention {
+  border-left-color: var(--medium-text) !important;
+}
+
+.impact-entry-summary {
+  display: block;
+  padding: 10px 14px 10px 30px;
+  position: relative;
+  cursor: pointer;
+  list-style: none;
+}
+
+.impact-entry-summary::-webkit-details-marker {
+  display: none;
+}
+
+.impact-entry-summary::before {
+  content: "▸";
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+}
+
+.impact-entry[open] > .impact-entry-summary::before {
+  content: "▾";
+}
+
+.impact-entry-summary:hover {
+  background: var(--bg-subtle);
+}
+
+.impact-entry-headline {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.impact-tone-warning .impact-entry-headline {
+  color: var(--high-text);
+}
+
+.impact-entry-place {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.impact-entry-body {
+  padding: 4px 14px 12px;
+  border-top: 1px solid var(--border);
+}

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Easier to read Impact tab:** each change now starts collapsed under a headline saying what depends on it, most exposed first, with a warning colour when removed or renamed code is still in use.
 - **Post your review:** in the app, post comments and Comment, Approve or Request changes from the finish screen, to GitHub or GitLab. Nothing is posted until you press the button, and Walkdiff refuses if the PR has new commits since the report was made.
 - **Conversation:** the app shows existing threads in a new tab and beside each change, where you can reply and resolve them, plus who has reviewed so far.
 - **Fewer false warnings:** reports no longer list "Change history" under checks that didn't run on every PR. It was never built, so it wasn't a gap you could do anything about. It's still planned.
