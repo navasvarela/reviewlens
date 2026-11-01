@@ -126,7 +126,7 @@ export function highlightHunkLines(lines: readonly DiffLine[], language: Highlig
 function highlightSide(lines: readonly DiffLine[], otherSide: DiffLineKind, language: HighlightLanguage | undefined): readonly LineSpans[] {
   const indexes = lines.flatMap((line, index) => (line.kind === otherSide ? [] : [index]))
   const spans = highlightLines(indexes.map((index) => lines.at(index)?.content ?? "").join("\n"), language)
-  const byLine = new Array<LineSpans>(lines.length).fill(NO_SPANS)
+  const byLine: LineSpans[] = lines.map(() => NO_SPANS)
   indexes.forEach((lineIndex, sideIndex) => {
     byLine[lineIndex] = spans.at(sideIndex) ?? NO_SPANS
   })
