@@ -18,6 +18,7 @@ Options:
   --out <dir>        Write the report here instead of the cache directory
   --port <number>    Port for the local server (review: 4318, or any free port; app: 4317)
   --no-serve         Write the report and exit without serving it
+  --no-open          With app: don't open your browser
   --offline          Skip network checks (dependency vulnerability lookups in OSV)
   --ai               Add an AI review (reading order, intent check, questions); sends the
                      changed code to the model provider. Off by default.
@@ -78,6 +79,8 @@ export interface AppOptions {
   readonly network: boolean
   readonly cacheDir: string | undefined
   readonly dataDir: string | undefined
+  /** False when --no-open: leaves the browser alone. */
+  readonly open: boolean
 }
 
 export type Command =
@@ -99,6 +102,7 @@ export function parseCommand(argv: readonly string[]): Command {
       out: { type: "string" },
       port: { type: "string" },
       serve: { type: "boolean", default: true },
+      open: { type: "boolean", default: true },
       offline: { type: "boolean", default: false },
       ai: { type: "boolean", default: false },
       "ai-model": { type: "string" },
@@ -129,6 +133,7 @@ export function parseCommand(argv: readonly string[]): Command {
         network: !values.offline,
         cacheDir: values["cache-dir"],
         dataDir: values["data-dir"],
+        open: values.open,
       },
     }
   }
