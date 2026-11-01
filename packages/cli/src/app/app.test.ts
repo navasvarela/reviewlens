@@ -68,6 +68,19 @@ describe("ReviewStore and ReviewService", () => {
     expect(store.reportDirOf(1)).toBe("/tmp/report")
   })
 
+  it.each([
+    [false, true, "7:false", "7:true"],
+    [true, false, "7:true", "7:false"],
+  ])("uses the AI choice made when a PR is added again (%s, then %s)", async (first, second, firstCall, secondCall) => {
+    const reviews = service()
+    reviews.add({ url: PR_URL, ai: first })
+    await reviews.idle()
+    expect(reviews.add({ url: PR_URL, ai: second })).toMatchObject({ ai: second })
+    await reviews.idle()
+    expect(calls).toEqual([firstCall, secondCall])
+    expect(store.list()).toHaveLength(1)
+  })
+
   it("treats any link to the same PR as one review and refreshes it", async () => {
     const reviews = service()
     const first = reviews.add({ url: `${PR_URL}/files`, ai: false })

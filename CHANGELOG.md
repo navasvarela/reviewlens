@@ -9,6 +9,7 @@
 - **See why changes are highlighted:** the brief explains how the path is chosen, what it leaves out and what it can miss. Flagged changes now always stay on the path, whatever its limit, and findings it can't reach are called out.
 - **Results per check:** the Risks tab has a table of every check with its issues, or why it didn't run, and the brief sums it up.
 - **Link back to all reviews** on the brief and the review path, in the app.
+- **AI choice respected when adding a PR again:** in the app, adding a PR already on the list now uses the **Include AI review** box as it is, instead of ignoring it.
 - **The app opens your browser:** `pnpm walkdiff app` now opens the review list. Use `--no-open` to turn this off.
 - **Coverage for each PR, with no setup:** Walkdiff now looks for a report in CI artifacts of the PR's latest commit and in files the PR adds to a folder, in the app too. Or choose **Attach coverage** on a review: the report updates at once, with no restart.
 - **Clearer all-clear:** the brief and the PR comment now say what was found absent and name the checks used, instead of saying "the checks that ran".
