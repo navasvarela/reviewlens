@@ -52,13 +52,6 @@ const UNCOVERED_CODE_EXTENSIONS: ReadonlySet<string> = new Set([
   ".go", ".java", ".kt", ".rb", ".php", ".cs", ".c", ".cc", ".cpp", ".h", ".hpp", ".swift", ".scala", ".sh",
 ])
 
-const ALWAYS_SKIPPED: readonly SkippedCheck[] = [
-  {
-    check: "Change history (frequently changed or bug-prone files)",
-    reason: "needs repository history, which the CLI does not fetch",
-  },
-]
-
 const BUILT_IN_CHECK: CheckRun = { name: "Built-in rules", detail: "secrets, risky APIs and sensitive paths" }
 const FUNCTION_METRICS_CHECK: CheckRun = { name: "Function metrics", detail: "complexity, nesting, length and parameters" }
 const QUALITY_TURNED_OFF: SkippedCheck = { check: "Code quality checks", reason: `turned off in ${WALKDIFF_CONFIG_PATH}` }
@@ -95,7 +88,7 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
     securityLevel: securityLevelOf(findings),
     findings,
     checksRun: [BUILT_IN_CHECK, ...codeScan.checksRun, ...dependencies.checksRun, ...quality.checksRun],
-    notChecked: [...codeScan.notChecked, ...dependencies.notChecked, ...quality.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length), ...ALWAYS_SKIPPED],
+    notChecked: [...codeScan.notChecked, ...dependencies.notChecked, ...quality.notChecked, ...coverageGaps(request.files, request.files.length - scanned.length)],
   }
 }
 
