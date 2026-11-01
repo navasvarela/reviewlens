@@ -171,12 +171,16 @@ describe("scanner output parsing", () => {
 })
 
 describe("scannerExecutable", () => {
+  it("prefers the first directory holding the binary", () => {
+    expect(scannerExecutable("semgrep", (path) => path.startsWith("/second"), ["/first", "/second"])).toBe("/second/semgrep")
+  })
+
   it("uses the bundled copy when there is one", () => {
-    expect(scannerExecutable("jscpd", () => true, "/bin-dir")).toBe("/bin-dir/jscpd")
+    expect(scannerExecutable("jscpd", () => true, ["/bin-dir"])).toBe("/bin-dir/jscpd")
   })
 
   it("looks anything else up on the PATH", () => {
-    expect(scannerExecutable("semgrep", () => false, "/bin-dir")).toBe("semgrep")
+    expect(scannerExecutable("semgrep", () => false, ["/bin-dir"])).toBe("semgrep")
   })
 
   it("finds the scanners that ship with Walkdiff", () => {
