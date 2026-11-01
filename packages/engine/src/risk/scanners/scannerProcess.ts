@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process"
+import { existsSync } from "node:fs"
+import { join, resolve } from "node:path"
 
 export interface ProcessResult {
   readonly exitCode: number
@@ -15,6 +17,19 @@ const MAX_SCANNER_OUTPUT_BYTES = 256 * 1024 * 1024
 // A scanner reads untrusted code and has no need for the user's tokens, so it gets only these.
 const INHERITED_VARIABLES: readonly string[] = ["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "SSL_CERT_FILE"]
 
+/**
+ * The engine's own copies of the scanners that ship with it, such as oxlint and jscpd. They come
+ * first so everyone runs the versions pinned in the lockfile, whatever else is on their PATH. Any
+ * other scanner is looked up on the PATH, and Windows falls back to the PATH too, as `execFile`
+ * can't run the `.cmd` wrappers npm writes there.
+ */
+const BUNDLED_BINARIES_DIR = resolve(import.meta.dirname, "../../../node_modules/.bin")
+
+export function scannerExecutable(binary: string, isFile: (path: string) => boolean = existsSync, directory: string = BUNDLED_BINARIES_DIR): string {
+  const bundled = join(directory, binary)
+  return isFile(bundled) ? bundled : binary
+}
+
 export const runScannerProcess: ScannerProcessRunner = (binary, args, cwd) =>
   new Promise((resolve) => {
     const env: Record<string, string> = { SEMGREP_SEND_METRICS: "off" }
@@ -22,7 +37,7 @@ export const runScannerProcess: ScannerProcessRunner = (binary, args, cwd) =>
       const value = process.env[name]
       if (value !== undefined) env[name] = value
     }
-    execFile(binary, [...args], { cwd, env, timeout: SCANNER_TIMEOUT_MS, maxBuffer: MAX_SCANNER_OUTPUT_BYTES, encoding: "utf8" }, (error, stdout, stderr) => {
+    execFile(scannerExecutable(binary), [...args], { cwd, env, timeout: SCANNER_TIMEOUT_MS, maxBuffer: MAX_SCANNER_OUTPUT_BYTES, encoding: "utf8" }, (error, stdout, stderr) => {
       if (error === null) {
         resolve({ exitCode: 0, stdout, stderr })
         return
