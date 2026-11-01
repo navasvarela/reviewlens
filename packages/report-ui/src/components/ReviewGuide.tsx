@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
 import { namesOfChecks, UnitImpactStatus } from "@walkdiff/review-model"
-import type { ChangedUnit, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
+import type { ChangedUnit, CheckRun, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
 import { isConnectedToApp } from "../appApi.ts"
 import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, REVIEW_HASH } from "../reviewPlan.ts"
 import type { GuideRoute, LineCoverage, ReviewPlan, ReviewStop } from "../reviewPlan.ts"
@@ -57,6 +57,14 @@ export function ReviewGuide({ review, route }: ReviewGuideProps): ReactElement {
   )
 }
 
+function AllClear({ checks }: { readonly checks: readonly CheckRun[] }): ReactElement {
+  return (
+    <p className="guide-all-clear">
+      <strong>No security warnings or breaking changes.</strong> Checked with {namesOfChecks(checks)}. They can miss real problems, so this doesn't mean the change is safe.
+    </p>
+  )
+}
+
 function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly plan: ReviewPlan; readonly state: ReviewState }): ReactElement {
   const { changedAtOpen } = useReviewState()
   const { pullRequest, files } = review
@@ -83,9 +91,7 @@ function Brief({ review, plan, state }: { readonly review: ReviewModel; readonly
       )}
 
       {plan.checks.length === 0 ? (
-        <p className="guide-all-clear">
-          <strong>No security warnings or breaking changes.</strong> Checked with {namesOfChecks(review.risk.checksRun)}. They can miss real problems, so this doesn't mean the change is safe.
-        </p>
+        <AllClear checks={review.risk.checksRun} />
       ) : (
         <section aria-labelledby="guide-checks">
           <h2 id="guide-checks" className="guide-heading">
