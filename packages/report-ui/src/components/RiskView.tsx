@@ -11,7 +11,7 @@ interface RiskViewProps {
   readonly onOpenFile: (path: string) => void
 }
 
-/** What security checks found, what each check found or why it did not run, and every finding by rule. */
+/** What security checks found, every finding by rule, then what each check found or why it did not run. */
 export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): ReactElement {
   return (
     <section className="risk-view">
@@ -19,11 +19,8 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
         <p className="level-title">
           <strong>{securitySummary(risk.findings)}</strong>
         </p>
-        <p className="level-explanation">{SECURITY_SCAN_LIMITS} Check the table below for what ran. Code quality findings aren't counted here.</p>
+        <p className="level-explanation">{SECURITY_SCAN_LIMITS} The Checks table below lists what ran. Code quality findings aren't counted here.</p>
       </div>
-
-      <h2 className="section-title">Checks</h2>
-      <CheckTable risk={risk} />
 
       <h2 className="section-title">Risk findings ({risk.findings.length})</h2>
       {risk.findings.length === 0 ? (
@@ -32,6 +29,8 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
         <RiskList findings={risk.findings} pullRequest={pullRequest} onOpenFile={onOpenFile} />
       )}
 
+      <h2 className="section-title">Checks</h2>
+      <CheckTable risk={risk} />
     </section>
   )
 }
