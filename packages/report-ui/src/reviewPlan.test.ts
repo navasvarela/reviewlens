@@ -55,6 +55,33 @@ function review(files: readonly ChangedFile[], findings: readonly Risk[] = []): 
 const titles = (model: ReviewModel): readonly string[] => buildReviewPlan(model).stops.map((stop) => stop.title)
 
 describe("buildReviewPlan", () => {
+  it("keeps every flagged change on the path, past its usual limit", () => {
+    const names = Array.from({ length: 20 }, (_, index) => `flagged${index}`)
+    const model = review(names.map((name) => file(`${name}.ts`, [unit({ name })])), names.map((name) => finding(RiskCategory.DangerousApi, RiskSeverity.Medium, name, `${name}.ts`, 2)))
+    const plan = buildReviewPlan(model)
+    expect(plan.stops).toHaveLength(20)
+    expect(plan.pastTheLimit).toBe(0)
+    expect(plan.findingsOffPath).toBe(0)
+  })
+
+  it("keeps a flagged change that ranks below the limit, and counts unflagged ones left off", () => {
+    const busy = Array.from({ length: 20 }, (_, index) => file(`busy${index}.ts`, [unit({ name: `busy${index}`, callers: 20 })]))
+    const plan = buildReviewPlan(review([...busy, file("low.ts", [unit({ name: "low" })])], [finding(RiskCategory.Tests, RiskSeverity.Low, "low", "low.ts", 2)]))
+    expect(plan.stops.map((stop) => stop.title)).toContain("low")
+    expect(plan.stops).toHaveLength(16)
+    expect(plan.pastTheLimit).toBe(5)
+  })
+
+  it("counts a finding the path can't reach, such as one in a test file", () => {
+    const plan = buildReviewPlan(review([file("a.ts", [unit({ name: "a" })]), file("tests/a.test.ts")], [finding(RiskCategory.Secret, RiskSeverity.High, "key", "tests/a.test.ts", 1)]))
+    expect(plan.findingsOffPath).toBe(1)
+  })
+
+  it("doesn't count size or code quality as findings the path missed", () => {
+    const plan = buildReviewPlan(review([file("a.ts", [unit({ name: "a" })])], [finding(RiskCategory.Size, RiskSeverity.High, "big", null), finding(RiskCategory.CodeQuality, RiskSeverity.Low, "messy", "other.ts", 1)]))
+    expect(plan.findingsOffPath).toBe(0)
+  })
+
   it("puts a high finding ahead of everything else", () => {
     const model = review([file("a.ts", [unit({ name: "busy", callers: 20 })]), file("z.ts", [unit({ name: "flagged" })])], [finding(RiskCategory.DangerousApi, RiskSeverity.High, "eval", "z.ts", 2)])
     expect(titles(model).at(0)).toBe("flagged")

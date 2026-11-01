@@ -22,13 +22,12 @@ export function PullRequestHeader({ pullRequest, files, risk, feedbackUrl }: Pul
     ...(skippable > 0 ? [`${skippable} skippable ${skippable === 1 ? "file" : "files"}`] : []),
   ]
 
-  // Only the local app adds this, so a report opened from a file or CI artifact has no link.
-  const homeUrl = document.querySelector('meta[name="walkdiff-home"]')?.getAttribute("content") ?? null
+  const home = homeUrl()
 
   return (
     <header className="header">
-      {homeUrl !== null && (
-        <a className="home-link" href={homeUrl}>
+      {home !== undefined && (
+        <a className="home-link" href={home}>
           ← All reviews
         </a>
       )}
@@ -60,4 +59,9 @@ export function PullRequestHeader({ pullRequest, files, risk, feedbackUrl }: Pul
       )}
     </header>
   )
+}
+
+/** Only the local app adds this, so a report opened from a file or CI artifact has no link. */
+export function homeUrl(): string | undefined {
+  return document.querySelector('meta[name="walkdiff-home"]')?.getAttribute("content") ?? undefined
 }
