@@ -49,6 +49,7 @@ Each guarantee describes the latest release and has an automated test or setting
 | An AI key and your code only go over https, or to this machine | Other addresses are refused, and redirects aren't followed |
 | Tokens stay out of command lines and repository config | They reach git through its environment |
 | Third-party scanners don't get your tokens | They run with a minimal environment, on a temporary copy of the changed files |
+| Bundled scanners are pinned | oxlint and jscpd install at exact versions from the lockfile, which CI enforces, so an update reaches you only through a Walkdiff change |
 | Walkdiff doesn't store your tokens | It reads them from the environment or the GitHub CLI each time |
 
 ### Secrets in pull requests

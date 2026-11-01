@@ -98,7 +98,7 @@ describe("runQualityScanners", () => {
   it("only lists a linter when the PR has files for it", async () => {
     const { notChecked } = await scan([changed("src/ui.ts", NUMBERED, [2])], fakeScanners({}).run)
     expect(notChecked.map((skipped) => skipped.check)).toEqual(["oxlint TypeScript lint", "jscpd duplicate detection"])
-    expect(notChecked.at(0)?.reason).toContain("npm install -g oxlint")
+    expect(notChecked.at(0)?.reason).toContain("pnpm install")
   })
 
   it("does not copy config files a PR could use to change the results", async () => {
