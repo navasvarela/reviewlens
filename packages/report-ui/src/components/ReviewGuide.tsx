@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ReactElement } from "react"
-import { AiReviewStatus, namesOfChecks, UnitChangeKind, UnitImpactStatus } from "@walkdiff/review-model"
+import { AiReviewStatus, namesOfChecks, summarizeChecks, totalsOf, UnitChangeKind, UnitImpactStatus } from "@walkdiff/review-model"
 import type { ChangedUnit, CheckRun, ReviewModel, SkippedCheck } from "@walkdiff/review-model"
 import { aiNotesForStop, digestAiReview } from "../aiDigest.ts"
 import { isConnectedToApp } from "../appApi.ts"
-import { summarizeChecks, totalsOf } from "../checkSummary.ts"
 import { changeSummary, FINISH_HASH, GuideRouteKind, hashForStop, PATH_RULES, REVIEW_HASH } from "../reviewPlan.ts"
 import type { GuideRoute, LineCoverage, ReviewPlan, ReviewStop } from "../reviewPlan.ts"
 import { commentsAsMarkdown, commentsOnItems, isReviewed, ItemKind, nextUnreviewedStop, overallProgress, pathProgress, remainingOffPath, reviewPlanFor, stopItems } from "../reviewProgress.ts"
@@ -16,6 +15,7 @@ import { SideBySide } from "./CodeViews.tsx"
 import { ReviewerSummary, StopThreads } from "./ConversationView.tsx"
 import { HunkView } from "./HunkView.tsx"
 import { ImpactPanel } from "./ImpactPanel.tsx"
+import { InlineCode } from "./InlineCode.tsx"
 import { homeUrl } from "./PullRequestHeader.tsx"
 import { ReviewControls } from "./ReviewControls.tsx"
 import { SubmitReviewForm } from "./SubmitReviewForm.tsx"
@@ -76,7 +76,7 @@ function AllReviewsLink(): ReactElement | null {
 function AllClear({ checks }: { readonly checks: readonly CheckRun[] }): ReactElement {
   return (
     <p className="guide-all-clear">
-      <strong>No security warnings or breaking changes.</strong> Checked with {namesOfChecks(checks)}. They can miss real problems, so this doesn't mean the change is safe.
+      <strong>No security findings or breaking changes.</strong> Checked with {namesOfChecks(checks)}. They can miss real problems, so this doesn't mean the change is safe.
     </p>
   )
 }
@@ -161,7 +161,7 @@ function BriefChecks({ plan }: { readonly plan: ReviewPlan }): ReactElement {
       <ul className="guide-checks">
         {plan.checks.map((check) => (
           <li key={check.message} className={`guide-check guide-check-${check.severity}`}>
-            {check.stopIndex === undefined ? check.message : <a href={hashForStop(check.stopIndex)}>{check.message}</a>}
+            {check.stopIndex === undefined ? <InlineCode text={check.message} /> : <a href={hashForStop(check.stopIndex)}><InlineCode text={check.message} /></a>}
           </li>
         ))}
       </ul>
@@ -371,7 +371,9 @@ function StopView({ review, stop, index, total }: { readonly review: ReviewModel
         ) : (
           <ul>
             {stop.reasons.map((reason) => (
-              <li key={reason}>{reason}</li>
+              <li key={reason}>
+                <InlineCode text={reason} />
+              </li>
             ))}
           </ul>
         )}
@@ -570,7 +572,7 @@ function NotCheckedWarning({ checks }: { readonly checks: readonly SkippedCheck[
         {checks.map(({ check, reason }) => (
           <li key={check}>
             <strong>{check}</strong>
-            <span className="guide-warning-reason">{withInlineCode(reason)}</span>
+            <span className="guide-warning-reason"><InlineCode text={reason} /></span>
           </li>
         ))}
       </ul>
@@ -579,10 +581,6 @@ function NotCheckedWarning({ checks }: { readonly checks: readonly SkippedCheck[
 }
 
 /** Reasons mark commands with backticks, as Markdown does. */
-function withInlineCode(text: string): ReactElement[] {
-  return text.split("`").map((part, index) => (index % 2 === 1 ? <code key={index}>{part}</code> : <span key={index}>{part}</span>))
-}
-
 function Comments({ comments }: { readonly comments: readonly ItemComment[] }): ReactElement {
   const [copyResult, setCopyResult] = useState<CopyResult>(CopyResult.None)
   const markdown = commentsAsMarkdown(comments)

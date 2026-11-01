@@ -1,12 +1,9 @@
 import type { ReactElement } from "react"
-import type { PullRequest, Risk, RiskAssessment } from "@walkdiff/review-model"
-import { CheckOutcome, summarizeChecks } from "../checkSummary.ts"
-import type { CheckRow } from "../checkSummary.ts"
+import { CheckOutcome, SECURITY_SCAN_LIMITS, securitySummary, summarizeChecks } from "@walkdiff/review-model"
+import type { CheckRow, PullRequest, Risk, RiskAssessment } from "@walkdiff/review-model"
 import { CATEGORY_LABELS, groupByRule, SEVERITY_LABELS } from "../risks.ts"
 import { sourceLineUrl } from "../sourceLinks.ts"
-
-const LEVEL_EXPLANATION =
-  "The highest severity among security findings: secrets, risky APIs, code scans, sensitive areas, dependencies and known vulnerabilities. Low means the checks below found no security problems, not that the change is safe. Code quality findings do not affect it."
+import { InlineCode } from "./InlineCode.tsx"
 
 interface RiskViewProps {
   readonly risk: RiskAssessment
@@ -14,19 +11,16 @@ interface RiskViewProps {
   readonly onOpenFile: (path: string) => void
 }
 
-/** The security level, what each check found or why it did not run, and every finding by rule. */
+/** What security checks found, every finding by rule, then what each check found or why it did not run. */
 export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): ReactElement {
   return (
     <section className="risk-view">
       <div className={`level-box level-${risk.securityLevel}`}>
         <p className="level-title">
-          Security level: <strong>{SEVERITY_LABELS[risk.securityLevel]}</strong>
+          <strong>{securitySummary(risk.findings)}</strong>
         </p>
-        <p className="level-explanation">{LEVEL_EXPLANATION}</p>
+        <p className="level-explanation">{SECURITY_SCAN_LIMITS} The Checks table below lists what ran. Code quality findings aren't counted here.</p>
       </div>
-
-      <h2 className="section-title">Checks</h2>
-      <CheckTable risk={risk} />
 
       <h2 className="section-title">Risk findings ({risk.findings.length})</h2>
       {risk.findings.length === 0 ? (
@@ -35,6 +29,8 @@ export function RiskView({ risk, pullRequest, onOpenFile }: RiskViewProps): Reac
         <RiskList findings={risk.findings} pullRequest={pullRequest} onOpenFile={onOpenFile} />
       )}
 
+      <h2 className="section-title">Checks</h2>
+      <CheckTable risk={risk} />
     </section>
   )
 }
@@ -90,10 +86,14 @@ export function RiskList({ findings, pullRequest, onOpenFile }: RiskListProps): 
             <div className="risk-header">
               <span className={`severity severity-${first.severity}`}>{SEVERITY_LABELS[first.severity]}</span>
               <span className="risk-category">{CATEGORY_LABELS[first.category]}</span>
-              <span className="risk-title">{group.title}</span>
+              <span className="risk-title">
+                <InlineCode text={group.title} />
+              </span>
               {group.findings.length > 1 && <span className="risk-count">×{group.findings.length}</span>}
             </div>
-            <p className="risk-detail">{first.detail}</p>
+            <p className="risk-detail">
+              <InlineCode text={first.detail} />
+            </p>
             <ul className="risk-places">
               {group.findings.map((finding, index) => (
                 <RiskPlace key={index} finding={finding} pullRequest={pullRequest} onOpenFile={onOpenFile} />

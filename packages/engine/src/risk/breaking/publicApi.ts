@@ -1,4 +1,4 @@
-import { changedUnitsOf, ModificationWeight, ReferenceConfidence, RiskCategory, RiskSeverity, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@walkdiff/review-model"
+import { codeSpan, changedUnitsOf, ModificationWeight, ReferenceConfidence, RiskCategory, RiskSeverity, SyntaxAnalysisStatus, UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@walkdiff/review-model"
 import type { ChangedFile, ChangedUnit, Reference, Risk, UnitSnapshot } from "@walkdiff/review-model"
 import { escapeRegExp } from "../../impact/candidateFiles.ts"
 import { simpleTypeName } from "../../impact/traceImpact.ts"
@@ -159,11 +159,11 @@ function findingsForRemovals(units: readonly ApiUnit[], stillProvided: StillProv
   if (removed.length > MAX_SEPARATE_REMOVALS) {
     const named = removed.slice(0, MAX_REMOVALS_NAMED).map((api) => api.unit.qualifiedName).join(", ")
     const rest = removed.length - MAX_REMOVALS_NAMED
-    const rule = apiRule("breaking.api-removed", RiskSeverity.Medium, `${removed.length} public items were removed from ${first.path}`, `Code outside this repository that uses them may break: ${named}${rest > 0 ? ` and ${rest} more` : ""}. Keep deprecated aliases for a release, or call this out in the release notes.`)
+    const rule = apiRule("breaking.api-removed", RiskSeverity.Medium, `${removed.length} public items were removed from ${codeSpan(first.path)}`, `Code outside this repository that uses them may break: ${named}${rest > 0 ? ` and ${rest} more` : ""}. Keep deprecated aliases for a release, or call this out in the release notes.`)
     return [unitFinding(rule, first, null, signatureLine(first.before))]
   }
   return removed.map((api) => {
-    const rule = apiRule("breaking.api-removed", RiskSeverity.Medium, `Public ${kindWord(api)} ${api.unit.qualifiedName} was removed`, `Code outside this repository that uses it may break. ${usersSummary(api.unit, certainCallers(api.unit))} Keep a deprecated alias for a release, or call this out in the release notes.`)
+    const rule = apiRule("breaking.api-removed", RiskSeverity.Medium, `Public ${kindWord(api)} ${codeSpan(api.unit.qualifiedName)} was removed`, `Code outside this repository that uses it may break. ${usersSummary(api.unit, certainCallers(api.unit))} Keep a deprecated alias for a release, or call this out in the release notes.`)
     return unitFinding(rule, api, null, signatureLine(api.before))
   })
 }
@@ -174,14 +174,14 @@ function uniqueByName(units: readonly ApiUnit[]): ApiUnit[] {
 }
 
 function findingForRename(api: ApiUnit, after: UnitSnapshot): Risk[] {
-  const rule = apiRule("breaking.api-renamed", RiskSeverity.Medium, `Public ${kindWord(api)} ${api.before.name} was renamed to ${api.unit.name}`, `Code outside this repository that uses the old name may break. ${usersSummary(api.unit, certainCallers(api.unit))} Keep the old name as a deprecated alias for a release, or call this out in the release notes.`)
+  const rule = apiRule("breaking.api-renamed", RiskSeverity.Medium, `Public ${kindWord(api)} ${codeSpan(api.before.name)} was renamed to ${codeSpan(api.unit.name)}`, `Code outside this repository that uses the old name may break. ${usersSummary(api.unit, certainCallers(api.unit))} Keep the old name as a deprecated alias for a release, or call this out in the release notes.`)
   return [unitFinding(rule, api, after.startLine, signatureLine(api.before))]
 }
 
 function findingForLostVisibility(api: ApiUnit): Risk[] {
   const callers = certainCallers(api.unit).filter((reference) => reference.path !== api.path)
   if (!api.reachable && callers.length === 0) return []
-  const rule = apiRule("breaking.api-hidden", callers.length > 0 ? RiskSeverity.High : RiskSeverity.Medium, `Public ${kindWord(api)} ${api.unit.qualifiedName} is no longer public`, `Code that uses it from another ${api.reachable ? "project or " : ""}file may break. ${callers.length > 0 ? `${usersSummary(api.unit, callers)} Keep it public, or move those callers first.` : "Nothing else in this repository uses it from another file. Keep it public for a release, or call this out in the release notes."}`)
+  const rule = apiRule("breaking.api-hidden", callers.length > 0 ? RiskSeverity.High : RiskSeverity.Medium, `Public ${kindWord(api)} ${codeSpan(api.unit.qualifiedName)} is no longer public`, `Code that uses it from another ${api.reachable ? "project or " : ""}file may break. ${callers.length > 0 ? `${usersSummary(api.unit, callers)} Keep it public, or move those callers first.` : "Nothing else in this repository uses it from another file. Keep it public for a release, or call this out in the release notes."}`)
   return [unitFinding(rule, api, api.after?.snapshot.startLine ?? null, signatureLine(api.before))]
 }
 
@@ -199,7 +199,7 @@ function findingForSignature(api: ApiUnit, after: Definition, file: ChangedFile,
   const rule = apiRule(
     "breaking.api-signature",
     breaksNamedCallers ? RiskSeverity.High : RiskSeverity.Medium,
-    `${api.unit.qualifiedName} ${first}${more}`,
+    `${codeSpan(api.unit.qualifiedName)} ${first}${more}`,
     `${breaksNamedCallers ? "Callers will likely break" : "Callers may break"}: it ${clauses.join(", and ")}. ${usersSummary(api.unit, callers)} ${callers.length > 0 ? "Update them, or keep the old form working with a default value or a wrapper." : "Keep the old form working with a default value or a wrapper, or call this out in the release notes."}`,
   )
   return [unitFinding(rule, api, after.snapshot.startLine, signatureLine(after))]

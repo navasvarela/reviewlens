@@ -44,7 +44,7 @@ async function assess(before: Files, after: Files): Promise<RiskAssessment> {
 
 async function flagged(before: Files, after: Files): Promise<string[]> {
   const risk = await assess(before, after)
-  return risk.findings.filter((finding) => finding.category === RiskCategory.BreakingChange).map((finding) => finding.title)
+  return risk.findings.filter((finding) => finding.category === RiskCategory.BreakingChange).map((finding) => finding.title.replaceAll("`", ""))
 }
 
 const RUST_LIBRARY: Files = { "Cargo.toml": '[package]\nname = "lib"\n', "src/lib.rs": "pub mod api;\nmod internal;\npub use internal::exported;\n" }
@@ -179,7 +179,7 @@ describe("public API changes", () => {
       { "src/api.rs": "pub fn parse(a: u8, b: u8) {}\n" },
     )
     const finding = risk.findings.find((candidate) => candidate.category === RiskCategory.BreakingChange)
-    expect(finding).toMatchObject({ ruleId: "breaking.api-signature", severity: RiskSeverity.High, title: "parse has a new required parameter b", location: { path: "src/api.rs", line: 1 }, unit: "parse" })
+    expect(finding).toMatchObject({ ruleId: "breaking.api-signature", severity: RiskSeverity.High, title: "`parse` has a new required parameter `b`", location: { path: "src/api.rs", line: 1 }, unit: "parse" })
     expect(finding?.detail).toContain("Callers will likely break")
     expect(finding?.detail).toContain("src/run.rs:4 (run)")
   })
@@ -190,14 +190,14 @@ describe("public API changes", () => {
       { "pkg/api.py": "def request(url):\n    return url\n" },
     )
     const finding = risk.findings.find((candidate) => candidate.category === RiskCategory.BreakingChange)
-    expect(finding).toMatchObject({ severity: RiskSeverity.Medium, title: "request no longer takes proxies" })
+    expect(finding).toMatchObject({ severity: RiskSeverity.Medium, title: "`request` no longer takes `proxies`" })
     expect(finding?.detail).not.toContain("pkg/auth.py")
   })
 
   it("rates dropping an optional parameter below dropping a required one", async () => {
     const callers = { "pkg/run.py": "from pkg.api import parse\n\ndef run():\n    return parse(1)\n" }
     const risk = await assess({ ...PY_LIBRARY, ...callers, "pkg/api.py": "def parse(a, b=1):\n    return a\n" }, { "pkg/api.py": "def parse(a):\n    return a\n" })
-    expect(risk.findings.find((candidate) => candidate.category === RiskCategory.BreakingChange)).toMatchObject({ severity: RiskSeverity.Medium, title: "parse no longer takes b" })
+    expect(risk.findings.find((candidate) => candidate.category === RiskCategory.BreakingChange)).toMatchObject({ severity: RiskSeverity.Medium, title: "`parse` no longer takes `b`" })
   })
 
   it("counts a declaration and a value under one name once", async () => {

@@ -1,4 +1,4 @@
-import { DiffLineKind, FileChangeStatus, FileContentKind, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
+import { codeSpan, DiffLineKind, FileChangeStatus, FileContentKind, RiskCategory, RiskSeverity } from "@walkdiff/review-model"
 import type { FileDiff, Risk } from "@walkdiff/review-model"
 import { findingAt, isThirdParty } from "../scannedFile.ts"
 import type { RuleDescription, ScannedFile } from "../scannedFile.ts"
@@ -201,31 +201,31 @@ interface SchemaChangeWording {
 
 const WORDING: Readonly<Record<SchemaChangeKind, SchemaChangeWording>> = {
   [SchemaChangeKind.DropTable]: {
-    title: (name) => `Migration drops table ${name}`,
+    title: (name) => `Migration drops table ${codeSpan(name)}`,
     breaks: (name) => `Code still reading ${name} fails once this runs, and its data is gone.`,
     action: "Ship the code that stops using it first, and check you have a backup.",
     seriousIfMentioned: true,
   },
   [SchemaChangeKind.DropColumn]: {
-    title: (name) => `Migration drops column ${name}`,
+    title: (name) => `Migration drops column ${codeSpan(name)}`,
     breaks: (name) => `Code still reading ${name}, including the version running during a deploy, fails once this runs, and its data is gone.`,
     action: "Ship the code that stops using it first, and check you have a backup.",
     seriousIfMentioned: true,
   },
   [SchemaChangeKind.RenameTable]: {
-    title: (name) => `Migration renames table ${name}`,
+    title: (name) => `Migration renames table ${codeSpan(name)}`,
     breaks: () => "The version of the code running during a deploy still uses the old name, and fails until it is replaced.",
     action: "Consider adding the new name first and removing the old one in a later release.",
     seriousIfMentioned: true,
   },
   [SchemaChangeKind.RenameColumn]: {
-    title: (name) => `Migration renames column ${name}`,
+    title: (name) => `Migration renames column ${codeSpan(name)}`,
     breaks: () => "The version of the code running during a deploy still uses the old name, and fails until it is replaced.",
     action: "Consider adding the new name first and removing the old one in a later release.",
     seriousIfMentioned: true,
   },
   [SchemaChangeKind.ChangeType]: {
-    title: (name) => `Migration changes the type of column ${name}`,
+    title: (name) => `Migration changes the type of column ${codeSpan(name)}`,
     breaks: () => "Code that reads or writes the old type may break, and existing values may not convert, or may lock the table while they do.",
     action: "Check that values convert and that running code accepts the new type.",
     seriousIfMentioned: false,

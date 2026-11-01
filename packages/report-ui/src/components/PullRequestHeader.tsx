@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
+import { SECURITY_SCAN_LIMITS, securitySummary } from "@walkdiff/review-model"
 import type { ChangedFile, PullRequest, RiskAssessment } from "@walkdiff/review-model"
-import { SEVERITY_LABELS } from "../risks.ts"
 import { summarizeFile } from "../unitChange.ts"
 
 const SHORT_SHA_LENGTH = 7
@@ -32,8 +32,8 @@ export function PullRequestHeader({ pullRequest, files, risk, feedbackUrl }: Pul
         </a>
       )}
       <h1>
-        <span className={`level-badge level-${risk.securityLevel}`} title="Security level: highest severity among security findings">
-          {SEVERITY_LABELS[risk.securityLevel]}
+        <span className={`level-badge level-${risk.securityLevel}`} title={SECURITY_SCAN_LIMITS}>
+          {securitySummary(risk.findings)}
         </span>{" "}
         {pullRequest.title}{" "}
         <a href={pullRequest.url} target="_blank" rel="noreferrer">

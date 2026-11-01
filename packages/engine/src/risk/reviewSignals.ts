@@ -1,4 +1,4 @@
-import { changedUnitsOf, isBehaviourChange, ReferenceConfidence, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@walkdiff/review-model"
+import { codeSpan, changedUnitsOf, isBehaviourChange, ReferenceConfidence, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, untouchedReferences } from "@walkdiff/review-model"
 import type { ChangedFile, Risk } from "@walkdiff/review-model"
 import { findingAt, pullRequestFinding } from "./scannedFile.ts"
 import type { RuleDescription } from "./scannedFile.ts"
@@ -62,7 +62,7 @@ function brokenReferenceSignals(files: readonly ChangedFile[]): Risk[] {
         id: "reference.stale",
         category: RiskCategory.BrokenReference,
         severity: RiskSeverity.High,
-        title: `${unit.impact.searchedName} was ${verb} but is still referenced`,
+        title: `${codeSpan(unit.impact.searchedName)} was ${verb} but is still referenced`,
         detail: `${stale.length} ${stale.length === 1 ? "place" : "places"} this PR did not touch still ${stale.length === 1 ? "uses" : "use"} the old name (from ${file.diff.path}). Unless another item has the same name, this breaks.`,
       }
       return [findingAt(rule, first.path, first.line, first.snippet)]

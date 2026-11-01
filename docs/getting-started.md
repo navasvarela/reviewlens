@@ -30,10 +30,10 @@ Everything else is under **All changes**:
 
 - **Changes:** each changed function or type, whole, before and after.
 - **Impact:** where other code uses what changed, and which of those callers the PR did not touch.
-- **Risks:** the security level, the findings, the checks that ran and the checks that did not. Findings include [breaking changes](../README.md#breaking-changes), which never change the security level.
+- **Risks:** a summary of security findings, the findings, the checks that ran and the checks that did not. Findings include [breaking changes](../README.md#breaking-changes), which never change the security level.
 - **AI review:** a reading order and questions, only if you ask for it with `--ai`.
 
-A low security level means the checks that ran found nothing. It doesn't mean the change is safe, so look at "Not checked" too.
+"No security findings" means the checks that ran found nothing on the lines this PR adds. It isn't a security audit and doesn't mean the change is safe, so see which checks ran.
 
 ## Private repositories
 
