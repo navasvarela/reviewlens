@@ -5,7 +5,7 @@
 | Option | Used with | What it does |
 | --- | --- | --- |
 | `--out <dir>` | `review` | Writes the report here instead of the cache folder |
-| `--port <number>` | `review`, `app` | Sets the local port. `review` picks a free one; `app` uses 4317 |
+| `--port <number>` | `review`, `app` | Sets the local port. `review` uses 4318, or any free port if that is taken; `app` uses 4317 |
 | `--no-serve` | `review` | Writes the report and exits |
 | `--offline` | `review`, `app` | Skips OSV lookups, Semgrep and osv-scanner |
 | `--ai` | `review` | Adds an AI review, which sends the changed code to Anthropic |

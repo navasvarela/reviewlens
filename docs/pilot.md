@@ -19,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
-      # For production, replace `main` with a full commit SHA you have reviewed.
-      - uses: navasvarela/reviewlens@main
+      # For the strongest guarantee, replace the tag with the full commit SHA it points to.
+      - uses: navasvarela/reviewlens@v0.1.0
         # For AI review:
         # with:
         #   ai: "true"
@@ -37,7 +37,7 @@ Include the template in `.gitlab-ci.yml`:
 
 ```yaml
 include:
-  - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/main/ci/gitlab-ci.yml
+  - remote: https://raw.githubusercontent.com/navasvarela/reviewlens/v0.1.0/ci/gitlab-ci.yml
 ```
 
 Set `GITLAB_TOKEN` as a masked CI/CD variable: a project access token with the `api` scope. The job needs merge request pipelines. The report link opens in the browser on instances with GitLab Pages enabled; otherwise it downloads as a single HTML file that opens from disk.

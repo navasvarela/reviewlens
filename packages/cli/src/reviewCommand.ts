@@ -9,6 +9,11 @@ import { detectPullRequestUrl } from "./ciEnvironment.ts"
 import type { CiEnvironment } from "./ciEnvironment.ts"
 import { writeReport } from "./report.ts"
 import { serveReport } from "./server.ts"
+import type { ReportServer } from "./server.ts"
+
+// One above the app's 4317, so the two can run together.
+const PREFERRED_REPORT_PORT = 4318
+const ANY_FREE_PORT = 0
 
 const SHORT_SHA_LENGTH = 10
 
@@ -39,8 +44,22 @@ export async function runReview(options: ReviewOptions, deps: ReviewDependencies
   if (!options.serve) {
     return
   }
-  const server = await serveReport(reportDir, options.port)
+  const server = await serveReportOnPreferredPort(reportDir, options.port)
   deps.log(`Serving the report at ${server.url} (Ctrl+C to stop)`)
+}
+
+/**
+ * Prefers a fixed port because browsers keep saved data per origin, including the port: a new
+ * port on every run would lose the reviewer's progress and comments.
+ */
+async function serveReportOnPreferredPort(reportDir: string, port: number | undefined): Promise<ReportServer> {
+  if (port !== undefined) return serveReport(reportDir, port)
+  try {
+    return await serveReport(reportDir, PREFERRED_REPORT_PORT)
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "EADDRINUSE") return serveReport(reportDir, ANY_FREE_PORT)
+    throw error
+  }
 }
 
 export async function analyzePullRequest(ref: PullRequestRef, options: AnalysisRequest, deps: AnalysisDependencies): Promise<ReviewModel> {

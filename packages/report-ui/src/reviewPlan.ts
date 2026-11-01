@@ -1,0 +1,324 @@
+import { changedUnitsOf, DiffLineKind, FileContentKind, FileChangeStatus, isBehaviourChange, RiskCategory, RiskSeverity, UnitChangeKind, UnitImpactStatus, UnitKind, untouchedReferences } from "@lens/review-model"
+import type { ChangedFile, ChangedUnit, ReviewModel, Risk } from "@lens/review-model"
+
+/*
+ * Turns a review into a guided path. The rules are plain points rather than a model, so every
+ * position can be explained to the reviewer in words. The values were tuned by hand against
+ * three real PRs (a large feature, a Rust refactor and a Python API change). They only need to
+ * keep the order sensible: what matters is that a high finding outranks everything, that code
+ * other people depend on outranks new code nobody calls yet, and that a typical PR ends up
+ * with a short path. Changing them moves functions between "on the path" and "lower priority".
+ */
+const POINTS_FOR_FINDING: Readonly<Record<RiskSeverity, number>> = {
+  [RiskSeverity.High]: 100,
+  [RiskSeverity.Medium]: 40,
+  [RiskSeverity.Low]: 10,
+}
+// Several small findings in one place are one decision, so they must not outrank a serious one.
+const POINTS_PER_EXTRA_FINDING = 5
+const MAX_EXTRA_FINDINGS_COUNTED = 2
+const POINTS_FOR_LEFTOVER_REFERENCES = 60
+const POINTS_PER_UNTOUCHED_CALLER = 5
+const MAX_POINTS_FOR_CALLERS = 40
+const POINTS_FOR_SIGNATURE_CHANGE = 15
+const POINTS_FOR_CHANGED_EXISTING_CODE = 15
+const POINTS_FOR_MORE_LOGIC = 8
+const POINTS_FOR_SENSITIVE_FILE = 15
+const POINTS_FOR_NO_RELATED_TESTS = 5
+const POINTS_FOR_LARGE_NEW_CODE = 10
+const LARGE_NEW_CODE_LINES = 25
+/** A change below this has nothing specific to draw attention to. */
+const POINTS_TO_BE_ON_THE_PATH = 20
+// Past about fifteen stops a path stops feeling like a path. The rest stay one click away.
+const MAX_STOPS = 15
+// A PR of only new, uncalled code scores low everywhere, but a reviewer still needs a start.
+const MIN_STOPS = 3
+const MAX_REASONS_SHOWN = 3
+const MAX_CHECKS = 3
+const MIN_NAME_LENGTH_TO_MATCH_IN_TESTS = 3
+
+/**
+ * Definitions rather than logic. Adding a value to an enum or a field to a struct can touch many
+ * users without changing what any of them do, so these count for less than functions do.
+ */
+const DATA_KINDS: ReadonlySet<UnitKind> = new Set([UnitKind.Constant, UnitKind.Enum, UnitKind.Struct, UnitKind.TypeAlias, UnitKind.Interface])
+const DATA_KIND_CALLER_DIVISOR = 3
+
+const FIRST_SENTENCE = /^.+?[.!?](?=\s|$)/
+const TEST_PATH = /(^|\/)(tests?|__tests__|spec|testing)\/|[._-](test|spec)\.[a-z]+$|(^|\/)test_[^/]+\.py$/i
+const TEST_UNIT = /(^|::|\.)tests?(::|\.)|(^|::|\.)test_/
+const DOCS_PATH = /\.(md|mdx|rst|txt)$|(^|\/)docs\//i
+
+export interface ReviewStop {
+  /** Null for a file without functions to show, such as a CI pipeline. */
+  readonly unit: ChangedUnit | null
+  readonly file: ChangedFile
+  readonly title: string
+  readonly reasons: readonly string[]
+  readonly points: number
+  readonly findings: readonly Risk[]
+  /** Changed test files that mention this function: a hint, not proof that it is tested. */
+  readonly relatedTests: readonly string[]
+}
+
+export interface ReviewCheck {
+  readonly severity: RiskSeverity
+  readonly message: string
+  /** Where on the path this can be looked at, when it has a place there. */
+  readonly stopIndex: number | undefined
+}
+
+export interface LowerPriority {
+  readonly newCode: number
+  readonly otherCode: number
+  readonly quiet: number
+  readonly testFiles: number
+  readonly otherFiles: number
+}
+
+export interface ReviewPlan {
+  readonly stops: readonly ReviewStop[]
+  readonly checks: readonly ReviewCheck[]
+  /** Findings beyond those in `checks`, which are in the full list. */
+  readonly moreChecks: number
+  readonly lowerPriority: LowerPriority
+  readonly lowerPriorityTotal: number
+  readonly sizeNote: string | null
+}
+
+export function buildReviewPlan(review: ReviewModel): ReviewPlan {
+  const reviewable = review.files.filter((file) => file.noise === null)
+  const testFiles = reviewable.filter((file) => isTestPath(file.diff.path))
+  const candidates = reviewable
+    .filter((file) => !isTestPath(file.diff.path))
+    .flatMap((file) => stopsForFile(file, review.risk.findings, testFiles))
+    .sort((a, b) => b.points - a.points || a.file.diff.path.localeCompare(b.file.diff.path))
+  const qualifying = candidates.filter((stop) => stop.points >= POINTS_TO_BE_ON_THE_PATH).length
+  const stops = candidates.slice(0, Math.min(MAX_STOPS, Math.max(qualifying, MIN_STOPS)))
+  const groups = groupChecks(review.risk.findings, stops)
+  const lowerPriority = summarizeLowerPriority(review.files, stops, testFiles.length)
+  return {
+    stops,
+    checks: groups.slice(0, MAX_CHECKS),
+    moreChecks: Math.max(0, groups.length - MAX_CHECKS),
+    lowerPriority,
+    lowerPriorityTotal: lowerPriority.newCode + lowerPriority.otherCode + lowerPriority.quiet + lowerPriority.testFiles + lowerPriority.otherFiles,
+    sizeNote: review.risk.findings.find((finding) => finding.category === RiskCategory.Size)?.title ?? null,
+  }
+}
+
+export function isTestPath(path: string): boolean {
+  return TEST_PATH.test(path)
+}
+
+export function isTestUnit(unit: ChangedUnit): boolean {
+  return TEST_UNIT.test(unit.qualifiedName)
+}
+
+function isOnThePathKind(unit: ChangedUnit): boolean {
+  return isBehaviourChange(unit.change) && !isTestUnit(unit)
+}
+
+function stopsForFile(file: ChangedFile, findings: readonly Risk[], testFiles: readonly ChangedFile[]): ReviewStop[] {
+  const inFile = findings.filter((finding) => finding.location?.path === file.diff.path && finding.category !== RiskCategory.Size)
+  const units = changedUnitsOf(file).filter(isOnThePathKind)
+  if (units.length > 0) return units.flatMap((unit) => stopForUnit(unit, file, inFile, testFiles))
+  return inFile.length === 0 ? [] : [stopForWholeFile(file, inFile)]
+}
+
+function stopForWholeFile(file: ChangedFile, findings: readonly Risk[]): ReviewStop {
+  const points = pointsForFindings(findings)
+  return { unit: null, file, title: file.diff.path, reasons: reasonsFromFindings(findings), points, findings, relatedTests: [] }
+}
+
+function stopForUnit(unit: ChangedUnit, file: ChangedFile, inFile: readonly Risk[], testFiles: readonly ChangedFile[]): ReviewStop[] {
+  const findings = inFile.filter((finding) => findingIsInUnit(finding, unit))
+  const relatedTests = testFilesMentioning(unit, file, testFiles)
+  const scored = scoreUnit(unit, findings, inFile, relatedTests)
+  // Top-level code has no story of its own, so it only appears when something is wrong with it.
+  if (unit.kind === UnitKind.ModuleScope && findings.length === 0) return []
+  return [{ unit, file, title: unit.kind === UnitKind.ModuleScope ? "Imports and top-level code" : unit.qualifiedName, reasons: scored.reasons.slice(0, MAX_REASONS_SHOWN), points: scored.points, findings, relatedTests }]
+}
+
+function findingIsInUnit(finding: Risk, unit: ChangedUnit): boolean {
+  const line = finding.location?.line
+  if (line === null || line === undefined || !("after" in unit.change)) return false
+  return line >= unit.change.after.startLine && line <= unit.change.after.endLine
+}
+
+interface Scored {
+  readonly points: number
+  readonly reasons: readonly string[]
+}
+
+// Reasons are collected most important first, as only the first few are shown.
+function scoreUnit(unit: ChangedUnit, findings: readonly Risk[], inFile: readonly Risk[], relatedTests: readonly string[]): Scored {
+  let points = pointsForFindings(findings)
+  const reasons = reasonsFromFindings(findings)
+  const add = (amount: number, reason: string): void => {
+    points += amount
+    reasons.push(reason)
+  }
+  const isData = DATA_KINDS.has(unit.kind)
+
+  const untouched = untouchedReferences(unit).length
+  const gone = unit.change.kind === UnitChangeKind.Removed
+  if (gone && untouched > 0) add(POINTS_FOR_LEFTOVER_REFERENCES, `It was removed, but ${places(untouched)} this PR didn't change still ${untouched === 1 ? "uses" : "use"} it`)
+  else if (untouched > 0) add(Math.min(MAX_POINTS_FOR_CALLERS, untouched * POINTS_PER_UNTOUCHED_CALLER) / (isData ? DATA_KIND_CALLER_DIVISOR : 1), `${capitalize(places(untouched))} this PR didn't change ${untouched === 1 ? "depends" : "depend"} on it`)
+
+  const facts = unit.facts
+  if (facts !== null) {
+    const signature = facts.parametersAdded.length + facts.parametersRemoved.length + facts.parametersChanged.length > 0 || facts.returnType !== null
+    if (signature) add(POINTS_FOR_SIGNATURE_CHANGE, "Its signature changed")
+    if (facts.branchesDelta > 0 || facts.errorPathsDelta !== 0) add(POINTS_FOR_MORE_LOGIC, facts.errorPathsDelta !== 0 ? "Its error handling changed" : "It has more branching logic")
+  }
+  // These count but aren't given as reasons: nearly every stop has them, so they say nothing.
+  // The stop shows its tests separately.
+  if (unit.change.kind === UnitChangeKind.Modified && !isData) {
+    points += POINTS_FOR_CHANGED_EXISTING_CODE
+    if (relatedTests.length === 0) points += POINTS_FOR_NO_RELATED_TESTS
+  }
+  if (unit.change.kind === UnitChangeKind.Added && unit.change.after.endLine - unit.change.after.startLine >= LARGE_NEW_CODE_LINES) {
+    add(POINTS_FOR_LARGE_NEW_CODE, "It's a large piece of new code")
+  }
+  const sensitive = inFile.find((finding) => finding.category === RiskCategory.SensitivePath && finding.location?.line === null)
+  if (sensitive !== undefined) add(POINTS_FOR_SENSITIVE_FILE, `It's in a sensitive area: ${sensitive.title.toLowerCase()}`)
+  return { points, reasons }
+}
+
+function pointsForFindings(findings: readonly Risk[]): number {
+  const worst = Math.max(0, ...findings.map((finding) => POINTS_FOR_FINDING[finding.severity]))
+  return worst + Math.min(MAX_EXTRA_FINDINGS_COUNTED, Math.max(0, findings.length - 1)) * POINTS_PER_EXTRA_FINDING
+}
+
+function reasonsFromFindings(findings: readonly Risk[]): string[] {
+  const dependencies = findings.filter((finding) => finding.category === RiskCategory.Dependency).length
+  return [
+    ...(dependencies > 1 ? [`It adds ${dependencies} new dependencies`] : []),
+    ...new Set(findings.filter((finding) => dependencies <= 1 || finding.category !== RiskCategory.Dependency).map(reasonFromFinding)),
+  ]
+}
+
+// A finding about a whole file has no line to show, so its explanation is the reason itself.
+function reasonFromFinding(finding: Risk): string {
+  const firstSentence = FIRST_SENTENCE.exec(finding.detail)?.[0]
+  return finding.location?.line === null && firstSentence !== undefined ? `${finding.title}: ${firstSentence}` : `Flagged: ${finding.title}`
+}
+
+function testFilesMentioning(unit: ChangedUnit, file: ChangedFile, testFiles: readonly ChangedFile[]): string[] {
+  const fromReferences = unit.impact?.status === UnitImpactStatus.Traced ? unit.impact.references.map((reference) => reference.path).filter(isTestPath) : []
+  const name = unit.name
+  const fromTestChanges = name.length < MIN_NAME_LENGTH_TO_MATCH_IN_TESTS ? [] : testFiles.filter((testFile) => addedText(testFile).includes(name)).map((testFile) => testFile.diff.path)
+  // Rust and others keep tests in the same file as the code.
+  const inlineTests = changedUnitsOf(file).some((other) => TEST_UNIT.test(other.qualifiedName) && "after" in other.change && other.change.after.text.includes(name))
+  return [...new Set([...fromReferences, ...fromTestChanges, ...(inlineTests ? [file.diff.path] : [])])]
+}
+
+function addedText(file: ChangedFile): string {
+  if (file.diff.content.kind === FileContentKind.Binary) return ""
+  return file.diff.content.hunks.flatMap((hunk) => hunk.lines.filter((line) => line.kind === DiffLineKind.Added).map((line) => line.content)).join("\n")
+}
+
+function summarizeLowerPriority(files: readonly ChangedFile[], stops: readonly ReviewStop[], testFiles: number): LowerPriority {
+  const onPath = new Set(stops.flatMap((stop) => (stop.unit === null ? [] : [stop.unit])))
+  const filesOnPath = new Set(stops.filter((stop) => stop.unit === null).map((stop) => stop.file.diff.path))
+  const summary = { newCode: 0, otherCode: 0, quiet: 0, testFiles, otherFiles: 0 }
+  for (const file of files) {
+    if (isTestPath(file.diff.path) && file.noise === null) continue
+    const units = changedUnitsOf(file).filter((unit) => !onPath.has(unit) && !TEST_UNIT.test(unit.qualifiedName))
+    if (changedUnitsOf(file).length === 0 && !filesOnPath.has(file.diff.path)) summary.otherFiles++
+    for (const unit of units) {
+      if (!isBehaviourChange(unit.change)) summary.quiet++
+      else if (unit.change.kind === UnitChangeKind.Added) summary.newCode++
+      else summary.otherCode++
+    }
+  }
+  return summary
+}
+
+/** One line per decision the reviewer has to make, so seven new dependencies read as one. */
+function groupChecks(findings: readonly Risk[], stops: readonly ReviewStop[]): ReviewCheck[] {
+  const groups = new Map<string, Risk[]>()
+  for (const finding of findings) {
+    if (finding.category === RiskCategory.Size) continue
+    const key = finding.category === RiskCategory.Dependency ? `${finding.category}\0${finding.location?.path ?? ""}` : `${finding.category}\0${finding.title}`
+    groups.set(key, [...(groups.get(key) ?? []), finding])
+  }
+  return [...groups.values()].flatMap((group) => {
+    const first = group.at(0)
+    return first === undefined ? [] : [{ severity: first.severity, message: checkMessage(first, group.length), stopIndex: stopIndexOf(group, stops) }]
+  }).sort((a, b) => POINTS_FOR_FINDING[b.severity] - POINTS_FOR_FINDING[a.severity])
+}
+
+function stopIndexOf(group: readonly Risk[], stops: readonly ReviewStop[]): number | undefined {
+  const index = stops.findIndex((stop) => group.some((finding) => stop.findings.includes(finding) || (finding.location?.line === null && finding.location.path === stop.file.diff.path)))
+  return index === -1 ? undefined : index
+}
+
+function checkMessage(finding: Risk, count: number): string {
+  const where = finding.location === null ? "" : ` in ${finding.location.path}`
+  const times = count > 1 ? ` (${count} places)` : ""
+  switch (finding.category) {
+    case RiskCategory.Secret:
+      return `Possible secret${where}${times}. If it's real, revoke it.`
+    case RiskCategory.DangerousApi:
+      return `${finding.title}${where}${times}. Check that users can't control the input.`
+    case RiskCategory.SensitivePath:
+      return `${finding.title} changed${count > 1 ? ` in ${count} files` : where}. Check this is intended.`
+    case RiskCategory.Dependency:
+      return count > 1 ? `${count} new dependencies${where}. Check that you trust them.` : `${finding.title}${where}. Check that you trust it.`
+    case RiskCategory.Vulnerability:
+      return `${finding.title}${where}. Upgrade before merging if you can.`
+    case RiskCategory.CodeScan:
+      return `Code scan: ${finding.title}${where}${times}. Check whether it applies here.`
+    case RiskCategory.Tests:
+      return `${finding.title}. Ask whether this needs tests.`
+    case RiskCategory.BrokenReference:
+      return `${finding.title}${where}. Check that nothing still depends on it.`
+    case RiskCategory.Size:
+      return finding.title
+  }
+}
+
+function places(count: number): string {
+  return count === 1 ? "1 place" : `${count} places`
+}
+
+function capitalize(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`
+}
+
+/** The label for how a change affects files, shown beside a stop. */
+export function changeSummary(stop: ReviewStop): string {
+  if (stop.unit === null) return stop.file.diff.status === FileChangeStatus.Added ? "New file" : "Changed file"
+  switch (stop.unit.change.kind) {
+    case UnitChangeKind.Added:
+      return "New"
+    case UnitChangeKind.Removed:
+      return "Removed"
+    default:
+      return "Changed"
+  }
+}
+
+export const GuideRouteKind = { Brief: "brief", Stop: "stop", Finish: "finish" } as const
+
+export type GuideRoute = { readonly kind: typeof GuideRouteKind.Brief } | { readonly kind: typeof GuideRouteKind.Stop; readonly index: number } | { readonly kind: typeof GuideRouteKind.Finish }
+
+const REVIEW_HASH = "#review"
+const FINISH_HASH = "#review/finish"
+const STOP_HASH = /^#review\/(\d+)$/
+
+/** The guided view named by the URL, or undefined for the full lists. */
+export function guideRouteFromHash(hash: string): GuideRoute | undefined {
+  if (hash === "" || hash === REVIEW_HASH) return { kind: GuideRouteKind.Brief }
+  if (hash === FINISH_HASH) return { kind: GuideRouteKind.Finish }
+  const stop = STOP_HASH.exec(hash)?.[1]
+  return stop === undefined ? undefined : { kind: GuideRouteKind.Stop, index: Number(stop) }
+}
+
+export function hashForStop(index: number): string {
+  return `${REVIEW_HASH}/${index}`
+}
+
+export { FINISH_HASH, REVIEW_HASH }

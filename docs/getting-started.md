@@ -20,12 +20,18 @@ pnpm lens review https://github.com/owner/repo/pull/123
 
 Lens fetches the change, analyzes it and prints a local address to open. GitLab works the same way, with a merge request link. Press Ctrl+C when you are done.
 
-The report has four tabs:
+The report opens on a brief, with what to check and where to start:
 
-- **Changes**: each changed function or type, whole, before and after.
-- **Impact**: where other code uses what changed, and which of those callers the PR did not touch.
-- **Risks**: the security level, the findings, the checks that ran and the checks that did not.
-- **AI review**: a reading order and questions, only if you ask for it with `--ai`.
+1. **Start the review.** Lens takes you through the changes that matter most, one at a time, and says why each one is there.
+2. **Mark what you've reviewed** and leave comments as you go. The side panel shows your progress and links to every change.
+3. **Finish.** The last screen shows what you reviewed, what's left, and what Lens couldn't check. Comments aren't posted to the PR yet, so copy them from here.
+
+Everything else is under **All changes**:
+
+- **Changes:** each changed function or type, whole, before and after.
+- **Impact:** where other code uses what changed, and which of those callers the PR did not touch.
+- **Risks:** the security level, the findings, the checks that ran and the checks that did not.
+- **AI review:** a reading order and questions, only if you ask for it with `--ai`.
 
 A low security level means the checks that ran found nothing. It doesn't mean the change is safe, so look at "Not checked" too.
 
